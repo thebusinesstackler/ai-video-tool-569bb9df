@@ -1528,10 +1528,25 @@ const ChatcutAI = () => {
           // intent — force DOM render so SmartOverlay can apply the new layered treatments.
           const isMotionGraphic = act.action === 'add_motion_graphic';
           const finalRenderMode = isMotionGraphic ? 'dom' : renderMode;
+          // Anti-stacking: snap the new overlay to the next free slot on its own sub-track,
+          // so Marco's add_overlay calls never land on top of an existing one.
+          const isOnGraphicsTrack = overlayType === 'motion_graphic' || overlayType === 'animated_text';
+          const sameTrackSiblings = overlays
+            .filter(o => isOnGraphicsTrack
+              ? (o.type === 'motion_graphic' || o.type === 'animated_text')
+              : (o.type !== 'motion_graphic' && o.type !== 'animated_text'))
+            .map(o => ({ start: o.start, duration: o.duration }));
+          const proposedDur = act.duration || (finalRenderMode === 'video' ? 5 : isFullCoverage ? 4 : 5);
+          const snappedStart = snapToFreeSlot(
+            act.start || 0,
+            proposedDur,
+            sameTrackSiblings,
+            Math.max(duration, proposedDur + 1)
+          );
           const newOverlay: OverlayItem = {
             id: overlayId, type: overlayType,
-            text: act.text || '', start: act.start || 0,
-            duration: act.duration || (finalRenderMode === 'video' ? 5 : isFullCoverage ? 4 : 5),
+            text: act.text || '', start: snappedStart,
+            duration: proposedDur,
             animation, style: act.style || 'glass',
             scale: finalScale,
             position: finalPos,
