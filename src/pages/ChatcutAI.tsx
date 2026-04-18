@@ -3132,8 +3132,10 @@ const ChatcutAI = () => {
                         const visibleOverlays = overlays.filter(o => {
                           if (o.hidden) return false;
                           if (currentTime < o.start || currentTime >= o.start + o.duration) return false;
-                          const isV3 = o.type === 'motion_graphic' || o.type === 'animated_text';
-                          return isV3 ? trackVisibility.v3 : trackVisibility.v2;
+                          const k = classifyOverlay(o);
+                          if (k === 'motion') return trackVisibility.v3;
+                          if (k === 'image') return trackVisibility.v3i;
+                          return trackVisibility.v2;
                         });
                         // Build "stack groups" — overlays sharing roughly the same on-screen position
                         const positionKey = (o: typeof visibleOverlays[number]) => {
