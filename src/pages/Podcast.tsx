@@ -12,11 +12,11 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { VideoPlayer } from '@/components/VideoPlayer';
-import { PodcastAIDirector } from '@/components/PodcastAIDirector';
+import { PodcastAIDirector, type VideoPlan } from '@/components/PodcastAIDirector';
 import { PodcastFromContent } from '@/components/podcast/PodcastFromContent';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Mic, Loader2, Play, Download, User, Clock, RotateCcw, Sparkles, Wand2, Check, Globe, Upload, X, Headphones } from 'lucide-react';
+import { Mic, Loader2, Play, Download, User, Clock, RotateCcw, Sparkles, Wand2, Check, Globe, Upload, X, Headphones, Layers, History, Trash2, CheckSquare, Square, RefreshCw } from 'lucide-react';
 import type { AITwin } from '@/types/aiTwin';
 
 interface BrandContext {
