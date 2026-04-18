@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Eye, EyeOff, Loader2, ImageIcon, Layers, Sparkles, Trash2, Film, Captions, Plus } from 'lucide-react';
+import { Eye, EyeOff, Loader2, ImageIcon, Layers, Sparkles, Trash2, Film, Captions } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -41,8 +41,6 @@ export interface TimelineOverlayTrackProps {
   /** Caption indicator shown only on the 'overlay' (text) track. */
   captionsEnabled?: boolean;
   captionsStyleLabel?: string;
-  /** Optional "Add image" affordance — currently used by the Graphic track. */
-  onAddImage?: () => void;
 }
 
 const colorPresets = {
@@ -96,7 +94,7 @@ const colorPresets = {
 export const TimelineOverlayTrack: React.FC<TimelineOverlayTrackProps> = ({
   kind, label, color, items, duration, laneOf, laneCount, overlapIds,
   trackVisible, onToggleTrack, onSeek, onDragClip, onToggleClipHidden,
-  onDelete, captionsEnabled, captionsStyleLabel, onAddImage,
+  onDelete, captionsEnabled, captionsStyleLabel,
 }) => {
   const c = colorPresets[color];
   const rowH = Math.max(40, 12 + laneCount * 22);
@@ -107,12 +105,12 @@ export const TimelineOverlayTrack: React.FC<TimelineOverlayTrackProps> = ({
       className="flex items-stretch border-b border-border/50 group hover:bg-muted/20"
       style={{ height: `${rowH}px` }}
     >
-      <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-2" title={`${label} — ${kind === 'motion' ? 'animated VEO graphics' : kind === 'image' ? 'static image graphics' : 'text overlays & captions'}`}>
-        <span className={cn('text-[10px] font-semibold truncate', c.label)}>{label}</span>
+      <div className="w-[100px] flex-shrink-0 flex items-center gap-1 px-2" title={`${label} — ${kind === 'motion' ? 'animated VEO graphics' : kind === 'image' ? 'static image graphics' : 'text overlays & captions'}`}>
+        <span className={cn('text-[11px] font-semibold whitespace-nowrap', c.label)}>{label}</span>
         <Button
           variant="ghost"
           size="icon"
-          className="h-4 w-4 opacity-60 hover:opacity-100"
+          className="h-4 w-4 opacity-60 hover:opacity-100 flex-shrink-0"
           onClick={onToggleTrack}
           title={trackVisible
             ? `Hide ${label.toLowerCase()} from video preview (track stays on timeline)`
@@ -120,19 +118,8 @@ export const TimelineOverlayTrack: React.FC<TimelineOverlayTrackProps> = ({
         >
           {trackVisible ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5 text-muted-foreground" />}
         </Button>
-        {onAddImage && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-4 w-4 opacity-60 hover:opacity-100"
-            onClick={onAddImage}
-            title="Upload an image to this track (placed at the playhead)"
-          >
-            <Plus className="w-2.5 h-2.5" />
-          </Button>
-        )}
         {kind === 'overlay' && captionsEnabled && (
-          <Badge className={cn('text-[7px] px-1 py-0 h-3', c.badge)}>CC</Badge>
+          <Badge className={cn('text-[7px] px-1 py-0 h-3 flex-shrink-0', c.badge)}>CC</Badge>
         )}
       </div>
       <div className="flex-1 relative my-1 mx-1" data-overlay-track data-overlay-kind={kind}>
