@@ -48,6 +48,8 @@ import {
   Image as ImageIcon,
   PanelRightClose,
   PanelRightOpen,
+  PanelLeftClose,
+  PanelLeftOpen,
   Undo2,
   Smartphone,
   Package,
@@ -2050,6 +2052,7 @@ const ChatcutAI = () => {
   const musicWaveHeights = useMemo(() => Array.from({ length: 50 }, () => 15 + Math.random() * 65), []);
   const audioWaveHeights = useMemo(() => Array.from({ length: 40 }, () => 20 + Math.random() * 60), []);
   const [mediaPanelVisible, setMediaPanelVisible] = useState(true);
+  const [aiPanelVisible, setAiPanelVisible] = useState(true);
 
   const toggleTrackVisibility = (track: 'v1' | 'v2' | 'v3' | 'a1') => {
     setTrackVisibility(prev => ({ ...prev, [track]: !prev[track] }));
@@ -2344,8 +2347,18 @@ const ChatcutAI = () => {
         <div className="flex-1 flex flex-col overflow-hidden">
           <ResizablePanelGroup direction="horizontal" className="flex-1 hidden md:flex">
             {/* Left Panel: AI Chat + Transcript */}
+            {aiPanelVisible ? (
             <ResizablePanel defaultSize={28} minSize={20} maxSize={40}>
-              <div className="h-full flex flex-col bg-card">
+              <div className="h-full flex flex-col bg-card relative">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 absolute top-2 right-2 z-10"
+                  onClick={() => setAiPanelVisible(false)}
+                  title="Hide AI Director"
+                >
+                  <PanelLeftClose className="w-3.5 h-3.5" />
+                </Button>
                 <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'ai' | 'transcript' | 'clips')} className="flex flex-col flex-1 overflow-hidden">
                   <TabsList className="mx-3 mt-2 mb-0 bg-muted/50">
                     <TabsTrigger value="ai" className="text-xs">AI</TabsTrigger>
@@ -2644,8 +2657,21 @@ const ChatcutAI = () => {
                 </div>
               </div>
             </ResizablePanel>
+            ) : (
+              <div className="w-8 flex-shrink-0 bg-card border-r border-border flex flex-col items-center pt-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => setAiPanelVisible(true)}
+                  title="Show AI Director"
+                >
+                  <PanelLeftOpen className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
 
-            <ResizableHandle withHandle />
+            {aiPanelVisible && <ResizableHandle withHandle />}
 
             {/* Center Panel: Video + Transport + Timeline */}
             <ResizablePanel defaultSize={52} minSize={35}>
