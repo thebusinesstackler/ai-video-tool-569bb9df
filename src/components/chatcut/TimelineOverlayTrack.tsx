@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Eye, EyeOff, Loader2, ImageIcon, Layers, Sparkles, Trash2, Film, Captions } from 'lucide-react';
+import { Eye, EyeOff, Loader2, ImageIcon, Layers, Sparkles, Trash2, Film, Captions, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
