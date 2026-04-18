@@ -813,16 +813,35 @@ const AnimateStatics = () => {
                             <p className="text-sm font-medium">Bulk Animate ({bulkSelected.size} images)</p>
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            Each image will be analyzed by AI Director, animated with the best cinematic prompt, and paired with music. Runs sequentially (~2-4 min per image).
+                            Each image will be analyzed by AI Director, animated, and paired with music. Pick a saved track from your library to skip music generation entirely (faster + free).
                           </p>
                           <div className="flex items-end gap-2 flex-wrap">
-                            <div className="flex-1 min-w-[180px]">
-                              <label className="text-xs font-medium text-muted-foreground mb-1 block">Music vibe (applied to all)</label>
-                              <Select value={bulkMusicPreset} onValueChange={setBulkMusicPreset}>
+                            <div className="flex-1 min-w-[200px]">
+                              <label className="text-xs font-medium text-muted-foreground mb-1 block">Music source</label>
+                              <Select
+                                value={bulkSelectedMusicId || `__preset__${bulkMusicPreset}`}
+                                onValueChange={(v) => {
+                                  if (v.startsWith('__preset__')) {
+                                    setBulkSelectedMusicId(null);
+                                    setBulkMusicPreset(v.replace('__preset__', ''));
+                                  } else {
+                                    setBulkSelectedMusicId(v);
+                                  }
+                                }}
+                              >
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
+                                  {savedMusic.length > 0 && (
+                                    <>
+                                      <div className="px-2 py-1 text-[10px] uppercase text-muted-foreground font-semibold">From your library</div>
+                                      {savedMusic.map(m => (
+                                        <SelectItem key={m.id} value={m.id}>🎵 {m.label}</SelectItem>
+                                      ))}
+                                    </>
+                                  )}
+                                  <div className="px-2 py-1 text-[10px] uppercase text-muted-foreground font-semibold">Generate new (uses credits)</div>
                                   {MUSIC_PRESETS.map(p => (
-                                    <SelectItem key={p.label} value={p.label}>{p.label}</SelectItem>
+                                    <SelectItem key={p.label} value={`__preset__${p.label}`}>✨ {p.label}</SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
@@ -836,14 +855,21 @@ const AnimateStatics = () => {
 
                       {bulkJobs.length > 0 && (
                         <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between flex-wrap gap-2">
                             <p className="text-sm font-medium flex items-center gap-2">
                               <Layers className="w-4 h-4 text-primary" />
                               Bulk Progress ({bulkJobs.filter(j => j.status === 'done').length}/{bulkJobs.length} done)
                             </p>
-                            {!bulkRunning && (
-                              <Button size="sm" variant="ghost" onClick={() => { setBulkJobs([]); setBulkSelected(new Set()); }}>Clear</Button>
-                            )}
+                            <div className="flex gap-1.5">
+                              {!bulkRunning && bulkJobs.some(j => j.status === 'failed') && (
+                                <Button size="sm" variant="default" onClick={retryAllFailed} className="gap-1.5 h-7">
+                                  <RefreshCw className="w-3 h-3" /> Retry All Failed ({bulkJobs.filter(j => j.status === 'failed').length})
+                                </Button>
+                              )}
+                              {!bulkRunning && (
+                                <Button size="sm" variant="ghost" onClick={() => { setBulkJobs([]); setBulkSelected(new Set()); }}>Clear</Button>
+                              )}
+                            </div>
                           </div>
                           <div className="space-y-2 max-h-64 overflow-y-auto">
                             {bulkJobs.map((job, i) => (
@@ -857,8 +883,17 @@ const AnimateStatics = () => {
                                     {(job.status === 'analyzing' || job.status === 'generating' || job.status === 'music') && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
                                   </div>
                                   <Progress value={job.progress} className="h-1.5" />
-                                  {job.error && <p className="text-[10px] text-destructive mt-1 truncate">{job.error}</p>}
+                                  {job.error && (
+                                    <p className={cn("text-[10px] mt-1 truncate", job.creditError ? "text-amber-500" : "text-destructive")}>
+                                      {job.creditError ? '💳 Insufficient WaveSpeed credits — top up then retry' : job.error}
+                                    </p>
+                                  )}
                                 </div>
+                                {job.status === 'failed' && !bulkRunning && (
+                                  <Button size="sm" variant="outline" className="h-7 px-2 gap-1" onClick={() => retryBulkJob(job.imageUrl)}>
+                                    <RefreshCw className="w-3 h-3" /> Retry
+                                  </Button>
+                                )}
                                 {job.videoUrl && (
                                   <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => handleDownload(job.videoUrl)}>
                                     <Download className="w-3.5 h-3.5" />
