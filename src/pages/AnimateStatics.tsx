@@ -43,6 +43,16 @@ interface HistoryItem {
   created_at: string;
 }
 
+interface SavedMusic {
+  id: string;
+  label: string;
+  mood: string | null;
+  prompt: string | null;
+  audio_url: string;
+  duration: number | null;
+  created_at: string;
+}
+
 const STEPS = ['Select Image', 'Animate', 'Generate', 'Export'];
 
 const MUSIC_PRESETS = [
@@ -53,6 +63,22 @@ const MUSIC_PRESETS = [
   { label: 'Ambient', prompt: 'Soft ambient pad, dreamy and minimal' },
   { label: 'Dramatic', prompt: 'Dramatic cinematic tension, deep cinematic drums' },
 ];
+
+// 10-pack preset moods used when user clicks "Generate 10 Tracks"
+const MUSIC_LIBRARY_PACK = [
+  { label: 'Cinematic Uplift', prompt: 'Cinematic orchestral build, emotional and uplifting, soaring strings' },
+  { label: 'Upbeat Pop', prompt: 'Upbeat modern pop instrumental, energetic and bright, catchy synths' },
+  { label: 'Lo-fi Chill', prompt: 'Chill lo-fi hip hop beat, mellow and atmospheric, vinyl warmth' },
+  { label: 'Corporate Clean', prompt: 'Clean corporate background music, optimistic and professional, light piano' },
+  { label: 'Ambient Dream', prompt: 'Soft ambient pad, dreamy and minimal, ethereal texture' },
+  { label: 'Dramatic Tension', prompt: 'Dramatic cinematic tension, deep cinematic drums, suspenseful' },
+  { label: 'Hype Trap', prompt: 'Hype trap beat, hard-hitting 808s, modern and aggressive' },
+  { label: 'Acoustic Warm', prompt: 'Warm acoustic guitar, intimate folk, gentle and heartfelt' },
+  { label: 'Tech House', prompt: 'Driving tech house groove, modern electronic, club-ready' },
+  { label: 'Epic Trailer', prompt: 'Epic movie trailer score, heroic brass and percussion, blockbuster energy' },
+];
+
+const isCreditError = (msg?: string) => !!msg && /insufficient|credit|balance|quota|payment/i.test(msg);
 
 const AnimateStatics = () => {
   const { user } = useAuth();
