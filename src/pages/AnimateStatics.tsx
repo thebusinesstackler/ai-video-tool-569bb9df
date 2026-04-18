@@ -552,20 +552,32 @@ const AnimateStatics = () => {
     await supabase.from('animated_statics').update({ animation_url: videoOut, status: 'completed' }).eq('id', project.id);
     updateBulkJob(imageUrl, { videoUrl: videoOut, progress: 85, status: 'music' });
 
-    // 6. Music
+    // 6. Music — prefer saved library track, otherwise generate (and save) one
     let musicOut: string | undefined;
-    try {
-      const { data: musicData, error: musicErr } = await supabase.functions.invoke('generate-music', {
-        body: { mood: musicMoodPrompt, duration: 30 },
-      });
-      if (musicErr) throw new Error(musicErr.message);
-      if (musicData?.error) throw new Error(musicData.error);
-      musicOut = musicData?.audioUrl;
-      if (musicOut) {
-        await supabase.from('animated_statics').update({ music_url: musicOut }).eq('id', project.id);
+    const presetSaved = bulkSelectedMusicId ? savedMusic.find(m => m.id === bulkSelectedMusicId) : null;
+    if (presetSaved) {
+      musicOut = presetSaved.audio_url;
+      await supabase.from('animated_statics').update({ music_url: musicOut }).eq('id', project.id);
+    } else {
+      try {
+        const { data: musicData, error: musicErr } = await supabase.functions.invoke('generate-music', {
+          body: { mood: musicMoodPrompt, duration: 30 },
+        });
+        if (musicErr) throw new Error(musicErr.message);
+        if (musicData?.error) throw new Error(musicData.error);
+        musicOut = musicData?.audioUrl;
+        if (musicOut) {
+          await supabase.from('animated_statics').update({ music_url: musicOut }).eq('id', project.id);
+          // Auto-save to library for reuse
+          const label = `Bulk · ${new Date().toLocaleDateString()}`;
+          const { data: row } = await supabase.from('music_library').insert({
+            user_id: user.id, label, mood: label, prompt: musicMoodPrompt, audio_url: musicOut, duration: 30,
+          }).select().single();
+          if (row) setSavedMusic(prev => [row as SavedMusic, ...prev]);
+        }
+      } catch (e: any) {
+        console.warn('Music generation failed for bulk job:', e.message);
       }
-    } catch (e: any) {
-      console.warn('Music generation failed for bulk job:', e.message);
     }
 
     updateBulkJob(imageUrl, { musicUrl: musicOut, status: 'done', progress: 100 });
@@ -578,21 +590,46 @@ const AnimateStatics = () => {
     setBulkRunning(true);
     setBulkJobs(urls.map(u => ({ imageUrl: u, status: 'pending', progress: 0 })));
 
-    // Process sequentially to avoid overwhelming WaveSpeed quotas
     for (const url of urls) {
       try {
         await processOneBulkJob(url, moodPreset.prompt);
       } catch (e: any) {
-        updateBulkJob(url, { status: 'failed', error: e.message });
+        updateBulkJob(url, { status: 'failed', error: e.message, creditError: isCreditError(e.message) });
       }
     }
 
     setBulkRunning(false);
-    const successes = bulkJobs.filter(j => j.status === 'done').length;
     toast({
       title: 'Bulk generation complete 🎬',
       description: `Processed ${urls.length} images. Check History for all results.`,
     });
+  };
+
+  const retryBulkJob = async (imageUrl: string) => {
+    if (!user || bulkRunning) return;
+    const moodPreset = MUSIC_PRESETS.find(p => p.label === bulkMusicPreset) || MUSIC_PRESETS[0];
+    setBulkRunning(true);
+    updateBulkJob(imageUrl, { status: 'pending', progress: 0, error: undefined, creditError: false });
+    try {
+      await processOneBulkJob(imageUrl, moodPreset.prompt);
+    } catch (e: any) {
+      updateBulkJob(imageUrl, { status: 'failed', error: e.message, creditError: isCreditError(e.message) });
+    } finally {
+      setBulkRunning(false);
+    }
+  };
+
+  const retryAllFailed = async () => {
+    const failed = bulkJobs.filter(j => j.status === 'failed').map(j => j.imageUrl);
+    if (!failed.length) return;
+    const moodPreset = MUSIC_PRESETS.find(p => p.label === bulkMusicPreset) || MUSIC_PRESETS[0];
+    setBulkRunning(true);
+    for (const url of failed) {
+      updateBulkJob(url, { status: 'pending', progress: 0, error: undefined, creditError: false });
+      try { await processOneBulkJob(url, moodPreset.prompt); }
+      catch (e: any) { updateBulkJob(url, { status: 'failed', error: e.message, creditError: isCreditError(e.message) }); }
+    }
+    setBulkRunning(false);
   };
 
   return (
