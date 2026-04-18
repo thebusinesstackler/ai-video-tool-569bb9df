@@ -3240,7 +3240,23 @@ const ChatcutAI = () => {
                                   }
                                 />
                               ) : useDOM ? (
-                                <div className="pointer-events-none">
+                                // IMPORTANT: do NOT forward `placement` here. The outer wrapper
+                                // already pins this overlay to (pos.x, pos.y) so the user can drag
+                                // it. If we forwarded `placement`, SmartOverlay would re-anchor with
+                                // `position: absolute; inset: 0` inside a 0-sized translated parent,
+                                // which causes the "compressed / cut-off / not centered / not
+                                // movable" bug (e.g. the "your brain can" headline). We also cap
+                                // the inner size so clamp(..vw..) values don't overflow the small
+                                // preview window.
+                                <div
+                                  className="pointer-events-none"
+                                  style={{
+                                    maxWidth: isFull ? undefined : 'min(86vw, 520px)',
+                                    width: 'max-content',
+                                    display: 'flex',
+                                    justifyContent: 'center',
+                                  }}
+                                >
                                   <SmartOverlay
                                     type={ov.type}
                                     text={ov.text}
@@ -3253,7 +3269,7 @@ const ChatcutAI = () => {
                                     scale={scale}
                                     fullCoverage={isFull}
                                     treatment={ov.treatment as any}
-                                    placement={ov.placement as any}
+                                    placement={isFull ? (ov.placement as any) : undefined}
                                   />
                                 </div>
                               ) : (
