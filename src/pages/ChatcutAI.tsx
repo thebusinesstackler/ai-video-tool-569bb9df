@@ -3480,6 +3480,7 @@ const ChatcutAI = () => {
                                 className={cn(
                                   "absolute inset-y-0 rounded border flex items-center cursor-grab active:cursor-grabbing transition-colors group/clip select-none",
                                   ov.hidden && "opacity-40",
+                                  overlapIdsByTrack.graphics.has(ov.id) && "ring-2 ring-red-500 ring-offset-1 ring-offset-background",
                                   ov.imageStatus === 'generating'
                                     ? "bg-purple-500/10 border-purple-500/30 animate-pulse"
                                     : ov.imageStatus === 'ready'
