@@ -1007,7 +1007,12 @@ And finally, provide the voiceover narration script:
 
 After providing the script, let the user know they can give feedback to refine it, or hit "Generate Video" when they're happy with it.`;
 
-      contentParts.push({ type: 'text', text: analysisInstruction });
+      const styleSuffix = selectedStyle ? STYLE_OPTIONS.find(s => s.id === selectedStyle)?.promptSuffix : null;
+      const fullInstruction = styleSuffix
+        ? `${analysisInstruction}\n\n🎬 STYLE LOCK: ${styleSuffix}\nApply this style consistently across both segments.`
+        : analysisInstruction;
+
+      contentParts.push({ type: 'text', text: fullInstruction });
 
       const { data: aiData, error: aiError } = await supabase.functions.invoke('ai', {
         body: {
