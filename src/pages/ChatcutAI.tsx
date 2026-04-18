@@ -160,6 +160,8 @@ interface OverlayItem {
   placement?: 'behind_subject' | 'left_panel' | 'right_panel' | 'lower_third' | 'center_takeover' | 'top_banner' | 'floating_note';
   /** Paired subject treatment applied to the underlying source video while this overlay is on screen. */
   subjectAction?: 'none' | 'push_in' | 'shift_left' | 'shift_right' | 'shrink_for_text' | 'cutout_mask';
+  /** When true, the overlay stays on the timeline but is NOT rendered in the preview (Marco can toggle). */
+  hidden?: boolean;
 }
 
 interface BrandSettings {
@@ -1843,6 +1845,41 @@ const ChatcutAI = () => {
           }
           break;
         }
+        case 'hide_overlay': {
+          const ids: string[] = Array.isArray(act.ids) ? act.ids : (act.id ? [act.id] : (act.overlayId ? [act.overlayId] : []));
+          if (ids.length) {
+            setOverlays(prev => prev.map(o => ids.includes(o.id) ? { ...o, hidden: true } : o));
+            toast({ title: `Hid ${ids.length} graphic${ids.length > 1 ? 's' : ''}`, description: 'They stay on the timeline — say "show them" to bring them back.' });
+          }
+          break;
+        }
+        case 'show_overlay': {
+          const ids: string[] = Array.isArray(act.ids) ? act.ids : (act.id ? [act.id] : (act.overlayId ? [act.overlayId] : []));
+          if (ids.length) {
+            setOverlays(prev => prev.map(o => ids.includes(o.id) ? { ...o, hidden: false } : o));
+            toast({ title: `Restored ${ids.length} graphic${ids.length > 1 ? 's' : ''}` });
+          } else {
+            // No id → un-hide all
+            setOverlays(prev => prev.map(o => ({ ...o, hidden: false })));
+            toast({ title: 'Restored all hidden graphics' });
+          }
+          break;
+        }
+        case 'update_overlay': {
+          const id = act.id || act.overlayId;
+          if (!id) break;
+          setOverlays(prev => prev.map(o => {
+            if (o.id !== id) return o;
+            const next = { ...o };
+            if (typeof act.start === 'number') next.start = Math.max(0, act.start);
+            if (typeof act.duration === 'number') next.duration = Math.max(0.5, act.duration);
+            if (typeof act.text === 'string') next.text = act.text;
+            if (typeof act.hidden === 'boolean') next.hidden = act.hidden;
+            return next;
+          }));
+          toast({ title: 'Graphic updated' });
+          break;
+        }
       }
     }
   }, [toast, duration, currentTime, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, thumbnail, generateBRollImage, generateMotionGraphic, generateAnimatedGraphic, savedBrollClips, addBRollFromVideoClip, generateThumbnail, productImages, addBRollFromImage, reelPreview]);
@@ -1987,6 +2024,7 @@ const ChatcutAI = () => {
               duration: +(o.duration || 0).toFixed(2),
               fullCoverage: !!(o as any).fullCoverage || (o.scale || 0) >= 5,
               renderMode: (o as any).renderMode || 'dom',
+              hidden: !!o.hidden,
             })),
             currentThumbnail: thumbnail
               ? { url: thumbnail.url, headline: thumbnail.headline, duration: thumbnail.duration }
@@ -2883,6 +2921,7 @@ const ChatcutAI = () => {
                       {/* All overlays — V2/V3 unified renderer with SmartOverlay (DOM) or AI image */}
                       {(trackVisibility.v2 || trackVisibility.v3) && overlays
                         .filter(o => {
+                          if (o.hidden) return false;
                           if (currentTime < o.start || currentTime >= o.start + o.duration) return false;
                           const isV3 = o.type === 'motion_graphic' || o.type === 'animated_text';
                           return isV3 ? trackVisibility.v3 : trackVisibility.v2;
