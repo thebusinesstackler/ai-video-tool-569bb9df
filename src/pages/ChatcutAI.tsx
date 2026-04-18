@@ -230,7 +230,8 @@ const ChatcutAI = () => {
   type SelectedReference =
     | { kind: 'source-clip'; id: string; label: string; thumbUrl?: string; sourceUrl: string; sourceStart: number; durationSec: number }
     | { kind: 'saved-frame'; id: string; label: string; thumbUrl: string }
-    | { kind: 'product'; id: string; label: string; thumbUrl: string; productName?: string; productId?: string };
+    | { kind: 'product'; id: string; label: string; thumbUrl: string; productName?: string; productId?: string }
+    | { kind: 'broll-on-timeline'; id: string; label: string; thumbUrl?: string; start: number; duration: number };
   const [selectedReference, setSelectedReference] = useState<SelectedReference | null>(null);
   // Background mode: 'video' uses the uploaded bg video; 'product-feed' renders a TikTok-style
   // vertical scroll of the user's product images behind the speaker.
@@ -1865,6 +1866,8 @@ const ChatcutAI = () => {
         ? `📎 Reference: source-clip "${ref.label}" (${ref.durationSec.toFixed(1)}s, in-point ${ref.sourceStart.toFixed(1)}s)`
         : ref.kind === 'product'
         ? `📎 Reference: product image "${ref.label}"${ref.productName ? ` [productName="${ref.productName}", productId="${ref.productId || ''}"]` : ''}`
+        : ref.kind === 'broll-on-timeline'
+        ? `📎 Reference: B-Roll on timeline [id="${ref.id}", name="${ref.label}", start=${ref.start.toFixed(2)}s, duration=${ref.duration.toFixed(2)}s]. When you act on it, use action remove_broll or update_broll with this exact id.`
         : `📎 Reference: saved frame "${ref.label}"`;
       displayContent = `${refLine}\n${messageText}`;
       setSelectedReference(null);
