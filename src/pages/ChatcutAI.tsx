@@ -2078,6 +2078,7 @@ const ChatcutAI = () => {
               duration: +b.duration.toFixed(2),
               audioEnabled: !!b.audioEnabled,
               ready: (b.videoStatus === 'ready') || (b.imageStatus === 'ready'),
+              overlaps: overlapIdsByTrack.broll.has(b.id),
             })),
             currentOverlays: overlays.map((o) => ({
               id: o.id,
@@ -2089,7 +2090,27 @@ const ChatcutAI = () => {
               fullCoverage: !!(o as any).fullCoverage || (o.scale || 0) >= 5,
               renderMode: (o as any).renderMode || 'dom',
               hidden: !!o.hidden,
+              // Director needs to know WHERE each overlay currently sits so it can
+              // intelligently move it (vs. blindly remove + re-add).
+              position: o.position
+                ? { x: +o.position.x.toFixed(1), y: +o.position.y.toFixed(1) }
+                : null,
+              scale: typeof o.scale === 'number' ? +o.scale.toFixed(2) : null,
+              placement: (o as any).placement || null,
+              treatment: (o as any).treatment || null,
+              overlaps:
+                overlapIdsByTrack.motion.has(o.id) ||
+                overlapIdsByTrack.image.has(o.id) ||
+                overlapIdsByTrack.overlay.has(o.id),
             })),
+            // Pre-computed overlap IDs so Marco can fix collisions in one pass without
+            // having to re-derive intersections from start/end values.
+            overlapping: {
+              broll: Array.from(overlapIdsByTrack.broll),
+              motion: Array.from(overlapIdsByTrack.motion),
+              image: Array.from(overlapIdsByTrack.image),
+              overlay: Array.from(overlapIdsByTrack.overlay),
+            },
             currentThumbnail: thumbnail
               ? { url: thumbnail.url, headline: thumbnail.headline, duration: thumbnail.duration }
               : null,
