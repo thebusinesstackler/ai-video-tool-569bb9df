@@ -118,7 +118,18 @@ const AnimateStatics = () => {
     videoUrl?: string;
     musicUrl?: string;
     error?: string;
+    creditError?: boolean;
   }>>([]);
+
+  // Music library state
+  const [savedMusic, setSavedMusic] = useState<SavedMusic[]>([]);
+  const [musicLibLoading, setMusicLibLoading] = useState(false);
+  const [generatingPack, setGeneratingPack] = useState(false);
+  const [packProgress, setPackProgress] = useState<{ done: number; total: number; current: string } | null>(null);
+  const [selectedSavedMusicId, setSelectedSavedMusicId] = useState<string | null>(null);
+  const [bulkSelectedMusicId, setBulkSelectedMusicId] = useState<string | null>(null);
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
+  const previewAudioRef = React.useRef<HTMLAudioElement | null>(null);
 
   const loadHistory = useCallback(async () => {
     if (!user) return;
