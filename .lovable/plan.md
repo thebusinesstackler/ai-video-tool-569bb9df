@@ -1,47 +1,85 @@
 
-The user is asking whether Marco (the Chatcut AI director) can reposition and recreate items on the timeline. Marco himself said he can't update an overlay's position via `update_overlay` — only remove + re-add. The user wants this gap closed.
+The user wants Marco to receive a richer payload so he can be the best possible director. Right now Marco gets transcript + overlays + b-roll + overlap data. Let's identify what's missing.
 
-## What's missing
-Looking at the codebase memory and recent edits to `src/pages/ChatcutAI.tsx`:
-- Overlays already have a `position` field ({x%, y%}) and a `scale` field — drag-on-video saves to it.
-- Marco's tool surface (`chatcut-director` edge fn + action handler in `ChatcutAI.tsx`) has `add_overlay`, `add_motion_graphic`, `update_overlay`, `remove_overlay`, `add_premium_broll_auto`, etc.
-- But `update_overlay` evidently doesn't accept `position`, `scale`, `placement`, `treatment`, or timing fields like `start`/`duration` — so Marco resorts to remove+re-add and admits "we don't have position controls exposed."
+## Current Marco payload (from ChatcutAI.tsx sendMessage)
+- Transcript (cleaned/raw)
+- currentOverlays (id, text, start, duration, position, scale, placement, treatment, overlaps)
+- currentBRoll (id, name, start, duration, audioEnabled, overlaps)
+- currentMotionGraphics
+- thumbnail
+- brandSettings
+- context.overlapping ids
 
-## Plan — give Marco full timeline control
+## What's missing — high-impact additions
 
-### 1. Extend `update_overlay` action schema (client + edge fn)
-In `supabase/functions/chatcut-director/index.ts` and `ChatcutAI.tsx` action executor, accept these optional fields on `update_overlay`:
-- `start`, `duration` — reposition on timeline
-- `position: {x, y}` (0–100%) — reposition on video preview
-- `scale` (0.5–5)
-- `placement` — semantic anchor (lower_third, right_panel, etc.)
-- `treatment` — change treatment without recreating
-- `text`, `subtext`, `items` — already supported, keep
-- `hidden` — toggle preview visibility
+### 1. Video / playback intel
+- `videoDurationSec` + current `playheadSec` — Marco can suggest "at 12s the energy dies, add a stat card"
+- `aspectRatio` (9:16 / 16:9 / 1:1) — affects safe zones for placement
+- `pipLayer` info if a PiP background video is loaded
+- `skipRanges` (silent/dead-air segments already auto-skipped) — Marco can recommend permanent cuts
 
-### 2. Add matching `update_broll` and `update_motion_graphic` actions
-B-roll clips and motion graphics need the same treatment so Marco can untangle overlapping b-roll without delete+regenerate.
+### 2. Audio intel
+- Background music: title, BPM if known, volume, energy curve
+- Voice clarity score / detected filler words from cleaned transcript diff
+- Per-word timings (already in transcript) → expose `wordsPerMinute` average + per-segment WPM so Marco can flag rushed/slow sections
 
-### 3. Update Marco's system prompt (chatcut-director)
-- Document the new capabilities so Marco stops saying "I can't reposition."
-- Add a rule: when fixing overlap, **prefer `update_*` over `remove_*` + `add_*`** to preserve generated assets.
-- Teach the placement→position mapping (e.g., `lower_third` ≈ y:80, `right_panel` ≈ x:75).
+### 3. Visual / brand intel
+- `brandVocabulary` (already partially passed) → ensure ALL brand names + product names go in
+- `brandColors` palette (primary/secondary/accent) — Marco should reference for new overlays
+- `fontStack` from brand settings
+- `safeZones` for current aspect ratio — explicit no-go rectangles (face area from face-detection if available, caption strip area)
 
-### 4. Auto-supply Marco with current state
-When the user asks Marco to fix the timeline, include in the context payload:
-- All overlays/b-roll/motion graphics with `id`, `start`, `duration`, `position`, `placement`, `text`
-- The pre-computed overlap sets (`overlapIdsByTrack`) so Marco knows exactly which IDs collide
+### 4. Caption / typography state
+- Current caption style (Karaoke/Word Pop/none), font, color, size, position
+- Whether captions are enabled — Marco should not stack overlays on caption strip
 
-### 5. Toast feedback
-Show a toast when Marco calls `update_overlay` ("Marco moved 'Why raw mushrooms…' to lower-third") so the user sees what changed.
+### 5. Strategic / KPI context
+- Hook window status: is first 2s strong? (count overlays in 0–2s, hook overlay text)
+- CTA presence: is there a CTA overlay in the last 15%? if not, Marco should suggest one
+- Pacing analysis: scenes/edits per 10s window
+- Asset reuse opportunities: list of generated overlays/b-roll already in user's library matching transcript topics
 
-## Files to edit
-- `src/pages/ChatcutAI.tsx` — extend action executor, pass overlap state to director payload, add toasts
-- `supabase/functions/chatcut-director/index.ts` — extend tool schema for `update_overlay` / add `update_broll` / `update_motion_graphic`, update system prompt with new capabilities + overlap-fix priority
+### 6. Recent action history
+- Last 5 actions Marco took (or user took) → prevents Marco from undoing himself or repeating suggestions
+- User-pinned items (don't touch list)
 
-## Out of scope
-- Visual diff preview before applying Marco's changes (could be a follow-up)
-- Undo stack for Marco's actions (already partially handled by existing history)
+### 7. User intent signals
+- `creatorMode` (beginner/pro)
+- Vertical (TheraNovex healthcare vs Lifecykel wellness — already in core memory but not passed)
+- Target platform (TikTok/Reels/Shorts/YouTube) — affects pacing, captions, hook length
 
-## Answer to user's question
-**Currently: No** — Marco can recreate but not reposition. After this plan: **Yes** — Marco will be able to update timing, on-screen position, scale, placement, and treatment of any existing overlay/b-roll/motion graphic without deleting it.
+## Plan — implement payload enrichment
+
+### Files to edit
+1. **`src/pages/ChatcutAI.tsx`** — `sendMessage` payload builder
+   - Add `playback` block: `{ durationSec, playheadSec, aspectRatio, pipActive, skipRanges }`
+   - Add `audio` block: `{ musicTitle, musicVolume, hasNarration, avgWPM, perSegmentWPM }`
+   - Add `brand` block: `{ vocabulary, colors, fontStack, vertical }`
+   - Add `captions` block: `{ enabled, style, position, font, color }`
+   - Add `safeZones` array (caption strip + face if known)
+   - Add `kpis` block: `{ hookStrength, ctaPresent, editsPer10s, openingOverlayCount }`
+   - Add `recentActions` (last 5 from history)
+   - Add `pinnedItemIds` (don't-touch list)
+   - Add `targetPlatform` + `creatorMode`
+   - Add `assetLibrarySuggestions` (lazy: top 5 reusable assets matching transcript keywords)
+
+2. **`supabase/functions/chatcut-director/index.ts`** — system prompt
+   - Document each new payload section so Marco actually USES them
+   - Add directives:
+     - "Reference brand colors/fonts when adding overlays"
+     - "Never place overlays on safeZones"
+     - "If hookStrength < 6 in first 2s, prioritize improving the hook"
+     - "If ctaPresent=false and we're past 80% duration, suggest a CTA"
+     - "Match WPM target ~150 for narration; flag segments outside 120-180"
+     - "Never modify pinned items"
+     - "Use targetPlatform to tune pacing (TikTok=fast, YouTube=slower)"
+
+3. **`.lovable/memory/features/ai-tools/chatcut-marco-update-actions.md`** — update memory doc
+
+### Out of scope (future)
+- Real face-detection for safe zones (use a static "center 30% bottom" assumption for now)
+- Computing actual hook strength via AI subcall (use heuristic: overlay present + word count in first 2s)
+- Asset library semantic search (use simple keyword match for v1)
+
+### Answer to user
+Yes — we'll add 7 new payload sections (playback, audio, brand, captions, safeZones, kpis, recentActions/pinned/platform) and teach Marco to act on each.
