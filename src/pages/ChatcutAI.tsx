@@ -286,6 +286,7 @@ const ChatcutAI = () => {
   });
   const logoInputRef = useRef<HTMLInputElement>(null);
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
+  const graphicImageInputRef = useRef<HTMLInputElement>(null);
 
   // Opening thumbnail / TikTok cover (shows over the first N seconds + as fullscreen first frame)
   const [thumbnail, setThumbnail] = useState<{
