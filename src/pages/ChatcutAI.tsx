@@ -230,7 +230,8 @@ const ChatcutAI = () => {
   type SelectedReference =
     | { kind: 'source-clip'; id: string; label: string; thumbUrl?: string; sourceUrl: string; sourceStart: number; durationSec: number }
     | { kind: 'saved-frame'; id: string; label: string; thumbUrl: string }
-    | { kind: 'product'; id: string; label: string; thumbUrl: string; productName?: string; productId?: string };
+    | { kind: 'product'; id: string; label: string; thumbUrl: string; productName?: string; productId?: string }
+    | { kind: 'broll-on-timeline'; id: string; label: string; thumbUrl?: string; start: number; duration: number };
   const [selectedReference, setSelectedReference] = useState<SelectedReference | null>(null);
   // Background mode: 'video' uses the uploaded bg video; 'product-feed' renders a TikTok-style
   // vertical scroll of the user's product images behind the speaker.
@@ -1802,6 +1803,46 @@ const ChatcutAI = () => {
           });
           break;
         }
+        case 'remove_broll': {
+          const id = act.id || act.brollId;
+          if (id) {
+            const target = bRollClips.find(b => b.id === id);
+            setBRollClips(prev => prev.filter(b => b.id !== id));
+            toast({ title: 'B-Roll removed', description: target ? `Marco removed "${target.name}" at ${target.start.toFixed(1)}s` : undefined });
+          } else if (typeof act.time === 'number') {
+            const t = act.time;
+            const hit = bRollClips.find(b => t >= b.start && t < b.start + b.duration);
+            if (hit) {
+              setBRollClips(prev => prev.filter(b => b.id !== hit.id));
+              toast({ title: 'B-Roll removed', description: `Marco removed "${hit.name}" at ${t.toFixed(1)}s` });
+            }
+          }
+          break;
+        }
+        case 'update_broll': {
+          const id = act.id || act.brollId;
+          if (!id) break;
+          setBRollClips(prev => prev.map(b => {
+            if (b.id !== id) return b;
+            const next = { ...b };
+            if (typeof act.start === 'number') next.start = Math.max(0, act.start);
+            if (typeof act.duration === 'number') next.duration = Math.max(0.5, act.duration);
+            if (typeof act.audioEnabled === 'boolean') next.audioEnabled = act.audioEnabled;
+            if (typeof act.name === 'string') next.name = act.name;
+            return next;
+          }));
+          toast({ title: 'B-Roll updated' });
+          break;
+        }
+        case 'remove_overlay': {
+          const id = act.id || act.overlayId;
+          if (id) {
+            const target = overlays.find(o => o.id === id);
+            setOverlays(prev => prev.filter(o => o.id !== id));
+            toast({ title: 'Overlay removed', description: target ? `"${target.text}" at ${target.start.toFixed(1)}s` : undefined });
+          }
+          break;
+        }
       }
     }
   }, [toast, duration, currentTime, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, thumbnail, generateBRollImage, generateMotionGraphic, generateAnimatedGraphic, savedBrollClips, addBRollFromVideoClip, generateThumbnail, productImages, addBRollFromImage, reelPreview]);
@@ -1865,6 +1906,8 @@ const ChatcutAI = () => {
         ? `📎 Reference: source-clip "${ref.label}" (${ref.durationSec.toFixed(1)}s, in-point ${ref.sourceStart.toFixed(1)}s)`
         : ref.kind === 'product'
         ? `📎 Reference: product image "${ref.label}"${ref.productName ? ` [productName="${ref.productName}", productId="${ref.productId || ''}"]` : ''}`
+        : ref.kind === 'broll-on-timeline'
+        ? `📎 Reference: B-Roll on timeline [id="${ref.id}", name="${ref.label}", start=${ref.start.toFixed(2)}s, duration=${ref.duration.toFixed(2)}s]. When you act on it, use action remove_broll or update_broll with this exact id.`
         : `📎 Reference: saved frame "${ref.label}"`;
       displayContent = `${refLine}\n${messageText}`;
       setSelectedReference(null);
@@ -2731,7 +2774,7 @@ const ChatcutAI = () => {
                           </div>
                         </div>
                       )}
-                      {/* B-Roll overlay when active — prefer video over still */}
+                      {/* B-Roll overlay when active — prefer video over still. Smooth crossfade on enter so it doesn't pop. */}
                       {activeBRoll && (
                         activeBRoll.videoUrl && activeBRoll.videoStatus === 'ready' ? (
                           <video
@@ -2741,7 +2784,7 @@ const ChatcutAI = () => {
                             muted={!activeBRoll.audioEnabled}
                             loop={typeof activeBRoll.sourceStart !== 'number'}
                             playsInline
-                            className="block absolute inset-0 w-full h-full object-cover z-[5]"
+                            className="block absolute inset-0 w-full h-full object-cover z-[5] animate-fade-in transition-opacity duration-300"
                             onLoadedMetadata={(e) => {
                               if (typeof activeBRoll.sourceStart === 'number') {
                                 (e.currentTarget as HTMLVideoElement).currentTime = activeBRoll.sourceStart;
@@ -2758,9 +2801,10 @@ const ChatcutAI = () => {
                           />
                         ) : (
                           <img
+                            key={activeBRoll.id}
                             src={activeBRoll.imageUrl}
                             alt={activeBRoll.name}
-                            className="block absolute inset-0 w-full h-full object-cover z-[5]"
+                            className="block absolute inset-0 w-full h-full object-cover z-[5] animate-fade-in transition-opacity duration-300"
                           />
                         )
                       )}
@@ -3399,6 +3443,25 @@ const ChatcutAI = () => {
                                   {br.audioEnabled
                                     ? <Volume2 className="w-2 h-2 text-green-300" />
                                     : <VolumeX className="w-2 h-2 text-muted-foreground" />}
+                                </button>
+                                <button
+                                  className="hidden group-hover/clip:flex w-3.5 h-3.5 items-center justify-center rounded bg-primary/80 hover:bg-primary flex-shrink-0 mr-1 z-10 relative"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedReference({
+                                      kind: 'broll-on-timeline',
+                                      id: br.id,
+                                      label: br.name,
+                                      thumbUrl: br.imageUrl,
+                                      start: br.start,
+                                      duration: br.duration,
+                                    });
+                                    toast({ title: 'Pinned for Marco', description: `Tell Marco what to do with "${br.name}"` });
+                                  }}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  title="Pin this B-Roll for Marco — then tell him to delete, move, or replace it"
+                                >
+                                  <Sparkles className="w-2 h-2 text-primary-foreground" />
                                 </button>
                                 <button
                                   className="hidden group-hover/clip:flex w-3.5 h-3.5 items-center justify-center rounded bg-destructive/80 hover:bg-destructive flex-shrink-0 mr-1.5 z-10 relative"
