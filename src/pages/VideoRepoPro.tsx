@@ -1937,9 +1937,21 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                       </Select>
                     )}
                     <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs rounded-full gap-1 px-2.5 ml-auto border-amber-500/40 text-amber-500 hover:bg-amber-500/10"
+                      onClick={enhancePrompt}
+                      disabled={isEnhancing || !prompt.trim()}
+                      title="Rewrite your prompt with AI Director cinematic detail"
+                    >
+                      {isEnhancing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
+                      {isEnhancing ? 'Enhancing…' : 'Enhance'}
+                    </Button>
+                    <Button
                       size="icon"
                       aria-label="Send prompt"
-                      className="h-8 w-8 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 ml-auto"
+                      className="h-8 w-8 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
                       onClick={handleSubmit}
                       disabled={isAnalyzing || isExtractingFrames || isChatting || (!hasComposerInput && !prompt.trim())}
                     >
