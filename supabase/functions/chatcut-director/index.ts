@@ -678,6 +678,89 @@ When the user says "direct this", "commercial polish", "make it look like an ad"
         role: "system",
         content: `NO OPENING THUMBNAIL/COVER set yet. If the video would benefit from a punchy first-frame cover (almost always for short-form), feel free to suggest set_thumbnail proactively with a strong hook from the transcript.`,
       });
+
+    // ─────────────────────────────────────────────────────────────────────
+    // ENRICHED DIRECTOR INTEL — playback, audio, brand, captions, safe zones, kpis, intent
+    // Lets Marco act like a senior director instead of a blind tool-caller.
+    // ─────────────────────────────────────────────────────────────────────
+    const playback = (context as any)?.playback;
+    const audio = (context as any)?.audio;
+    const brand = (context as any)?.brand;
+    const captions = (context as any)?.captions;
+    const safeZones = (context as any)?.safeZones;
+    const kpis = (context as any)?.kpis;
+    const recentAction = (context as any)?.recentAction;
+    const creatorMode = (context as any)?.creatorMode;
+    const targetPlatform = (context as any)?.targetPlatform;
+
+    if (playback || audio || brand || captions || kpis) {
+      const lines: string[] = [];
+      lines.push(`🎬 DIRECTOR INTEL — read this BEFORE every creative decision. Cite specific numbers when you reply.`);
+
+      if (playback) {
+        lines.push(`\n**PLAYBACK**`);
+        lines.push(`- Duration: ${playback.durationSec}s | Playhead: ${playback.playheadSec}s (${playback.progressPct}% through)`);
+        lines.push(`- Aspect ratio: ${playback.aspectRatio} ${playback.aspectRatio === '9:16' ? '(short-form vertical — caption strip lives bottom 18%)' : ''}`);
+        if (playback.acceptedCuts?.length) lines.push(`- Accepted cuts (already removed from playback): ${playback.acceptedCuts.length} — ${playback.skippedSec}s skipped`);
+      }
+
+      if (audio) {
+        lines.push(`\n**AUDIO**`);
+        lines.push(`- Narration: ${audio.hasNarration ? `${audio.wordCount} words, avg ${audio.avgWPM} WPM (target ${audio.wpmTarget})` : 'NONE — this video has no spoken script'}`);
+        if (audio.avgWPM != null) {
+          if (audio.avgWPM < 110) lines.push(`  ⚠️ Pacing is SLOW — consider tighter cuts or trimming pauses.`);
+          else if (audio.avgWPM > 190) lines.push(`  ⚠️ Pacing is RUSHED — consider slower delivery or splitting scenes.`);
+        }
+        if (audio.fillerCount > 0) lines.push(`- ${audio.fillerCount} filler words detected (um/uh/like/basically/actually) — flag during caption cleanup.`);
+        if (audio.musicTracks?.length) lines.push(`- Music tracks: ${audio.musicTracks.length} (${audio.musicTracks.map((m: any) => `"${m.name}" @ ${m.startAt}s, vol ${m.volume}`).join(', ')})`);
+        else lines.push(`- No background music yet — suggest one if energy needs a lift.`);
+      }
+
+      if (brand) {
+        lines.push(`\n**BRAND**`);
+        lines.push(`- Vertical: ${brand.vertical}${brand.vertical === 'wellness' ? ' (Lifecykel — feminine, ritual-driven, mushroom science)' : brand.vertical === 'healthcare' ? ' (TheraNovex — clinical, calm, patient-first)' : ''}`);
+        lines.push(`- Colors: primary ${brand.colors?.primary} / text ${brand.colors?.text} — USE these on every overlay/CTA.`);
+        lines.push(`- Font: ${brand.font}`);
+        if (brand.websiteUrl) lines.push(`- Website: ${brand.websiteUrl} (always include on CTA buttons)`);
+        else lines.push(`- ⚠️ No website URL set — ASK before generating any Shop Now / CTA.`);
+      }
+
+      if (captions) {
+        lines.push(`\n**CAPTIONS**`);
+        if (captions.enabled) lines.push(`- Captions ON (${captions.style}, ${captions.fontFamily}) — DO NOT place overlays in the bottom 18% caption strip; use top_banner, lower_third (above strip), or right_panel instead.`);
+        else lines.push(`- Captions OFF — full vertical canvas available for overlays.`);
+      }
+
+      if (Array.isArray(safeZones) && safeZones.length) {
+        lines.push(`\n**SAFE ZONES (do NOT place overlays inside these rectangles, x/y/width/height in %):**`);
+        safeZones.forEach((z: any) => lines.push(`- ${z.name}: x=${z.x} y=${z.y} w=${z.width} h=${z.height} — ${z.reason}`));
+      }
+
+      if (kpis) {
+        lines.push(`\n**KPIs / STRATEGIC AUDIT**`);
+        lines.push(`- Hook strength: ${kpis.hookStrength}/10 (target ≥7) — ${kpis.hookOverlayCount} overlay(s) in first 2s, thumbnail ${kpis.hookHasThumbnail ? 'SET' : 'MISSING'}.`);
+        if (kpis.hookStrength < 7) lines.push(`  🚨 PRIORITY FIX: hook is weak. Suggest a punchy opening overlay or set_thumbnail before anything else.`);
+        lines.push(`- CTA in last 15% (after ${kpis.ctaWindowStartSec}s): ${kpis.ctaPresent ? 'YES ✅' : '❌ MISSING — suggest a CTA lockup if user is past 80% duration with no close.'}`);
+        lines.push(`- Edits-per-10s: ${kpis.editsPer10s} (target ${kpis.editsPer10sTarget}) — totals: ${kpis.totalOverlays} overlays, ${kpis.totalBRoll} b-roll.`);
+      }
+
+      if (recentAction) lines.push(`\n**LAST UNDO-ABLE ACTION:** "${recentAction.label}" — user can revert it with one click. Don't undo your own work; if user asks to "go back", suggest the Undo button instead of re-running.`);
+
+      if (creatorMode) lines.push(`\n**USER MODE:** ${creatorMode}${creatorMode === 'beginner' || creatorMode === 'quick' ? ' — explain choices in plain language, default to safer one-tap suggestions, avoid jargon.' : ' — talk peer-to-peer, surface advanced options.'}`);
+      if (targetPlatform) lines.push(`**TARGET PLATFORM:** ${targetPlatform}${targetPlatform.includes('reels') ? ' — fast cuts, hook in first 1.5s, captions ON by default.' : ' — slower pacing, room for setup, longer overlays OK.'}`);
+
+      lines.push(`\n**DIRECTIVES based on this intel:**`);
+      lines.push(`1. Every new overlay MUST use brand.colors.primary as accent and brand.font when possible.`);
+      lines.push(`2. Never place an overlay whose position falls inside a safeZone rectangle. Pick a different placement (top_banner, right_panel, left_panel, lower_third).`);
+      lines.push(`3. If kpis.hookStrength < 7, prioritize fixing the hook before adding more b-roll/graphics.`);
+      lines.push(`4. If kpis.ctaPresent === false AND playback.progressPct > 60, proactively suggest a CTA lockup with brand.websiteUrl.`);
+      lines.push(`5. If audio.avgWPM is outside 120–180, mention it and suggest pacing fixes (tighter cuts vs. trim pauses).`);
+      lines.push(`6. Match cut density to targetPlatform — fewer, longer overlays for YouTube; more punchy beats for Reels/TikTok.`);
+      lines.push(`7. Do NOT touch any item id whose user-pinned reference appears in the latest user message (the 📎 line).`);
+
+      allMessages.push({ role: "system", content: lines.join('\n') });
+    }
+    }
     }
 
     if (messages && Array.isArray(messages)) {
