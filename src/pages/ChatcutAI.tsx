@@ -3211,7 +3211,7 @@ const ChatcutAI = () => {
                   </div>
 
                   {timelineClips.length > 0 ? (
-                    <div className="flex flex-col relative overflow-x-auto" style={{ minWidth: `${Math.max(zoomLevel, 100)}%` }}>
+                    <div className="flex flex-col relative">
                       {/* Graphics Track */}
                       {trackVisibility.v3 && (
                       <div className="flex items-center h-9 border-b border-border/50 group hover:bg-muted/20">
