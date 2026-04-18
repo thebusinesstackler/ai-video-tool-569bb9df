@@ -425,6 +425,39 @@ export type Database = {
         }
         Relationships: []
       }
+      music_library: {
+        Row: {
+          audio_url: string
+          created_at: string
+          duration: number | null
+          id: string
+          label: string
+          mood: string | null
+          prompt: string | null
+          user_id: string
+        }
+        Insert: {
+          audio_url: string
+          created_at?: string
+          duration?: number | null
+          id?: string
+          label: string
+          mood?: string | null
+          prompt?: string | null
+          user_id: string
+        }
+        Update: {
+          audio_url?: string
+          created_at?: string
+          duration?: number | null
+          id?: string
+          label?: string
+          mood?: string | null
+          prompt?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       product_gallery: {
         Row: {
           created_at: string
