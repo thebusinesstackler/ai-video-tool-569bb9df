@@ -10,25 +10,36 @@ import ReactMarkdown from 'react-markdown';
 import directorAvatar from '@/assets/ai-director-avatar.jpg';
 import {
   Sparkles, Send, Target, Video, Users, Lightbulb,
-  Copy, ArrowRight, Loader2, Bot, Wand2
+  Copy, ArrowRight, Loader2, Bot, Wand2, Layers
 } from 'lucide-react';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 
+export interface VideoPlan {
+  topic: string;
+  angle?: string;
+  hook?: string;
+  narration: string;
+  audience?: string;
+  duration?: number;
+}
+
 const QUICK_PROMPTS = [
+  { icon: Layers, label: 'Plan 10 Videos', description: 'Bulk content batch', prompt: 'Plan 10 different talking-head videos for me. Each must cover a different topic angle and have a complete ready-to-shoot script. Use my brand context if you have it.' },
   { icon: Lightbulb, label: 'Content Ideas', description: 'Get 5 viral topic ideas', prompt: 'What should I talk about for a talking-head video? I want to grow my brand on social media. Give me 5 topic ideas with hooks.' },
   { icon: Target, label: 'Target Audience', description: 'Define your ideal viewer', prompt: 'Help me define the target audience for my talking-head video. Ask me about my business and suggest the ideal viewer profile.' },
-  { icon: Video, label: 'Creative Direction', description: 'Camera, lighting & style', prompt: 'Suggest the best camera angle, lighting, and visual style for a professional yet authentic talking-head video.' },
   { icon: Users, label: 'Scroll-Stopping Hooks', description: 'Powerful opening lines', prompt: 'Give me 5 powerful opening hooks for a talking-head video that stops the scroll on social media.' },
 ];
 
 interface PodcastAIDirectorProps {
   onUseScript: (script: string) => void;
+  onUseBatchPlan?: (plans: VideoPlan[]) => void;
   selectedCharacterName?: string;
 }
 
 export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
   onUseScript,
+  onUseBatchPlan,
   selectedCharacterName,
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);

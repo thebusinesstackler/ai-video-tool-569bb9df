@@ -37,6 +37,25 @@ IMPORTANT: When you generate a script, wrap it in a special tag so the app can e
 The actual script text here...
 </SCRIPT_SUGGESTION>
 
+When the user asks you to plan multiple videos at once (e.g. "plan 10 videos", "give me a content batch", "brainstorm 10 topics"), respond with a brief intro paragraph THEN wrap a structured JSON plan in this exact tag so the app can render selectable cards:
+<VIDEO_PLAN>
+{
+  "plans": [
+    {
+      "topic": "Short topic title (4-7 words)",
+      "angle": "One-sentence creative angle / why this works",
+      "hook": "First-line spoken hook (1 sentence, scroll-stopping)",
+      "narration": "Full ~150-word spoken script — natural conversational, short sentences, ends with a CTA. NO stage directions, NO speaker labels.",
+      "audience": "Who this targets",
+      "duration": 60
+    }
+    // exactly 10 plans, each meaningfully different in topic + angle
+  ]
+}
+</VIDEO_PLAN>
+
+Each of the 10 plans must cover a DIFFERENT topic angle (educational, story, myth-bust, before/after, list, controversial take, behind-the-scenes, FAQ, comparison, prediction). Vary hook types (question, bold claim, stat, story).
+
 Keep scripts conversational, natural, and optimized for spoken delivery. No stage directions or speaker labels.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
