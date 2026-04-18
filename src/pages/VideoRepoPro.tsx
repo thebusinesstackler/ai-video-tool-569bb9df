@@ -36,6 +36,7 @@ import {
   Mic,
   Scissors,
   Package,
+  Mic,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
