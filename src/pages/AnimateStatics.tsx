@@ -130,6 +130,101 @@ const AnimateStatics = () => {
   const [bulkSelectedMusicId, setBulkSelectedMusicId] = useState<string | null>(null);
   const [previewingId, setPreviewingId] = useState<string | null>(null);
   const previewAudioRef = React.useRef<HTMLAudioElement | null>(null);
+  const loadMusicLibrary = useCallback(async () => {
+    if (!user) return;
+    setMusicLibLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('music_library')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setSavedMusic(data || []);
+    } catch (e: any) {
+      console.error('Failed to load music library', e);
+    } finally {
+      setMusicLibLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => { loadMusicLibrary(); }, [loadMusicLibrary]);
+
+  const generateOneMusicTrack = async (label: string, prompt: string): Promise<SavedMusic | null> => {
+    if (!user) return null;
+    const { data, error } = await supabase.functions.invoke('generate-music', {
+      body: { mood: prompt, duration: 30 },
+    });
+    if (error) throw new Error(error.message);
+    if (data?.error) throw new Error(data.error);
+    const audioUrl = data?.audioUrl;
+    if (!audioUrl) throw new Error('No music URL returned');
+    const { data: row, error: insErr } = await supabase
+      .from('music_library')
+      .insert({ user_id: user.id, label, mood: label, prompt, audio_url: audioUrl, duration: 30 })
+      .select()
+      .single();
+    if (insErr) throw insErr;
+    return row as SavedMusic;
+  };
+
+  const generateMusicPack = async () => {
+    if (!user || generatingPack) return;
+    setGeneratingPack(true);
+    setPackProgress({ done: 0, total: MUSIC_LIBRARY_PACK.length, current: MUSIC_LIBRARY_PACK[0].label });
+    let added = 0;
+    let creditFail = false;
+    for (let i = 0; i < MUSIC_LIBRARY_PACK.length; i++) {
+      const { label, prompt } = MUSIC_LIBRARY_PACK[i];
+      setPackProgress({ done: i, total: MUSIC_LIBRARY_PACK.length, current: label });
+      try {
+        const row = await generateOneMusicTrack(label, prompt);
+        if (row) { setSavedMusic(prev => [row, ...prev]); added++; }
+      } catch (e: any) {
+        console.error(`Music pack [${label}] failed`, e);
+        if (isCreditError(e.message)) { creditFail = true; break; }
+      }
+    }
+    setPackProgress(null);
+    setGeneratingPack(false);
+    if (creditFail) {
+      toast({ title: 'Music pack stopped — out of credits', description: `Saved ${added} tracks before WaveSpeed credits ran out. Top up and click Generate 10 again.`, variant: 'destructive' });
+    } else {
+      toast({ title: `🎵 ${added} tracks added to your library`, description: 'Reuse them across all future animations.' });
+    }
+  };
+
+  const deleteSavedMusic = async (id: string) => {
+    try {
+      await supabase.from('music_library').delete().eq('id', id);
+      setSavedMusic(prev => prev.filter(m => m.id !== id));
+      if (selectedSavedMusicId === id) setSelectedSavedMusicId(null);
+      if (bulkSelectedMusicId === id) setBulkSelectedMusicId(null);
+    } catch (e: any) {
+      toast({ title: 'Delete failed', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  const togglePreview = (m: SavedMusic) => {
+    if (previewAudioRef.current) { previewAudioRef.current.pause(); previewAudioRef.current = null; }
+    if (previewingId === m.id) { setPreviewingId(null); return; }
+    const audio = new Audio(m.audio_url);
+    audio.play().catch(() => {});
+    audio.onended = () => setPreviewingId(null);
+    previewAudioRef.current = audio;
+    setPreviewingId(m.id);
+  };
+
+  const attachSavedMusicToCurrent = async (m: SavedMusic) => {
+    if (!projectId) {
+      toast({ title: 'No active project', description: 'Generate an animation first.', variant: 'destructive' });
+      return;
+    }
+    setMusicUrl(m.audio_url);
+    setSelectedSavedMusicId(m.id);
+    await supabase.from('animated_statics').update({ music_url: m.audio_url }).eq('id', projectId);
+    toast({ title: 'Music attached', description: m.label });
+  };
 
   const loadHistory = useCallback(async () => {
     if (!user) return;
