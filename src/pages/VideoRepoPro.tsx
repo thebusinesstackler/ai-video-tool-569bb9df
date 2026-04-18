@@ -143,6 +143,9 @@ const VideoRepoPro = () => {
   const [expandedScript, setExpandedScript] = useState(false);
   const [detailChatInput, setDetailChatInput] = useState('');
   const [detailChatMessages, setDetailChatMessages] = useState<{role: 'user' | 'assistant'; content: string}[]>([]);
+  const [isEditingScript, setIsEditingScript] = useState(false);
+  const [scriptDraft, setScriptDraft] = useState('');
+  const [showProductPicker, setShowProductPicker] = useState(false);
   const [isDetailChatting, setIsDetailChatting] = useState(false);
   const [showSegments, setShowSegments] = useState(false);
   
