@@ -262,23 +262,24 @@ const SideNotes: React.FC<{
   text?: string; items: string[]; brandColor: string; onBrand: string; family: string; numbered?: boolean;
 }> = ({ text, items, brandColor, onBrand, family, numbered }) => (
   <div
-    className="rounded-2xl"
+    className="rounded-3xl"
     style={{
       fontFamily: family,
-      background: hexA('#0a0a0a', 0.72),
-      backdropFilter: 'blur(10px)',
-      padding: '18px 20px',
-      minWidth: 240,
+      background: `linear-gradient(160deg, ${hexA('#0a0a0a', 0.82)}, ${hexA(brandColor, 0.18)})`,
+      backdropFilter: 'blur(14px) saturate(140%)',
+      WebkitBackdropFilter: 'blur(14px) saturate(140%)',
+      padding: '20px 22px',
+      minWidth: 260,
       borderLeft: `4px solid ${brandColor}`,
-      boxShadow: `0 12px 40px rgba(0,0,0,0.5)`,
+      boxShadow: `0 18px 50px rgba(0,0,0,0.55), 0 0 0 1px ${hexA('#ffffff', 0.06)}`,
     }}
   >
     {text && (
-      <div style={{ color: '#fff', fontSize: 13, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', opacity: 0.9, marginBottom: 12 }}>
+      <div style={{ color: '#fff', fontSize: 13, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.92, marginBottom: 14 }}>
         {text}
       </div>
     )}
-    <div className="flex flex-col gap-2.5">
+    <div className="flex flex-col gap-3">
       {items.slice(0, 5).map((it, i) => (
         <div
           key={i}
@@ -288,14 +289,15 @@ const SideNotes: React.FC<{
           <span
             className="inline-flex items-center justify-center rounded-full flex-shrink-0"
             style={{
-              width: 24, height: 24,
+              width: 26, height: 26,
               background: brandColor, color: onBrand,
-              fontSize: 12, fontWeight: 900,
+              fontSize: 13, fontWeight: 900,
+              boxShadow: `0 4px 12px ${hexA(brandColor, 0.5)}`,
             }}
           >
             {numbered ? i + 1 : '✓'}
           </span>
-          <span style={{ color: '#fff', fontSize: 15, fontWeight: 600, lineHeight: 1.3 }}>{it}</span>
+          <span style={{ color: '#fff', fontSize: 16, fontWeight: 600, lineHeight: 1.3 }}>{it}</span>
         </div>
       ))}
     </div>
@@ -335,21 +337,22 @@ const CtaLockup: React.FC<{
     <div
       className="rounded-full"
       style={{
-        background: brandColor,
+        background: `linear-gradient(135deg, ${brandColor}, ${hexA(brandColor, 0.82)})`,
         color: onBrand,
-        padding: '16px 40px',
-        fontSize: 'clamp(20px, 3vw, 30px)',
+        padding: '20px 48px',
+        fontSize: 'clamp(22px, 3.4vw, 34px)',
         fontWeight: 900,
         letterSpacing: '0.02em',
-        boxShadow: `0 16px 50px ${hexA(brandColor, 0.55)}, 0 1px 0 rgba(255,255,255,0.18) inset`,
+        boxShadow: `0 22px 60px ${hexA(brandColor, 0.6)}, 0 1px 0 rgba(255,255,255,0.22) inset, 0 0 0 1px ${hexA('#ffffff', 0.14)}`,
+        textShadow: '0 1px 0 rgba(0,0,0,0.12)',
       }}
     >
       {text}
     </div>
     {subtext && (
-      <div style={{ color: '#fff', fontSize: 15, fontWeight: 600, opacity: 0.92, letterSpacing: '0.04em' }}>{subtext}</div>
+      <div style={{ color: '#fff', fontSize: 16, fontWeight: 700, opacity: 0.95, letterSpacing: '0.05em', textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>{subtext}</div>
     )}
-    <style>{`@keyframes smartOvCta { from { opacity: 0; transform: translateY(16px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }`}</style>
+    <style>{`@keyframes smartOvCta { from { opacity: 0; transform: translateY(20px) scale(0.94); } to { opacity: 1; transform: translateY(0) scale(1); } }`}</style>
   </div>
 );
 
