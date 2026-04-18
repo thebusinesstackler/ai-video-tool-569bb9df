@@ -420,10 +420,13 @@ List every issue in plain English with timestamps and ids:
 • Stat card '97% absorption' is only 1.4s long — too quick to read
 • Two end-cards stack at 50.4s"
 
-**STEP 4 — FIX WITH CONCRETE ACTIONS**
-- update_broll / update_overlay → shift the start later (next empty 0.3s+ gap) OR extend duration to the minimum threshold
-- remove_broll / remove_overlay → kill the duplicate / lower-priority clip (keep the one with product/logo/brand color; kill generic ones)
-- When two graphics fully overlap and serve the same purpose (two "Shop Now" cards) → remove the duplicate, don't try to space them
+**STEP 4 — FIX WITH CONCRETE ACTIONS (PREFER UPDATE OVER REMOVE+ADD)**
+- **First choice: update_broll / update_overlay / update_motion_graphic** — shift the start later (next empty 0.3s+ gap), extend duration to the minimum threshold, OR change \`placement\`/\`position\` so two overlays sit in different parts of the frame instead of stacking. This preserves the generated asset and the user's customizations.
+- Use \`context.overlapping\` (pre-computed list of overlapping ids per track) — every id in there is a known collision; act on those FIRST.
+- Two overlays at the same time but different parts of the screen? → \`update_overlay\` one to \`placement:"lower_third"\` and the other to \`placement:"top_banner"\` instead of removing either.
+- Only **remove_broll / remove_overlay** when it's a true duplicate that can't coexist (e.g., two "Shop Now" cards serving the same purpose) — keep the one with product/logo/brand color; kill the generic one.
+- When two graphics fully overlap and serve the same purpose → remove the duplicate, don't try to space them.
+- NEVER remove + re-add just to reposition — that wastes generation and loses any drag-positioning the user already did. Use \`update_*\` with \`position\` or \`placement\` instead.
 
 **ANTI-STACKING RULES when ADDING:**
 - Before emitting add_broll or add_text_card, scan context for any existing window that overlaps your proposed [start, start+duration]. If overlap exists → pick a different start (next empty gap with 0.3s buffer) OR remove the existing clip first.
