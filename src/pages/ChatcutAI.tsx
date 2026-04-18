@@ -2309,6 +2309,50 @@ const ChatcutAI = () => {
     toast({ title: 'Overlay removed' });
   };
 
+  /**
+   * Add a user-uploaded image directly to the Graphic track at the playhead.
+   * We read the file as a data URL (so it works without an upload round-trip),
+   * mark it `renderMode: 'image'` so classifyOverlay routes it to the Graphic
+   * track, and snap it to the next free slot to avoid stacking.
+   */
+  const addImageOverlayFromFile = useCallback((file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Not an image', description: 'Please pick a PNG, JPG, or WebP file.', variant: 'destructive' });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const wantStart = currentTime;
+      const wantDuration = 3;
+      // Snap to next free slot on the Image (Graphic) track so it doesn't pile on existing graphics.
+      const occupied = overlays
+        .filter(o => (o.renderMode === 'image' || (!!o.imageUrl && o.renderMode !== 'dom' && o.type !== 'motion_graphic' && o.type !== 'animated_text' && o.renderMode !== 'video')))
+        .map(o => ({ s: o.start, e: o.start + o.duration }))
+        .sort((a, b) => a.s - b.s);
+      let start = wantStart;
+      for (const { s, e } of occupied) {
+        if (start < e && s < start + wantDuration) start = e + 0.05;
+      }
+      const id = crypto.randomUUID();
+      setOverlays(prev => [...prev, {
+        id,
+        type: 'image_graphic',
+        text: file.name.replace(/\.[^.]+$/, '').slice(0, 40) || 'Uploaded image',
+        start: +start.toFixed(2),
+        duration: wantDuration,
+        imageUrl: dataUrl,
+        imageStatus: 'ready',
+        renderMode: 'image',
+        position: { x: 50, y: 50 },
+        scale: 1,
+      } as OverlayItem]);
+      toast({ title: '🖼️ Image added to Graphic track', description: `Drag it on the video preview to position. Starts at ${start.toFixed(1)}s.` });
+    };
+    reader.onerror = () => toast({ title: 'Could not read image', variant: 'destructive' });
+    reader.readAsDataURL(file);
+  }, [currentTime, overlays, toast]);
+
   const deleteBRoll = (id: string) => {
     setBRollClips(prev => prev.filter(b => b.id !== id));
     toast({ title: 'B-Roll removed' });
