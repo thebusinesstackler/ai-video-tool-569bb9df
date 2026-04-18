@@ -245,9 +245,28 @@ const AnimateStatics = () => {
     }
   }, [user, toast]);
 
-  useEffect(() => {
-    if (view === 'history') loadHistory();
-  }, [view, loadHistory]);
+  // Load history on mount so the gallery picker can flag previously-animated/failed images
+  useEffect(() => { loadHistory(); }, [loadHistory]);
+
+  // Map source_image_url -> latest history entry (for status badges in the gallery picker)
+  const historyByImage = React.useMemo(() => {
+    const map = new Map<string, HistoryItem>();
+    // history is already ordered desc by created_at, so first occurrence wins (latest)
+    for (const h of history) {
+      if (!h.source_image_url) continue;
+      if (!map.has(h.source_image_url)) map.set(h.source_image_url, h);
+    }
+    return map;
+  }, [history]);
+
+  const getImageStatus = (url: string): 'animated' | 'failed' | 'pending' | null => {
+    const h = historyByImage.get(url);
+    if (!h) return null;
+    if (h.animation_url && h.status !== 'failed') return 'animated';
+    if (h.status === 'failed') return 'failed';
+    if (h.status === 'processing' || h.status === 'pending' || h.status === 'draft') return 'pending';
+    return h.animation_url ? 'animated' : 'failed';
+  };
 
   const handleImageSelect = (url: string) => {
     setSelectedImage(url);
