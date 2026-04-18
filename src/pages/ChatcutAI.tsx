@@ -2395,7 +2395,7 @@ const ChatcutAI = () => {
           <ResizablePanelGroup direction="horizontal" className="flex-1 hidden md:flex">
             {/* Left Panel: AI Chat + Transcript */}
             {aiPanelVisible ? (
-            <ResizablePanel defaultSize={28} minSize={20} maxSize={40}>
+            <ResizablePanel defaultSize={24} minSize={18} maxSize={34}>
               <div className="h-full flex flex-col bg-card relative">
                 <Button
                   variant="ghost"
@@ -2721,11 +2721,11 @@ const ChatcutAI = () => {
             {aiPanelVisible && <ResizableHandle withHandle />}
 
             {/* Center Panel: Video + Transport + Timeline */}
-            <ResizablePanel defaultSize={52} minSize={35}>
+            <ResizablePanel defaultSize={60} minSize={42}>
               <div className="h-full flex flex-col bg-black/95">
                 {/* Video preview */}
                 {videoUrl ? (
-                  <div className="flex-1 flex items-center justify-center min-h-0 overflow-hidden bg-black">
+                  <div className="flex-1 flex items-center justify-center min-h-[240px] sm:min-h-[280px] lg:min-h-[320px] overflow-hidden bg-black">
                     {/* Video wrapper – sized to match the actual video aspect ratio so portrait/reel videos display correctly */}
                     <div
                       ref={videoWrapperRef}
