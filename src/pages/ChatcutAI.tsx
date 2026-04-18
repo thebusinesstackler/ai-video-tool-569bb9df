@@ -2131,7 +2131,7 @@ const ChatcutAI = () => {
   }
 
   const [zoomLevel, setZoomLevel] = useState(100);
-  const [trackVisibility, setTrackVisibility] = useState({ v1: true, v2: true, v3: true, a1: true });
+  const [trackVisibility, setTrackVisibility] = useState({ v1: true, v2: true, v3: true, v3i: true, a1: true });
   const [timelineCollapsed, setTimelineCollapsed] = useState(false);
   const [draggingOverlayId, setDraggingOverlayId] = useState<string | null>(null);
 
@@ -2191,8 +2191,13 @@ const ChatcutAI = () => {
       return ids;
     };
     return {
-      graphics: detect(overlays.filter(o => o.type === 'motion_graphic' || o.type === 'animated_text')),
-      overlay: detect(overlays.filter(o => o.type !== 'motion_graphic' && o.type !== 'animated_text')),
+      motion: detect(overlays.filter(o => o.type === 'motion_graphic' || o.type === 'animated_text' || o.renderMode === 'video')),
+      image: detect(overlays.filter(o => o.renderMode === 'image' || (!!o.imageUrl && o.renderMode !== 'dom' && o.type !== 'motion_graphic' && o.type !== 'animated_text' && o.renderMode !== 'video'))),
+      overlay: detect(overlays.filter(o => {
+        const isMotion = o.type === 'motion_graphic' || o.type === 'animated_text' || o.renderMode === 'video';
+        const isImage = !isMotion && (o.renderMode === 'image' || (!!o.imageUrl && o.renderMode !== 'dom'));
+        return !isMotion && !isImage;
+      })),
       broll: detect(bRollClips),
     };
   }, [overlays, bRollClips]);
@@ -2214,12 +2219,24 @@ const ChatcutAI = () => {
     }
     return { lane, count: Math.max(1, lanes.length) };
   };
-  const graphicsLanes = useMemo(
-    () => assignLanes(overlays.filter(o => o.type === 'motion_graphic' || o.type === 'animated_text')),
+  const motionLanes = useMemo(
+    () => assignLanes(overlays.filter(o => o.type === 'motion_graphic' || o.type === 'animated_text' || o.renderMode === 'video')),
+    [overlays]
+  );
+  const imageLanes = useMemo(
+    () => assignLanes(overlays.filter(o => {
+      const isMotion = o.type === 'motion_graphic' || o.type === 'animated_text' || o.renderMode === 'video';
+      if (isMotion) return false;
+      return o.renderMode === 'image' || (!!o.imageUrl && o.renderMode !== 'dom');
+    })),
     [overlays]
   );
   const overlayLanes = useMemo(
-    () => assignLanes(overlays.filter(o => o.type !== 'motion_graphic' && o.type !== 'animated_text')),
+    () => assignLanes(overlays.filter(o => {
+      const isMotion = o.type === 'motion_graphic' || o.type === 'animated_text' || o.renderMode === 'video';
+      const isImage = !isMotion && (o.renderMode === 'image' || (!!o.imageUrl && o.renderMode !== 'dom'));
+      return !isMotion && !isImage;
+    })),
     [overlays]
   );
 
@@ -2249,8 +2266,19 @@ const ChatcutAI = () => {
   const [mediaPanelVisible, setMediaPanelVisible] = useState(true);
   const [aiPanelVisible, setAiPanelVisible] = useState(true);
 
-  const toggleTrackVisibility = (track: 'v1' | 'v2' | 'v3' | 'a1') => {
+  const toggleTrackVisibility = (track: 'v1' | 'v2' | 'v3' | 'v3i' | 'a1') => {
     setTrackVisibility(prev => ({ ...prev, [track]: !prev[track] }));
+  };
+
+  // ── Overlay classifier ─────────────────────────────────────────────
+  // Three timeline tracks so users can tell at a glance what each clip is:
+  //   • Motion  → animated VEO graphics + animated_text reveals (renderMode 'video' OR type 'motion_graphic'/'animated_text')
+  //   • Image   → static PNG/JPG graphics (renderMode 'image' or has an imageUrl, but not motion)
+  //   • Overlay → DOM-rendered text cards (lower_third, stat_callout, benefit_chip, quote_pop, cta_button, title_card, lower_third_pro, etc.)
+  const classifyOverlay = (o: OverlayItem): 'motion' | 'image' | 'overlay' => {
+    if (o.type === 'motion_graphic' || o.type === 'animated_text' || o.renderMode === 'video') return 'motion';
+    if (o.renderMode === 'image' || (!!o.imageUrl && o.renderMode !== 'dom')) return 'image';
+    return 'overlay';
   };
 
   const toggleTrackMute = (track: 'v1' | 'v2' | 'a1') => {
