@@ -3262,7 +3262,7 @@ const ChatcutAI = () => {
                     <div className="flex flex-col relative">
                       {/* Graphics Track */}
                       {trackVisibility.v3 && (
-                      <div className="flex items-center h-9 border-b border-border/50 group hover:bg-muted/20">
+                      <div className="flex items-center h-8 border-b border-border/50 group hover:bg-muted/20">
                         <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-2" title="Motion graphics & animated text overlays">
                           <span className="text-[9px] font-semibold text-purple-400 truncate">Graphics</span>
                           <Button variant="ghost" size="icon" className="h-4 w-4 opacity-60 hover:opacity-100" onClick={() => toggleTrackVisibility('v3')}>
@@ -3311,7 +3311,7 @@ const ChatcutAI = () => {
 
                       {/* Overlays / Captions Track */}
                       {trackVisibility.v2 && (
-                      <div className="flex items-center h-9 border-b border-border/50 group hover:bg-muted/20">
+                      <div className="flex items-center h-8 border-b border-border/50 group hover:bg-muted/20">
                         <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-2" title="Text overlays, lower thirds & captions">
                           <span className="text-[9px] font-semibold text-pink-400 truncate">Overlay</span>
                           <Button variant="ghost" size="icon" className="h-4 w-4 opacity-60 hover:opacity-100" onClick={() => toggleTrackVisibility('v2')}>
@@ -3354,7 +3354,7 @@ const ChatcutAI = () => {
                       )}
 
                       {/* B-Roll Track */}
-                      <div className="flex items-center h-9 border-b border-border/50 group hover:bg-muted/20">
+                      <div className="flex items-center h-8 border-b border-border/50 group hover:bg-muted/20">
                         <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-2" title="B-Roll cutaway images">
                           <span className="text-[9px] font-semibold text-green-400 truncate">B-Roll</span>
                         </div>
@@ -3487,7 +3487,7 @@ const ChatcutAI = () => {
                       </div>
 
                       {/* Video Track */}
-                      <div className="flex items-center h-11 border-b border-border/50 group hover:bg-muted/20">
+                      <div className="flex items-center h-9 border-b border-border/50 group hover:bg-muted/20">
                         <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-2" title="Main video track">
                           <span className="text-[9px] font-semibold text-primary truncate">Video</span>
                           <Button variant="ghost" size="icon" className="h-4 w-4 opacity-60 hover:opacity-100" onClick={() => toggleTrackMute('v1')}>
@@ -3540,7 +3540,7 @@ const ChatcutAI = () => {
                       </div>
 
                       {/* Music Track */}
-                      <div className="flex items-center h-9 group hover:bg-muted/20">
+                      <div className="flex items-center h-8 group hover:bg-muted/20">
                         <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-1" title="Music & audio tracks">
                           <span className="text-[9px] font-semibold text-cyan-400 truncate">Music</span>
                           <Button variant="ghost" size="icon" className="h-4 w-4 opacity-60 hover:opacity-100 flex-shrink-0" onClick={() => toggleTrackMute('a1')}>
@@ -3646,8 +3646,8 @@ const ChatcutAI = () => {
                       )}
                     </div>
                   ) : (
-                    <div
-                      className="h-28 flex items-center justify-center text-sm text-muted-foreground cursor-pointer"
+                      <div
+                        className="h-24 flex items-center justify-center text-sm text-muted-foreground cursor-pointer"
                       onDrop={handleDrop}
                       onDragOver={(e) => e.preventDefault()}
                       onClick={() => fileInputRef.current?.click()}
