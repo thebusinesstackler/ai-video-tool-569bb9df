@@ -1354,7 +1354,7 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <span className="text-[10px] font-mono text-muted-foreground">#{idx + 1}</span>
                                   <p className="text-sm font-semibold truncate">{it.plan.topic}</p>
-                                  {it.status === 'done' && <Badge className="text-[10px] bg-green-500/15 text-green-600 border-green-500/30">Done</Badge>}
+                                  {it.status === 'done' && <Badge className="text-[10px] bg-primary/15 text-primary border-primary/30">Done</Badge>}
                                   {it.status === 'failed' && <Badge variant="destructive" className="text-[10px]">Failed</Badge>}
                                   {it.status !== 'pending' && it.status !== 'done' && it.status !== 'failed' && (
                                     <Badge variant="secondary" className="text-[10px]"><Loader2 className="w-2.5 h-2.5 mr-1 animate-spin inline" /> {it.status}</Badge>
@@ -1428,7 +1428,7 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap mb-1">
                                 <p className="text-sm font-semibold truncate">{h.topic}</p>
-                                {h.status === 'done' && <Badge className="text-[10px] bg-green-500/15 text-green-600 border-green-500/30">Done</Badge>}
+                                {h.status === 'done' && <Badge className="text-[10px] bg-primary/15 text-primary border-primary/30">Done</Badge>}
                                 {h.status === 'failed' && <Badge variant="destructive" className="text-[10px]">Failed</Badge>}
                                 {h.twin_name && <Badge variant="outline" className="text-[10px]">{h.twin_name}</Badge>}
                                 {h.duration && <Badge variant="outline" className="text-[10px]">{h.duration}s</Badge>}
