@@ -2336,6 +2336,8 @@ const ChatcutAI = () => {
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
   };
+
+  const deleteMusicTrack = (id: string) => {
     const audioEl = musicAudioRefs.current.get(id);
     if (audioEl) { audioEl.pause(); audioEl.src = ''; musicAudioRefs.current.delete(id); }
     setMusicTracks(prev => prev.filter(t => t.id !== id));
