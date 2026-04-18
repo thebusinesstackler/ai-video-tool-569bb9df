@@ -650,6 +650,204 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
     setActiveVariationId(null);
   };
 
+  // ===== Bulk: receive plans from director, run queue =====
+  const handleBatchPlan = (plans: VideoPlan[]) => {
+    if (!plans?.length) return;
+    const items: BulkItem[] = plans.map((p, i) => ({
+      id: `plan-${Date.now()}-${i}`,
+      plan: p,
+      selected: true,
+      status: 'pending',
+      progress: 0,
+    }));
+    setBulkItems(items);
+    setActiveTab('bulk');
+    toast({ title: `${plans.length} videos queued`, description: 'Review, select, then bulk generate.' });
+  };
+
+  const updateBulkItem = (id: string, patch: Partial<BulkItem>) => {
+    setBulkItems(prev => prev.map(it => it.id === id ? { ...it, ...patch } : it));
+  };
+
+  const saveProjectToHistory = async (item: BulkItem, finalStatus: 'done' | 'failed', extra: Partial<HistoryProject> = {}) => {
+    if (!user) return null;
+    const payload = {
+      user_id: user.id,
+      topic: item.plan.topic,
+      hook: item.plan.hook || null,
+      narration: item.plan.narration,
+      audience: item.plan.audience || null,
+      twin_id: selectedTwinId,
+      twin_name: selectedTwin?.name || null,
+      duration: item.plan.duration || parseInt(duration) || 60,
+      audio_url: item.audioUrl || null,
+      video_url: item.videoUrl || null,
+      scene_image_url: item.sceneImageUrl || null,
+      status: finalStatus,
+      error: item.error || null,
+      ...extra,
+    };
+    if (item.projectId) {
+      await supabase.from('podcast_projects').update(payload).eq('id', item.projectId);
+      return item.projectId;
+    }
+    const { data } = await supabase.from('podcast_projects').insert(payload).select('id').single();
+    return data?.id || null;
+  };
+
+  const processBulkItem = async (item: BulkItem, twin: AITwin): Promise<void> => {
+    try {
+      // 1. TTS
+      updateBulkItem(item.id, { status: 'voice', progress: 15 });
+      const ttsUrl = await generateTTS(item.plan.narration, twin, `bulk-${item.id}`);
+      updateBulkItem(item.id, { audioUrl: ttsUrl, progress: 35 });
+
+      if (bulkOutput === 'voiceover') {
+        updateBulkItem(item.id, { status: 'done', progress: 100 });
+        const id = await saveProjectToHistory({ ...item, audioUrl: ttsUrl }, 'done');
+        if (id) updateBulkItem(item.id, { projectId: id });
+        return;
+      }
+
+      // 2. Scene image
+      updateBulkItem(item.id, { status: 'image', progress: 45 });
+      const visualDesc = `iPhone selfie of the person speaking on ${item.plan.topic}. Casual real environment — home office, coffee shop, or living room. Natural daylight. Mid-sentence expression.`;
+      const imgPrompt = `Photorealistic selfie of this EXACT person filmed on an iPhone front camera.
+CHARACTER: ${twin.face_description || twin.name}
+GENDER: ${twin.gender || 'unspecified'}
+CAMERA: iPhone front-facing, slight low angle, arm's length
+SETTING: ${visualDesc}
+EXPRESSION: Mid-sentence speaking, relaxed and authentic, looking directly at camera
+QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermarks.`;
+      const sceneImg = await generateSceneImage(imgPrompt, twin);
+      updateBulkItem(item.id, { sceneImageUrl: sceneImg, progress: 55 });
+
+      // 3. Lip-sync video
+      updateBulkItem(item.id, { status: 'video', progress: 60 });
+      const { data: videoData, error: videoErr } = await supabase.functions.invoke('wavespeed-video', {
+        body: {
+          action: 'create',
+          model: 'infinitetalk-hd',
+          imageUrls: [sceneImg],
+          audioUrl: ttsUrl,
+          prompt: `Real person talking naturally on iPhone front camera. Wide fluid mouth movements. Natural head movements — slight tilts, nods, eyebrow raises. Subtle handheld micro-shake. Casual, authentic energy.`,
+          aspectRatio: '9:16',
+        }
+      });
+      if (videoErr) throw videoErr;
+      if (!videoData?.taskId) {
+        const apiError = videoData?.error || 'No video task created';
+        throw new Error(apiError.includes('credits') ? '💳 WaveSpeed credits exhausted. Top up & retry.' : apiError);
+      }
+
+      // 4. Poll
+      let attempts = 0;
+      const maxAttempts = 150;
+      let finalUrl: string | undefined;
+      while (attempts < maxAttempts) {
+        attempts++;
+        await new Promise(r => setTimeout(r, 3000));
+        const { data: status } = await supabase.functions.invoke('wavespeed-video', {
+          body: { action: 'status', taskId: videoData.taskId }
+        });
+        if (status?.status === 'completed' && status?.videoUrl) {
+          finalUrl = status.videoUrl;
+          break;
+        }
+        if (status?.status === 'failed') throw new Error(status?.error || 'Video failed');
+        updateBulkItem(item.id, { progress: 60 + (attempts / maxAttempts) * 35 });
+      }
+      if (!finalUrl) throw new Error('Video timed out');
+
+      const completed = { ...item, audioUrl: ttsUrl, sceneImageUrl: sceneImg, videoUrl: finalUrl };
+      updateBulkItem(item.id, { videoUrl: finalUrl, status: 'done', progress: 100 });
+      const id = await saveProjectToHistory(completed, 'done');
+      if (id) updateBulkItem(item.id, { projectId: id });
+    } catch (err: any) {
+      console.error('Bulk item failed:', err);
+      const failed = { ...item, error: err.message };
+      updateBulkItem(item.id, { status: 'failed', error: err.message });
+      await saveProjectToHistory(failed, 'failed');
+    }
+  };
+
+  const startBulkGeneration = async () => {
+    if (!selectedTwin) {
+      toast({ title: 'Pick a character', description: 'Select an AI Twin first.', variant: 'destructive' });
+      return;
+    }
+    const queue = bulkItems.filter(i => i.selected && i.status !== 'done');
+    if (queue.length === 0) {
+      toast({ title: 'Nothing selected', description: 'Tick at least one script.', variant: 'destructive' });
+      return;
+    }
+    setIsBulkRunning(true);
+    toast({ title: `Bulk generating ${queue.length} ${bulkOutput === 'video' ? 'videos' : 'voiceovers'}`, description: 'Running sequentially. Stay on this page.' });
+    for (const item of queue) {
+      await processBulkItem(item, selectedTwin);
+    }
+    setIsBulkRunning(false);
+    loadHistory();
+    toast({ title: '✅ Bulk run complete', description: 'Check History tab to edit & re-render.' });
+  };
+
+  const retryBulkItem = async (id: string) => {
+    if (!selectedTwin) return;
+    const item = bulkItems.find(i => i.id === id);
+    if (!item) return;
+    updateBulkItem(id, { status: 'pending', progress: 0, error: undefined });
+    setIsBulkRunning(true);
+    await processBulkItem({ ...item, status: 'pending', progress: 0, error: undefined }, selectedTwin);
+    setIsBulkRunning(false);
+    loadHistory();
+  };
+
+  const toggleBulkSelected = (id: string) => {
+    setBulkItems(prev => prev.map(it => it.id === id ? { ...it, selected: !it.selected } : it));
+  };
+
+  const removeBulkItem = (id: string) => {
+    setBulkItems(prev => prev.filter(it => it.id !== id));
+  };
+
+  // ===== History =====
+  const loadHistory = useCallback(async () => {
+    if (!user?.id) return;
+    setLoadingHistory(true);
+    try {
+      const { data, error } = await supabase
+        .from('podcast_projects')
+        .select('id,topic,hook,narration,style_label,setting_label,audience,twin_name,duration,audio_url,video_url,status,created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      setHistory((data as HistoryProject[]) || []);
+    } catch (err) {
+      console.error('Load history failed:', err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (activeTab === 'history') loadHistory();
+  }, [activeTab, loadHistory]);
+
+  const deleteHistoryItem = async (id: string) => {
+    if (!confirm('Delete this podcast project?')) return;
+    await supabase.from('podcast_projects').delete().eq('id', id);
+    setHistory(prev => prev.filter(h => h.id !== id));
+    toast({ title: 'Deleted' });
+  };
+
+  const editFromHistory = (h: HistoryProject) => {
+    setMessage(h.narration);
+    if (h.duration) setDuration(String(h.duration));
+    setActiveTab('talking-head');
+    toast({ title: 'Loaded into editor', description: 'Tweak the script and re-render.' });
+  };
+
   return (
     <Layout>
       <div className="h-[calc(100vh-4rem)] flex flex-col lg:flex-row overflow-hidden">
