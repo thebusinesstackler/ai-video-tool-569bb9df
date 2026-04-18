@@ -12,11 +12,11 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { VideoPlayer } from '@/components/VideoPlayer';
-import { PodcastAIDirector } from '@/components/PodcastAIDirector';
+import { PodcastAIDirector, type VideoPlan } from '@/components/PodcastAIDirector';
 import { PodcastFromContent } from '@/components/podcast/PodcastFromContent';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Mic, Loader2, Play, Download, User, Clock, RotateCcw, Sparkles, Wand2, Check, Globe, Upload, X, Headphones } from 'lucide-react';
+import { Mic, Loader2, Play, Download, User, Clock, RotateCcw, Sparkles, Wand2, Check, Globe, Upload, X, Headphones, Layers, History, Trash2, CheckSquare, Square, RefreshCw } from 'lucide-react';
 import type { AITwin } from '@/types/aiTwin';
 
 interface BrandContext {
@@ -91,6 +91,43 @@ const Podcast = () => {
 
   // Brand product images (used to feature the product in shot)
   const [productImages, setProductImages] = useState<ProductImage[]>([]);
+
+  // ===== Bulk planning + queue =====
+  interface BulkItem {
+    id: string;
+    plan: VideoPlan;
+    selected: boolean;
+    status: 'pending' | 'script' | 'voice' | 'image' | 'video' | 'done' | 'failed';
+    progress: number;
+    videoUrl?: string;
+    audioUrl?: string;
+    sceneImageUrl?: string;
+    error?: string;
+    projectId?: string;
+  }
+  const [bulkItems, setBulkItems] = useState<BulkItem[]>([]);
+  const [bulkOutput, setBulkOutput] = useState<'video' | 'voiceover'>('video');
+  const [isBulkRunning, setIsBulkRunning] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>('talking-head');
+
+  // ===== History =====
+  interface HistoryProject {
+    id: string;
+    topic: string;
+    hook?: string | null;
+    narration: string;
+    style_label?: string | null;
+    setting_label?: string | null;
+    audience?: string | null;
+    twin_name?: string | null;
+    duration?: number | null;
+    audio_url?: string | null;
+    video_url?: string | null;
+    status: string;
+    created_at: string;
+  }
+  const [history, setHistory] = useState<HistoryProject[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const selectedTwin = twins.find(t => t.id === selectedTwinId);
 
@@ -593,6 +630,30 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
       setVideoUrl(finalUrl);
       setProgress(100);
       setProgressStatus('Done! 🎬');
+
+      // Save to history
+      if (user) {
+        const activeVar = variations.find(v => v.id === activeVariationId);
+        await supabase.from('podcast_projects').insert({
+          user_id: user.id,
+          topic: message.trim().slice(0, 200) || 'Untitled podcast',
+          hook: activeVar?.hook || null,
+          narration,
+          visual_description: visualDesc || null,
+          style_label: activeVar?.styleLabel || null,
+          setting_label: activeVar?.settingLabel || null,
+          audience: activeVar?.audience || null,
+          featured_product: activeVar?.featuredProduct || null,
+          twin_id: selectedTwinId,
+          twin_name: selectedTwin?.name || null,
+          duration: dur,
+          audio_url: ttsUrl,
+          video_url: finalUrl,
+          scene_image_url: sceneImg,
+          status: 'done',
+        });
+      }
+
       toast({ title: '🎬 Video Ready!', description: 'Your talking head video is complete.' });
 
     } catch (err: any) {
@@ -613,13 +674,212 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
     setActiveVariationId(null);
   };
 
+  // ===== Bulk: receive plans from director, run queue =====
+  const handleBatchPlan = (plans: VideoPlan[]) => {
+    if (!plans?.length) return;
+    const items: BulkItem[] = plans.map((p, i) => ({
+      id: `plan-${Date.now()}-${i}`,
+      plan: p,
+      selected: true,
+      status: 'pending',
+      progress: 0,
+    }));
+    setBulkItems(items);
+    setActiveTab('bulk');
+    toast({ title: `${plans.length} videos queued`, description: 'Review, select, then bulk generate.' });
+  };
+
+  const updateBulkItem = (id: string, patch: Partial<BulkItem>) => {
+    setBulkItems(prev => prev.map(it => it.id === id ? { ...it, ...patch } : it));
+  };
+
+  const saveProjectToHistory = async (item: BulkItem, finalStatus: 'done' | 'failed', extra: Partial<HistoryProject> = {}) => {
+    if (!user) return null;
+    const payload = {
+      user_id: user.id,
+      topic: item.plan.topic,
+      hook: item.plan.hook || null,
+      narration: item.plan.narration,
+      audience: item.plan.audience || null,
+      twin_id: selectedTwinId,
+      twin_name: selectedTwin?.name || null,
+      duration: item.plan.duration || parseInt(duration) || 60,
+      audio_url: item.audioUrl || null,
+      video_url: item.videoUrl || null,
+      scene_image_url: item.sceneImageUrl || null,
+      status: finalStatus,
+      error: item.error || null,
+      ...extra,
+    };
+    if (item.projectId) {
+      await supabase.from('podcast_projects').update(payload).eq('id', item.projectId);
+      return item.projectId;
+    }
+    const { data } = await supabase.from('podcast_projects').insert(payload).select('id').single();
+    return data?.id || null;
+  };
+
+  const processBulkItem = async (item: BulkItem, twin: AITwin): Promise<void> => {
+    try {
+      // 1. TTS
+      updateBulkItem(item.id, { status: 'voice', progress: 15 });
+      const ttsUrl = await generateTTS(item.plan.narration, twin, `bulk-${item.id}`);
+      updateBulkItem(item.id, { audioUrl: ttsUrl, progress: 35 });
+
+      if (bulkOutput === 'voiceover') {
+        updateBulkItem(item.id, { status: 'done', progress: 100 });
+        const id = await saveProjectToHistory({ ...item, audioUrl: ttsUrl }, 'done');
+        if (id) updateBulkItem(item.id, { projectId: id });
+        return;
+      }
+
+      // 2. Scene image
+      updateBulkItem(item.id, { status: 'image', progress: 45 });
+      const visualDesc = `iPhone selfie of the person speaking on ${item.plan.topic}. Casual real environment — home office, coffee shop, or living room. Natural daylight. Mid-sentence expression.`;
+      const imgPrompt = `Photorealistic selfie of this EXACT person filmed on an iPhone front camera.
+CHARACTER: ${twin.face_description || twin.name}
+GENDER: ${twin.gender || 'unspecified'}
+CAMERA: iPhone front-facing, slight low angle, arm's length
+SETTING: ${visualDesc}
+EXPRESSION: Mid-sentence speaking, relaxed and authentic, looking directly at camera
+QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermarks.`;
+      const sceneImg = await generateSceneImage(imgPrompt, twin);
+      updateBulkItem(item.id, { sceneImageUrl: sceneImg, progress: 55 });
+
+      // 3. Lip-sync video
+      updateBulkItem(item.id, { status: 'video', progress: 60 });
+      const { data: videoData, error: videoErr } = await supabase.functions.invoke('wavespeed-video', {
+        body: {
+          action: 'create',
+          model: 'infinitetalk-hd',
+          imageUrls: [sceneImg],
+          audioUrl: ttsUrl,
+          prompt: `Real person talking naturally on iPhone front camera. Wide fluid mouth movements. Natural head movements — slight tilts, nods, eyebrow raises. Subtle handheld micro-shake. Casual, authentic energy.`,
+          aspectRatio: '9:16',
+        }
+      });
+      if (videoErr) throw videoErr;
+      if (!videoData?.taskId) {
+        const apiError = videoData?.error || 'No video task created';
+        throw new Error(apiError.includes('credits') ? '💳 WaveSpeed credits exhausted. Top up & retry.' : apiError);
+      }
+
+      // 4. Poll
+      let attempts = 0;
+      const maxAttempts = 150;
+      let finalUrl: string | undefined;
+      while (attempts < maxAttempts) {
+        attempts++;
+        await new Promise(r => setTimeout(r, 3000));
+        const { data: status } = await supabase.functions.invoke('wavespeed-video', {
+          body: { action: 'status', taskId: videoData.taskId }
+        });
+        if (status?.status === 'completed' && status?.videoUrl) {
+          finalUrl = status.videoUrl;
+          break;
+        }
+        if (status?.status === 'failed') throw new Error(status?.error || 'Video failed');
+        updateBulkItem(item.id, { progress: 60 + (attempts / maxAttempts) * 35 });
+      }
+      if (!finalUrl) throw new Error('Video timed out');
+
+      const completed = { ...item, audioUrl: ttsUrl, sceneImageUrl: sceneImg, videoUrl: finalUrl };
+      updateBulkItem(item.id, { videoUrl: finalUrl, status: 'done', progress: 100 });
+      const id = await saveProjectToHistory(completed, 'done');
+      if (id) updateBulkItem(item.id, { projectId: id });
+    } catch (err: any) {
+      console.error('Bulk item failed:', err);
+      const failed = { ...item, error: err.message };
+      updateBulkItem(item.id, { status: 'failed', error: err.message });
+      await saveProjectToHistory(failed, 'failed');
+    }
+  };
+
+  const startBulkGeneration = async () => {
+    if (!selectedTwin) {
+      toast({ title: 'Pick a character', description: 'Select an AI Twin first.', variant: 'destructive' });
+      return;
+    }
+    const queue = bulkItems.filter(i => i.selected && i.status !== 'done');
+    if (queue.length === 0) {
+      toast({ title: 'Nothing selected', description: 'Tick at least one script.', variant: 'destructive' });
+      return;
+    }
+    setIsBulkRunning(true);
+    toast({ title: `Bulk generating ${queue.length} ${bulkOutput === 'video' ? 'videos' : 'voiceovers'}`, description: 'Running sequentially. Stay on this page.' });
+    for (const item of queue) {
+      await processBulkItem(item, selectedTwin);
+    }
+    setIsBulkRunning(false);
+    loadHistory();
+    toast({ title: '✅ Bulk run complete', description: 'Check History tab to edit & re-render.' });
+  };
+
+  const retryBulkItem = async (id: string) => {
+    if (!selectedTwin) return;
+    const item = bulkItems.find(i => i.id === id);
+    if (!item) return;
+    updateBulkItem(id, { status: 'pending', progress: 0, error: undefined });
+    setIsBulkRunning(true);
+    await processBulkItem({ ...item, status: 'pending', progress: 0, error: undefined }, selectedTwin);
+    setIsBulkRunning(false);
+    loadHistory();
+  };
+
+  const toggleBulkSelected = (id: string) => {
+    setBulkItems(prev => prev.map(it => it.id === id ? { ...it, selected: !it.selected } : it));
+  };
+
+  const removeBulkItem = (id: string) => {
+    setBulkItems(prev => prev.filter(it => it.id !== id));
+  };
+
+  // ===== History =====
+  const loadHistory = useCallback(async () => {
+    if (!user?.id) return;
+    setLoadingHistory(true);
+    try {
+      const { data, error } = await supabase
+        .from('podcast_projects')
+        .select('id,topic,hook,narration,style_label,setting_label,audience,twin_name,duration,audio_url,video_url,status,created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      setHistory((data as HistoryProject[]) || []);
+    } catch (err) {
+      console.error('Load history failed:', err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (activeTab === 'history') loadHistory();
+  }, [activeTab, loadHistory]);
+
+  const deleteHistoryItem = async (id: string) => {
+    if (!confirm('Delete this podcast project?')) return;
+    await supabase.from('podcast_projects').delete().eq('id', id);
+    setHistory(prev => prev.filter(h => h.id !== id));
+    toast({ title: 'Deleted' });
+  };
+
+  const editFromHistory = (h: HistoryProject) => {
+    setMessage(h.narration);
+    if (h.duration) setDuration(String(h.duration));
+    setActiveTab('talking-head');
+    toast({ title: 'Loaded into editor', description: 'Tweak the script and re-render.' });
+  };
+
   return (
     <Layout>
       <div className="h-[calc(100vh-4rem)] flex flex-col lg:flex-row overflow-hidden">
         {/* Left Panel — AI Creative Director */}
         <div className="lg:w-[420px] xl:w-[460px] border-r border-border flex flex-col bg-background order-2 lg:order-1 min-h-[300px] lg:min-h-0 lg:h-full">
           <PodcastAIDirector
-            onUseScript={(script) => setMessage(script)}
+            onUseScript={(script) => { setMessage(script); setActiveTab('talking-head'); }}
+            onUseBatchPlan={handleBatchPlan}
             selectedCharacterName={selectedTwin?.name}
           />
         </div>
@@ -627,13 +887,22 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
         {/* Right Panel — Production Controls */}
         <div className="flex-1 overflow-y-auto order-1 lg:order-2">
           <div className="max-w-xl mx-auto px-4 py-6 space-y-5">
-            <Tabs defaultValue="talking-head" className="w-full">
-              <TabsList className="grid grid-cols-2 w-full mb-4">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid grid-cols-4 w-full mb-4">
                 <TabsTrigger value="talking-head">
-                  <Mic className="w-4 h-4 mr-1" /> Talking Head
+                  <Mic className="w-3.5 h-3.5 mr-1" /> Single
+                </TabsTrigger>
+                <TabsTrigger value="bulk">
+                  <Layers className="w-3.5 h-3.5 mr-1" /> Bulk
+                  {bulkItems.length > 0 && (
+                    <Badge variant="secondary" className="ml-1.5 h-4 px-1 text-[10px]">{bulkItems.length}</Badge>
+                  )}
                 </TabsTrigger>
                 <TabsTrigger value="from-content">
-                  <Headphones className="w-4 h-4 mr-1" /> Turn Into Podcast
+                  <Headphones className="w-3.5 h-3.5 mr-1" /> Podcast
+                </TabsTrigger>
+                <TabsTrigger value="history">
+                  <History className="w-3.5 h-3.5 mr-1" /> History
                 </TabsTrigger>
               </TabsList>
 
@@ -989,6 +1258,215 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
                 <PodcastFromContent
                   onUseTranscriptForVideo={(t) => setMessage(t)}
                 />
+              </TabsContent>
+
+              {/* ============== BULK QUEUE ============== */}
+              <TabsContent value="bulk" className="space-y-4 mt-0">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Layers className="w-6 h-6 text-primary" />
+                    <h1 className="text-2xl font-bold">Bulk Generate</h1>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Ask Marcus to "Plan 10 Videos" → review → select → bulk render with one click.
+                  </p>
+                </div>
+
+                {!selectedTwin && (
+                  <Card className="border-dashed border-primary/30">
+                    <CardContent className="p-3 text-xs text-muted-foreground">
+                      ⚠️ Pick a character on the <button className="underline text-primary" onClick={() => setActiveTab('talking-head')}>Single tab</button> first.
+                    </CardContent>
+                  </Card>
+                )}
+
+                {bulkItems.length === 0 ? (
+                  <Card className="border-dashed">
+                    <CardContent className="p-6 text-center space-y-3">
+                      <Layers className="w-10 h-10 mx-auto text-muted-foreground/50" />
+                      <p className="text-sm text-muted-foreground">
+                        No queue yet. Click <strong>"Plan 10 Videos"</strong> in Marcus on the left.
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <>
+                    {/* Output type + actions */}
+                    <Card>
+                      <CardContent className="p-3 space-y-3">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setBulkOutput('video')}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${bulkOutput === 'video' ? 'border-primary bg-primary/10 text-foreground' : 'border-border text-muted-foreground'}`}
+                            >
+                              🎬 Full talking-head video
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setBulkOutput('voiceover')}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${bulkOutput === 'voiceover' ? 'border-primary bg-primary/10 text-foreground' : 'border-border text-muted-foreground'}`}
+                            >
+                              🎙️ Voiceover only (faster)
+                            </button>
+                          </div>
+                          <div className="flex gap-1">
+                            <Button size="sm" variant="ghost" className="h-7 text-xs"
+                              onClick={() => setBulkItems(prev => prev.map(i => ({ ...i, selected: true })))}>
+                              <CheckSquare className="w-3 h-3 mr-1" /> All
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-7 text-xs"
+                              onClick={() => setBulkItems(prev => prev.map(i => ({ ...i, selected: false })))}>
+                              <Square className="w-3 h-3 mr-1" /> None
+                            </Button>
+                          </div>
+                        </div>
+                        <Button
+                          className="w-full h-11 rounded-xl bg-gradient-to-r from-primary to-primary/80"
+                          onClick={startBulkGeneration}
+                          disabled={isBulkRunning || !selectedTwin || bulkItems.filter(i => i.selected && i.status !== 'done').length === 0}
+                        >
+                          {isBulkRunning ? (
+                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Running queue...</>
+                          ) : (
+                            <><Sparkles className="w-4 h-4 mr-2" /> Bulk generate {bulkItems.filter(i => i.selected && i.status !== 'done').length} {bulkOutput === 'video' ? 'videos' : 'voiceovers'}</>
+                          )}
+                        </Button>
+                      </CardContent>
+                    </Card>
+
+                    {/* Queue list */}
+                    <div className="space-y-2">
+                      {bulkItems.map((it, idx) => (
+                        <Card key={it.id} className={`${it.status === 'done' ? 'border-primary/30 bg-primary/5' : it.status === 'failed' ? 'border-destructive/40' : ''}`}>
+                          <CardContent className="p-3 space-y-2">
+                            <div className="flex items-start gap-2">
+                              <button
+                                type="button"
+                                onClick={() => toggleBulkSelected(it.id)}
+                                disabled={isBulkRunning || it.status === 'done'}
+                                className="mt-0.5 flex-shrink-0"
+                              >
+                                {it.selected ? <CheckSquare className="w-4 h-4 text-primary" /> : <Square className="w-4 h-4 text-muted-foreground" />}
+                              </button>
+                              <div className="flex-1 min-w-0 space-y-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-[10px] font-mono text-muted-foreground">#{idx + 1}</span>
+                                  <p className="text-sm font-semibold truncate">{it.plan.topic}</p>
+                                  {it.status === 'done' && <Badge className="text-[10px] bg-primary/15 text-primary border-primary/30">Done</Badge>}
+                                  {it.status === 'failed' && <Badge variant="destructive" className="text-[10px]">Failed</Badge>}
+                                  {it.status !== 'pending' && it.status !== 'done' && it.status !== 'failed' && (
+                                    <Badge variant="secondary" className="text-[10px]"><Loader2 className="w-2.5 h-2.5 mr-1 animate-spin inline" /> {it.status}</Badge>
+                                  )}
+                                </div>
+                                {it.plan.hook && <p className="text-[11px] text-muted-foreground line-clamp-1 italic">"{it.plan.hook}"</p>}
+                                <p className="text-[11px] text-muted-foreground line-clamp-2">{it.plan.narration}</p>
+                                {it.error && <p className="text-[11px] text-destructive">{it.error}</p>}
+                                {it.status !== 'pending' && it.status !== 'done' && it.status !== 'failed' && (
+                                  <Progress value={it.progress} className="h-1" />
+                                )}
+                                {it.videoUrl && (
+                                  <video src={it.videoUrl} controls className="w-32 rounded-md mt-1 aspect-[9/16] object-cover" />
+                                )}
+                                {!it.videoUrl && it.audioUrl && (
+                                  <audio src={it.audioUrl} controls className="w-full h-7 mt-1" />
+                                )}
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                {it.status === 'failed' && (
+                                  <Button size="sm" variant="outline" className="h-7 px-2 text-xs"
+                                    onClick={() => retryBulkItem(it.id)} disabled={isBulkRunning}>
+                                    <RefreshCw className="w-3 h-3" />
+                                  </Button>
+                                )}
+                                <Button size="sm" variant="ghost" className="h-7 px-2 text-xs"
+                                  onClick={() => removeBulkItem(it.id)} disabled={isBulkRunning}>
+                                  <X className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </TabsContent>
+
+              {/* ============== HISTORY ============== */}
+              <TabsContent value="history" className="space-y-4 mt-0">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <History className="w-6 h-6 text-primary" />
+                      <h1 className="text-2xl font-bold">Podcast History</h1>
+                    </div>
+                    <p className="text-sm text-muted-foreground">All your talking-head projects. Click to edit & re-render.</p>
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={loadHistory}>
+                    <RefreshCw className={`w-4 h-4 ${loadingHistory ? 'animate-spin' : ''}`} />
+                  </Button>
+                </div>
+
+                {loadingHistory ? (
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm py-4">
+                    <Loader2 className="w-4 h-4 animate-spin" /> Loading...
+                  </div>
+                ) : history.length === 0 ? (
+                  <Card className="border-dashed">
+                    <CardContent className="p-6 text-center text-sm text-muted-foreground">
+                      No podcast projects yet. Generate one to see it here.
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="space-y-2">
+                    {history.map(h => (
+                      <Card key={h.id} className={h.status === 'done' ? 'border-primary/20' : h.status === 'failed' ? 'border-destructive/30' : ''}>
+                        <CardContent className="p-3 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap mb-1">
+                                <p className="text-sm font-semibold truncate">{h.topic}</p>
+                                {h.status === 'done' && <Badge className="text-[10px] bg-primary/15 text-primary border-primary/30">Done</Badge>}
+                                {h.status === 'failed' && <Badge variant="destructive" className="text-[10px]">Failed</Badge>}
+                                {h.twin_name && <Badge variant="outline" className="text-[10px]">{h.twin_name}</Badge>}
+                                {h.duration && <Badge variant="outline" className="text-[10px]">{h.duration}s</Badge>}
+                              </div>
+                              {h.hook && <p className="text-[11px] text-muted-foreground italic line-clamp-1">"{h.hook}"</p>}
+                              <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{h.narration}</p>
+                              <p className="text-[10px] text-muted-foreground/60 mt-1">{new Date(h.created_at).toLocaleString()}</p>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => editFromHistory(h)} title="Edit script">
+                                <Wand2 className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                                onClick={() => deleteHistoryItem(h.id)} title="Delete">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 flex-wrap">
+                            {h.video_url && (
+                              <video src={h.video_url} controls className="w-28 rounded-md aspect-[9/16] object-cover" />
+                            )}
+                            {!h.video_url && h.audio_url && (
+                              <audio src={h.audio_url} controls className="w-full h-8" />
+                            )}
+                            {h.video_url && (
+                              <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
+                                <a href={h.video_url} download target="_blank" rel="noopener noreferrer">
+                                  <Download className="w-3 h-3 mr-1" /> Download
+                                </a>
+                              </Button>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
           </div>
