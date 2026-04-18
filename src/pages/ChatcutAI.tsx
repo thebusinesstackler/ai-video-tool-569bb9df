@@ -3389,43 +3389,71 @@ const ChatcutAI = () => {
                     <div className="flex flex-col relative">
                       {/* Graphics Track */}
                       {trackVisibility.v3 && (
-                      <div className="flex items-center h-8 border-b border-border/50 group hover:bg-muted/20">
+                      <div className="flex items-center h-10 border-b border-border/50 group hover:bg-muted/20">
                         <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-2" title="Motion graphics & animated text overlays">
-                          <span className="text-[9px] font-semibold text-purple-400 truncate">Graphics</span>
+                          <span className="text-[10px] font-semibold text-purple-400 truncate">Graphics</span>
                           <Button variant="ghost" size="icon" className="h-4 w-4 opacity-60 hover:opacity-100" onClick={() => toggleTrackVisibility('v3')}>
                             <EyeOff className="w-2.5 h-2.5" />
                           </Button>
                         </div>
-                        <div className="flex-1 relative h-6 mx-1">
+                        <div className="flex-1 relative h-8 mx-1" data-overlay-track>
                           {overlays.filter(o => o.type === 'motion_graphic' || o.type === 'animated_text').length > 0 ? (
                             overlays.filter(o => o.type === 'motion_graphic' || o.type === 'animated_text').map((ov) => (
                               <div
                                 key={ov.id}
                                 className={cn(
-                                  "absolute inset-y-0 rounded border flex items-center px-1 cursor-pointer transition-colors group/clip",
+                                  "absolute inset-y-0 rounded border flex items-center cursor-grab active:cursor-grabbing transition-colors group/clip select-none",
+                                  ov.hidden && "opacity-40",
                                   ov.imageStatus === 'generating'
                                     ? "bg-purple-500/10 border-purple-500/30 animate-pulse"
                                     : ov.imageStatus === 'ready'
-                                    ? "bg-purple-500/25 border-purple-500/50 hover:bg-purple-500/35"
-                                    : "bg-purple-500/20 border-purple-500/40 hover:bg-purple-500/30"
+                                    ? "bg-purple-500/30 border-purple-500/60 hover:bg-purple-500/40"
+                                    : "bg-purple-500/25 border-purple-500/50 hover:bg-purple-500/35"
                                 )}
                                 style={{
                                   left: `${(ov.start / Math.max(duration, 1)) * 100}%`,
                                   width: `${(ov.duration / Math.max(duration, 1)) * 100}%`,
                                 }}
                                 onClick={() => seekTo(ov.start)}
+                                onMouseDown={(e) => {
+                                  if (e.button !== 0) return;
+                                  const target = e.target as HTMLElement;
+                                  if (target.closest('[data-overlay-handle]') || target.closest('button')) return;
+                                  handleOverlayClipDrag(e, ov.id, 'move', 'graphics');
+                                }}
+                                title={`${ov.text} — drag body to move, drag edges to trim (start ${ov.start.toFixed(1)}s · ${ov.duration.toFixed(1)}s long)`}
                               >
-                                {ov.imageStatus === 'generating' ? (
-                                  <Loader2 className="w-2.5 h-2.5 text-purple-400 mr-1 flex-shrink-0 animate-spin" />
-                                ) : ov.imageUrl ? (
-                                  <ImageIcon className="w-2.5 h-2.5 text-purple-400 mr-1 flex-shrink-0" />
-                                ) : (
-                                  <Layers className="w-2.5 h-2.5 text-purple-400 mr-1 flex-shrink-0" />
-                                )}
-                                <span className="text-[9px] text-purple-300 truncate flex-1">{ov.text}</span>
-                                <button className="hidden group-hover/clip:flex w-3.5 h-3.5 items-center justify-center rounded bg-destructive/80 hover:bg-destructive flex-shrink-0 ml-0.5" onClick={(e) => { e.stopPropagation(); deleteOverlay(ov.id); }}>
+                                <div
+                                  data-overlay-handle
+                                  className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize bg-purple-400/0 hover:bg-purple-400/70 rounded-l z-10"
+                                  onMouseDown={(e) => handleOverlayClipDrag(e, ov.id, 'resize-left', 'graphics')}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                                <div className="flex items-center px-2 flex-1 min-w-0 pointer-events-none">
+                                  {ov.imageStatus === 'generating' ? (
+                                    <Loader2 className="w-3 h-3 text-purple-300 mr-1.5 flex-shrink-0 animate-spin" />
+                                  ) : ov.imageUrl ? (
+                                    <ImageIcon className="w-3 h-3 text-purple-300 mr-1.5 flex-shrink-0" />
+                                  ) : (
+                                    <Layers className="w-3 h-3 text-purple-300 mr-1.5 flex-shrink-0" />
+                                  )}
+                                  <span className="text-[11px] font-medium text-purple-100 truncate flex-1 leading-tight">{ov.text}</span>
+                                  <span className="text-[9px] text-purple-300/70 ml-1 flex-shrink-0 tabular-nums">{ov.duration.toFixed(1)}s</span>
+                                </div>
+                                <button
+                                  className="hidden group-hover/clip:flex w-4 h-4 items-center justify-center rounded bg-destructive/80 hover:bg-destructive flex-shrink-0 mr-1 z-10 relative"
+                                  onClick={(e) => { e.stopPropagation(); deleteOverlay(ov.id); }}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  title="Delete graphic"
+                                >
                                   <Trash2 className="w-2 h-2 text-white" />
                                 </button>
+                                <div
+                                  data-overlay-handle
+                                  className="absolute right-0 top-0 bottom-0 w-1.5 cursor-ew-resize bg-purple-400/0 hover:bg-purple-400/70 rounded-r z-10"
+                                  onMouseDown={(e) => handleOverlayClipDrag(e, ov.id, 'resize-right', 'graphics')}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
                               </div>
                             ))
                           ) : (
@@ -3438,9 +3466,9 @@ const ChatcutAI = () => {
 
                       {/* Overlays / Captions Track */}
                       {trackVisibility.v2 && (
-                      <div className="flex items-center h-8 border-b border-border/50 group hover:bg-muted/20">
+                      <div className="flex items-center h-10 border-b border-border/50 group hover:bg-muted/20">
                         <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-2" title="Text overlays, lower thirds & captions">
-                          <span className="text-[9px] font-semibold text-pink-400 truncate">Overlay</span>
+                          <span className="text-[10px] font-semibold text-pink-400 truncate">Overlay</span>
                           <Button variant="ghost" size="icon" className="h-4 w-4 opacity-60 hover:opacity-100" onClick={() => toggleTrackVisibility('v2')}>
                             <EyeOff className="w-2.5 h-2.5" />
                           </Button>
@@ -3448,29 +3476,59 @@ const ChatcutAI = () => {
                             <Badge className="text-[7px] px-1 py-0 h-3 bg-pink-500/20 text-pink-400 border-pink-500/30">CC</Badge>
                           )}
                         </div>
-                        <div className="flex-1 relative h-6 mx-1">
+                        <div className="flex-1 relative h-8 mx-1" data-overlay-track>
                           {overlays.filter(o => o.type !== 'motion_graphic' && o.type !== 'animated_text').length > 0 ? (
                             overlays.filter(o => o.type !== 'motion_graphic' && o.type !== 'animated_text').map((ov) => (
                               <div
                                 key={ov.id}
-                                className="absolute inset-y-0 rounded bg-pink-500/20 border border-pink-500/40 flex items-center px-1 cursor-pointer hover:bg-pink-500/30 transition-colors group/clip"
+                                className={cn(
+                                  "absolute inset-y-0 rounded bg-pink-500/25 border border-pink-500/50 flex items-center cursor-grab active:cursor-grabbing hover:bg-pink-500/35 transition-colors group/clip select-none",
+                                  ov.hidden && "opacity-40"
+                                )}
                                 style={{
                                   left: `${(ov.start / Math.max(duration, 1)) * 100}%`,
                                   width: `${(ov.duration / Math.max(duration, 1)) * 100}%`,
                                 }}
                                 onClick={() => seekTo(ov.start)}
+                                onMouseDown={(e) => {
+                                  if (e.button !== 0) return;
+                                  const target = e.target as HTMLElement;
+                                  if (target.closest('[data-overlay-handle]') || target.closest('button')) return;
+                                  handleOverlayClipDrag(e, ov.id, 'move', 'overlay');
+                                }}
+                                title={`${ov.text} — drag body to move, drag edges to trim (start ${ov.start.toFixed(1)}s · ${ov.duration.toFixed(1)}s long)`}
                               >
-                                <Sparkles className="w-2.5 h-2.5 text-pink-400 mr-1 flex-shrink-0" />
-                                <span className="text-[9px] text-pink-300 truncate flex-1">{ov.text}</span>
-                                <button className="hidden group-hover/clip:flex w-3.5 h-3.5 items-center justify-center rounded bg-destructive/80 hover:bg-destructive flex-shrink-0 ml-0.5" onClick={(e) => { e.stopPropagation(); deleteOverlay(ov.id); }}>
+                                <div
+                                  data-overlay-handle
+                                  className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize bg-pink-400/0 hover:bg-pink-400/70 rounded-l z-10"
+                                  onMouseDown={(e) => handleOverlayClipDrag(e, ov.id, 'resize-left', 'overlay')}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                                <div className="flex items-center px-2 flex-1 min-w-0 pointer-events-none">
+                                  <Sparkles className="w-3 h-3 text-pink-300 mr-1.5 flex-shrink-0" />
+                                  <span className="text-[11px] font-medium text-pink-100 truncate flex-1 leading-tight">{ov.text}</span>
+                                  <span className="text-[9px] text-pink-300/70 ml-1 flex-shrink-0 tabular-nums">{ov.duration.toFixed(1)}s</span>
+                                </div>
+                                <button
+                                  className="hidden group-hover/clip:flex w-4 h-4 items-center justify-center rounded bg-destructive/80 hover:bg-destructive flex-shrink-0 mr-1 z-10 relative"
+                                  onClick={(e) => { e.stopPropagation(); deleteOverlay(ov.id); }}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  title="Delete overlay"
+                                >
                                   <Trash2 className="w-2 h-2 text-white" />
                                 </button>
+                                <div
+                                  data-overlay-handle
+                                  className="absolute right-0 top-0 bottom-0 w-1.5 cursor-ew-resize bg-pink-400/0 hover:bg-pink-400/70 rounded-r z-10"
+                                  onMouseDown={(e) => handleOverlayClipDrag(e, ov.id, 'resize-right', 'overlay')}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
                               </div>
                             ))
                           ) : captionSettings.enabled ? (
                             <div className="absolute inset-y-0 left-0 right-0 rounded bg-pink-500/15 border border-pink-500/30 flex items-center px-2">
                               <Captions className="w-3 h-3 text-pink-400 mr-1.5" />
-                              <span className="text-[9px] text-pink-300">Captions — {captionSettings.style.toUpperCase()}</span>
+                              <span className="text-[10px] text-pink-300">Captions — {captionSettings.style.toUpperCase()}</span>
                             </div>
                           ) : (
                             <div className="absolute inset-0 border border-dashed border-border/30 rounded" />
