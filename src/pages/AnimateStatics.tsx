@@ -13,7 +13,7 @@ import { createWaveSpeedVideo, getWaveSpeedVideoJob } from '@/lib/wavespeed';
 import { ImageDropZone } from '@/components/ImageDropZone';
 import { useImageGallery } from '@/hooks/useImageGallery';
 import {
-  Wand2, Upload, Sparkles, Play, RotateCcw, Download, Music, ChevronRight, ChevronLeft, Image as ImageIcon, Loader2, History, Trash2, Plus, CheckCircle2, XCircle, Layers, Zap
+  Wand2, Upload, Sparkles, Play, RotateCcw, Download, Music, ChevronRight, ChevronLeft, Image as ImageIcon, Loader2, History, Trash2, Plus, CheckCircle2, XCircle, Layers, Zap, Library, Pause, RefreshCw
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
