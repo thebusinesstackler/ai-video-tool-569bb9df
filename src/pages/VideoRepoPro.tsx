@@ -1914,6 +1914,21 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                   </div>
                 )}
 
+                {/* Style picker — controls Marco's first-pass tone */}
+                {!hasAnalysis && (
+                  <StylePicker value={selectedStyle} onChange={setSelectedStyle} className="pt-1" />
+                )}
+
+                {/* Voice chat panel — full two-way conversation with Marco */}
+                {voiceChatOpen && (
+                  <MarcoVoiceChat
+                    onUserSpoke={handleVoiceTranscript}
+                    latestMarcoReply={latestMarcoReply}
+                    autoSpeak
+                    onClose={() => setVoiceChatOpen(false)}
+                  />
+                )}
+
                 <div className="flex items-center gap-2 flex-wrap">
                     <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleProductImage} />
                     <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={handleReferenceVideo} />
