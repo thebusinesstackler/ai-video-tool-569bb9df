@@ -1421,6 +1421,31 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
     }
   };
 
+  // Voice handler — called when user finishes speaking via MarcoVoiceChat
+  const handleVoiceTranscript = async (transcript: string) => {
+    if (!transcript.trim()) return;
+    setPrompt(transcript);
+    // Wait one tick so prompt state updates before submit reads it
+    await new Promise((r) => setTimeout(r, 50));
+    if (hasAnalysis) {
+      handleFollowUp();
+    } else {
+      analyzeReference();
+    }
+  };
+
+  // Alternative-angle handler — pre-fills feedback and runs the follow-up
+  const applyAlternativeAngle = async (instruction: string, label: string) => {
+    if (isChatting || isAnalyzing) return;
+    setPrompt(instruction);
+    await new Promise((r) => setTimeout(r, 50));
+    toast({ title: `Trying angle: ${label}`, description: 'Marco is rewriting the script…' });
+    handleFollowUp();
+  };
+
+  // Latest Marco assistant text (for voice playback)
+  const latestMarcoReply = [...messages].reverse().find((m) => m.role === 'assistant')?.content || '';
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
