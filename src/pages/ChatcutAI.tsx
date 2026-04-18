@@ -160,6 +160,8 @@ interface OverlayItem {
   placement?: 'behind_subject' | 'left_panel' | 'right_panel' | 'lower_third' | 'center_takeover' | 'top_banner' | 'floating_note';
   /** Paired subject treatment applied to the underlying source video while this overlay is on screen. */
   subjectAction?: 'none' | 'push_in' | 'shift_left' | 'shift_right' | 'shrink_for_text' | 'cutout_mask';
+  /** When true, the overlay stays on the timeline but is NOT rendered in the preview (Marco can toggle). */
+  hidden?: boolean;
 }
 
 interface BrandSettings {
