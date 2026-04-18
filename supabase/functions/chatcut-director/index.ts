@@ -678,6 +678,7 @@ When the user says "direct this", "commercial polish", "make it look like an ad"
         role: "system",
         content: `NO OPENING THUMBNAIL/COVER set yet. If the video would benefit from a punchy first-frame cover (almost always for short-form), feel free to suggest set_thumbnail proactively with a strong hook from the transcript.`,
       });
+    }
 
     // ─────────────────────────────────────────────────────────────────────
     // ENRICHED DIRECTOR INTEL — playback, audio, brand, captions, safe zones, kpis, intent
@@ -759,8 +760,6 @@ When the user says "direct this", "commercial polish", "make it look like an ad"
       lines.push(`7. Do NOT touch any item id whose user-pinned reference appears in the latest user message (the 📎 line).`);
 
       allMessages.push({ role: "system", content: lines.join('\n') });
-    }
-    }
     }
 
     if (messages && Array.isArray(messages)) {
