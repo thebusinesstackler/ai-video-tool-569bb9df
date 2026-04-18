@@ -3009,15 +3009,35 @@ const ChatcutAI = () => {
                         />
                       )}
 
-                      {/* All overlays — V2/V3 unified renderer with SmartOverlay (DOM) or AI image */}
-                      {(trackVisibility.v2 || trackVisibility.v3) && overlays
-                        .filter(o => {
+                      {/* All overlays — V2/V3 unified renderer with SmartOverlay (DOM) or AI image.
+                          We pre-compute which overlays overlap so we can: (a) auto-stagger them
+                          vertically in the preview to avoid garbled stacked text, and (b) flag
+                          the conflict to the user. */}
+                      {(() => {
+                        const visibleOverlays = overlays.filter(o => {
                           if (o.hidden) return false;
                           if (currentTime < o.start || currentTime >= o.start + o.duration) return false;
                           const isV3 = o.type === 'motion_graphic' || o.type === 'animated_text';
                           return isV3 ? trackVisibility.v3 : trackVisibility.v2;
-                        })
-                        .map(ov => {
+                        });
+                        // Build "stack groups" — overlays sharing roughly the same on-screen position
+                        const positionKey = (o: typeof visibleOverlays[number]) => {
+                          const p = o.position || { x: 50, y: 30 };
+                          // 15% bucket so near-identical positions collapse together
+                          return `${Math.round(p.x / 15)}:${Math.round(p.y / 15)}`;
+                        };
+                        const stackIndexById = new Map<string, { idx: number; total: number }>();
+                        const groups = new Map<string, string[]>();
+                        visibleOverlays.forEach(o => {
+                          if (o.fullCoverage || (o.scale || 1) >= 5) return; // full-coverage owns the screen anyway
+                          const k = positionKey(o);
+                          if (!groups.has(k)) groups.set(k, []);
+                          groups.get(k)!.push(o.id);
+                        });
+                        groups.forEach(ids => {
+                          ids.forEach((id, i) => stackIndexById.set(id, { idx: i, total: ids.length }));
+                        });
+                        return visibleOverlays.map(ov => {
                           const elapsed = currentTime - ov.start;
                           const remaining = ov.duration - elapsed;
                           const entrance = ov.animation?.entrance || 'fade-in';
