@@ -286,6 +286,7 @@ const ChatcutAI = () => {
   });
   const logoInputRef = useRef<HTMLInputElement>(null);
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
+  const graphicImageInputRef = useRef<HTMLInputElement>(null);
 
   // Opening thumbnail / TikTok cover (shows over the first N seconds + as fullscreen first frame)
   const [thumbnail, setThumbnail] = useState<{
@@ -2308,6 +2309,50 @@ const ChatcutAI = () => {
     toast({ title: 'Overlay removed' });
   };
 
+  /**
+   * Add a user-uploaded image directly to the Graphic track at the playhead.
+   * We read the file as a data URL (so it works without an upload round-trip),
+   * mark it `renderMode: 'image'` so classifyOverlay routes it to the Graphic
+   * track, and snap it to the next free slot to avoid stacking.
+   */
+  const addImageOverlayFromFile = useCallback((file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Not an image', description: 'Please pick a PNG, JPG, or WebP file.', variant: 'destructive' });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const wantStart = currentTime;
+      const wantDuration = 3;
+      // Snap to next free slot on the Image (Graphic) track so it doesn't pile on existing graphics.
+      const occupied = overlays
+        .filter(o => (o.renderMode === 'image' || (!!o.imageUrl && o.renderMode !== 'dom' && o.type !== 'motion_graphic' && o.type !== 'animated_text' && o.renderMode !== 'video')))
+        .map(o => ({ s: o.start, e: o.start + o.duration }))
+        .sort((a, b) => a.s - b.s);
+      let start = wantStart;
+      for (const { s, e } of occupied) {
+        if (start < e && s < start + wantDuration) start = e + 0.05;
+      }
+      const id = crypto.randomUUID();
+      setOverlays(prev => [...prev, {
+        id,
+        type: 'image_graphic',
+        text: file.name.replace(/\.[^.]+$/, '').slice(0, 40) || 'Uploaded image',
+        start: +start.toFixed(2),
+        duration: wantDuration,
+        imageUrl: dataUrl,
+        imageStatus: 'ready',
+        renderMode: 'image',
+        position: { x: 50, y: 50 },
+        scale: 1,
+      } as OverlayItem]);
+      toast({ title: '🖼️ Image added to Graphic track', description: `Drag it on the video preview to position. Starts at ${start.toFixed(1)}s.` });
+    };
+    reader.onerror = () => toast({ title: 'Could not read image', variant: 'destructive' });
+    reader.readAsDataURL(file);
+  }, [currentTime, overlays, toast]);
+
   const deleteBRoll = (id: string) => {
     setBRollClips(prev => prev.filter(b => b.id !== id));
     toast({ title: 'B-Roll removed' });
@@ -3558,6 +3603,52 @@ const ChatcutAI = () => {
 
                   {timelineClips.length > 0 ? (
                     <div className="flex flex-col relative">
+                      {/* Hidden input for "Add image to Graphic track" */}
+                      <input
+                        ref={graphicImageInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) addImageOverlayFromFile(f);
+                          e.target.value = ''; // allow re-uploading the same file
+                        }}
+                      />
+
+                      {/* ── Thumbnail track (yellow) — only shown when an opening cover exists ── */}
+                      {thumbnail && (
+                        <div className="flex items-center h-9 border-b border-border/50 group hover:bg-muted/20">
+                          <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-2" title="Opening thumbnail / TikTok cover that holds at the start of playback">
+                            <span className="text-[10px] font-semibold text-amber-400 truncate">Thumbnail</span>
+                          </div>
+                          <div className="flex-1 relative h-7 mx-1">
+                            <button
+                              type="button"
+                              onClick={() => seekTo(0)}
+                              title={`${thumbnail.headline || 'Opening cover'} — holds for ${thumbnail.duration.toFixed(1)}s. Click to jump to start.`}
+                              className="absolute inset-y-0 rounded border border-amber-500/60 bg-amber-500/20 hover:bg-amber-500/30 transition-colors flex items-center px-1.5 gap-1.5 overflow-hidden"
+                              style={{
+                                left: '0%',
+                                width: `${(thumbnail.duration / Math.max(duration, 1)) * 100}%`,
+                                minWidth: '40px',
+                              }}
+                            >
+                              <img
+                                src={thumbnail.url}
+                                alt={thumbnail.headline || 'Thumbnail'}
+                                className="h-5 w-5 object-cover rounded-sm flex-shrink-0"
+                              />
+                              <span className="text-[10px] font-medium text-amber-100 truncate flex-1 text-left leading-tight">
+                                {thumbnail.headline || 'Opening cover'}
+                              </span>
+                              <span className="text-[9px] text-amber-300/70 flex-shrink-0 tabular-nums">{thumbnail.duration.toFixed(1)}s</span>
+                            </button>
+                          </div>
+                          <div className="w-10 flex-shrink-0" />
+                        </div>
+                      )}
+
                       {/* ── Three overlay tracks (Motion / Image / Overlay) ─────────────────
                           Each track always stays on the timeline so users can see what's there.
                           The eye toggle only suppresses preview rendering.                       */}
@@ -3601,6 +3692,7 @@ const ChatcutAI = () => {
                             onDragClip={(e, id, mode) => handleOverlayClipDrag(e, id, mode, 'image')}
                             onToggleClipHidden={(id) => setOverlays(prev => prev.map(o => o.id === id ? { ...o, hidden: !o.hidden } : o))}
                             onDelete={deleteOverlay}
+                            onAddImage={() => graphicImageInputRef.current?.click()}
                           />
                         );
                       })()}
@@ -3629,80 +3721,7 @@ const ChatcutAI = () => {
                         );
                       })()}
 
-                      {/* Overlays / Captions Track */}
-                      {trackVisibility.v2 && (
-                      <div className="flex items-center h-10 border-b border-border/50 group hover:bg-muted/20">
-                        <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-2" title="Text overlays, lower thirds & captions">
-                          <span className="text-[10px] font-semibold text-pink-400 truncate">Overlay</span>
-                          <Button variant="ghost" size="icon" className="h-4 w-4 opacity-60 hover:opacity-100" onClick={() => toggleTrackVisibility('v2')}>
-                            <EyeOff className="w-2.5 h-2.5" />
-                          </Button>
-                          {captionSettings.enabled && (
-                            <Badge className="text-[7px] px-1 py-0 h-3 bg-pink-500/20 text-pink-400 border-pink-500/30">CC</Badge>
-                          )}
-                        </div>
-                        <div className="flex-1 relative h-8 mx-1" data-overlay-track>
-                          {overlays.filter(o => o.type !== 'motion_graphic' && o.type !== 'animated_text').length > 0 ? (
-                            overlays.filter(o => o.type !== 'motion_graphic' && o.type !== 'animated_text').map((ov) => (
-                              <div
-                                key={ov.id}
-                                className={cn(
-                                  "absolute inset-y-0 rounded bg-pink-500/25 border border-pink-500/50 flex items-center cursor-grab active:cursor-grabbing hover:bg-pink-500/35 transition-colors group/clip select-none",
-                                  ov.hidden && "opacity-40",
-                                  overlapIdsByTrack.overlay.has(ov.id) && "ring-2 ring-red-500 ring-offset-1 ring-offset-background"
-                                )}
-                                style={{
-                                  left: `${(ov.start / Math.max(duration, 1)) * 100}%`,
-                                  width: `${(ov.duration / Math.max(duration, 1)) * 100}%`,
-                                }}
-                                onClick={() => seekTo(ov.start)}
-                                onMouseDown={(e) => {
-                                  if (e.button !== 0) return;
-                                  const target = e.target as HTMLElement;
-                                  if (target.closest('[data-overlay-handle]') || target.closest('button')) return;
-                                  handleOverlayClipDrag(e, ov.id, 'move', 'overlay');
-                                }}
-                                title={`${ov.text} — drag body to move, drag edges to trim (start ${ov.start.toFixed(1)}s · ${ov.duration.toFixed(1)}s long)`}
-                              >
-                                <div
-                                  data-overlay-handle
-                                  className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize bg-pink-400/0 hover:bg-pink-400/70 rounded-l z-10"
-                                  onMouseDown={(e) => handleOverlayClipDrag(e, ov.id, 'resize-left', 'overlay')}
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                                <div className="flex items-center px-2 flex-1 min-w-0 pointer-events-none">
-                                  <Sparkles className="w-3 h-3 text-pink-300 mr-1.5 flex-shrink-0" />
-                                  <span className="text-[11px] font-medium text-pink-100 truncate flex-1 leading-tight">{ov.text}</span>
-                                  <span className="text-[9px] text-pink-300/70 ml-1 flex-shrink-0 tabular-nums">{ov.duration.toFixed(1)}s</span>
-                                </div>
-                                <button
-                                  className="hidden group-hover/clip:flex w-4 h-4 items-center justify-center rounded bg-destructive/80 hover:bg-destructive flex-shrink-0 mr-1 z-10 relative"
-                                  onClick={(e) => { e.stopPropagation(); deleteOverlay(ov.id); }}
-                                  onMouseDown={(e) => e.stopPropagation()}
-                                  title="Delete overlay"
-                                >
-                                  <Trash2 className="w-2 h-2 text-white" />
-                                </button>
-                                <div
-                                  data-overlay-handle
-                                  className="absolute right-0 top-0 bottom-0 w-1.5 cursor-ew-resize bg-pink-400/0 hover:bg-pink-400/70 rounded-r z-10"
-                                  onMouseDown={(e) => handleOverlayClipDrag(e, ov.id, 'resize-right', 'overlay')}
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                              </div>
-                            ))
-                          ) : captionSettings.enabled ? (
-                            <div className="absolute inset-y-0 left-0 right-0 rounded bg-pink-500/15 border border-pink-500/30 flex items-center px-2">
-                              <Captions className="w-3 h-3 text-pink-400 mr-1.5" />
-                              <span className="text-[10px] text-pink-300">Captions — {captionSettings.style.toUpperCase()}</span>
-                            </div>
-                          ) : (
-                            <div className="absolute inset-0 border border-dashed border-border/30 rounded" />
-                          )}
-                        </div>
-                        <div className="w-10 flex-shrink-0" />
-                      </div>
-                      )}
+                      {/* (Legacy duplicate Overlay/Captions track removed — the pink Overlay track above already renders these via TimelineOverlayTrack.) */}
 
                       {/* B-Roll Track */}
                       <div className="flex items-center h-8 border-b border-border/50 group hover:bg-muted/20">
