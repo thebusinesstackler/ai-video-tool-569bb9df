@@ -857,8 +857,8 @@ const ChatcutAI = () => {
     clips: timelineClips.map(c => ({ name: c.name, startAt: c.startAt, duration: c.duration })),
     cuts: cuts.filter(c => c.accepted),
     musicTracks: musicTracks.map(t => ({ name: t.name, genre: t.genre, mood: t.mood, volume: t.volume, startAt: t.startAt, duration: t.duration, hasAudio: !!t.audioUrl })),
-    overlays: overlays.map(o => ({ id: o.id, type: o.type, text: o.text, start: o.start, duration: o.duration, hasImage: !!o.imageUrl, scale: o.scale, imageUrl: o.imageUrl || null })),
-    bRollClips: bRollClips.map(b => ({ id: b.id, name: b.name, start: b.start, duration: b.duration, hasImage: !!b.imageUrl, imageUrl: b.imageUrl || null })),
+    overlays: overlays.map(o => ({ id: o.id, type: o.type, text: o.text, start: o.start, duration: o.duration, hasImage: !!o.imageUrl, scale: o.scale, imageUrl: (o.imageUrl && !o.imageUrl.startsWith('data:')) ? o.imageUrl : null })),
+    bRollClips: bRollClips.map(b => ({ id: b.id, name: b.name, start: b.start, duration: b.duration, hasImage: !!b.imageUrl, imageUrl: (b.imageUrl && !b.imageUrl.startsWith('data:')) ? b.imageUrl : null })),
     captionsEnabled: captionSettings.enabled,
     captionStyle: captionSettings.style,
     brandSettings: {
