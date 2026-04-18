@@ -1364,6 +1364,41 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
     fetchHistory();
   };
 
+  const enhancePrompt = async () => {
+    const current = prompt.trim();
+    if (!current) {
+      toast({ title: 'Nothing to enhance', description: 'Type or paste a prompt first.', variant: 'destructive' });
+      return;
+    }
+    setIsEnhancing(true);
+    try {
+      const directorBrief = `You are the AI Reel Director for a high-performance UGC ad platform (TheraNovex healthcare & Lifecykel wellness). Rewrite the user's prompt into a richly-detailed 30-second cinematic ad brief. Apply these rules:
+
+- Movement-First UGC aesthetic: bright natural daylight, unretouched, handheld energy, vibrant color.
+- Structure: Hook (6+ seconds, 15-25 words, psychological trigger) → Problem → Dropper Ritual / product reveal → 3 specific benefits → CTA.
+- Pacing: ~2.5 words/second. Total ~75 words of spoken script across two seamless segments.
+- Cinematography: specify shot type, camera motion, lens feel, lighting, location, wardrobe, and a clear match-cut transition between segment 1 and segment 2.
+- Keep the user's product, brand voice, and core idea intact — do NOT invent a different product.
+- Output ONLY the rewritten prompt as a single flowing brief (no headings, no bullet labels, no preamble like "Here is..."). Plain text, ready to paste back into the composer.`;
+
+      const { data, error } = await supabase.functions.invoke('ai', {
+        body: {
+          message: `${directorBrief}\n\n---\nUSER PROMPT TO ENHANCE:\n${current}\n\n${productImageName ? `Product attached: ${productImageName}` : ''}\n${referenceVideoName ? `Reference video attached: ${referenceVideoName}` : ''}`,
+        },
+      });
+      if (error) throw error;
+      const enhanced = (data?.response || '').trim();
+      if (!enhanced) throw new Error('No enhanced prompt returned');
+      setPrompt(enhanced);
+      toast({ title: 'Prompt enhanced ✨', description: 'AI Director rewrote your brief — review and tweak before sending.' });
+    } catch (err) {
+      console.error('enhancePrompt error:', err);
+      toast({ title: 'Enhance failed', description: err instanceof Error ? err.message : 'Try again.', variant: 'destructive' });
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+
   const handleSubmit = () => {
     if (hasAnalysis && prompt.trim()) {
       handleFollowUp();
