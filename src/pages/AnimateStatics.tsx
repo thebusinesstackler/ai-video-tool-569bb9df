@@ -13,8 +13,10 @@ import { createWaveSpeedVideo, getWaveSpeedVideoJob } from '@/lib/wavespeed';
 import { ImageDropZone } from '@/components/ImageDropZone';
 import { useImageGallery } from '@/hooks/useImageGallery';
 import {
-  Wand2, Upload, Sparkles, Play, RotateCcw, Download, Music, ChevronRight, ChevronLeft, Image as ImageIcon, Loader2, History, Trash2, Plus
+  Wand2, Upload, Sparkles, Play, RotateCcw, Download, Music, ChevronRight, ChevronLeft, Image as ImageIcon, Loader2, History, Trash2, Plus, CheckCircle2, XCircle, Layers, Zap
 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
