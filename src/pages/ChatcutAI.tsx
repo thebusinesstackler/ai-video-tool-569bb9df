@@ -2159,6 +2159,28 @@ const ChatcutAI = () => {
   }, [draggingOverlayId, overlays, toast]);
   const musicWaveHeights = useMemo(() => Array.from({ length: 50 }, () => 15 + Math.random() * 65), []);
   const audioWaveHeights = useMemo(() => Array.from({ length: 40 }, () => 20 + Math.random() * 60), []);
+
+  // Detect timeline overlaps: any clip whose [start, end) intersects another on the same track.
+  // Returns a Set of overlapping ids per track so we can paint a red badge in the UI.
+  const overlapIdsByTrack = useMemo(() => {
+    const detect = <T extends { id: string; start: number; duration: number }>(items: T[]) => {
+      const ids = new Set<string>();
+      for (let i = 0; i < items.length; i++) {
+        for (let j = i + 1; j < items.length; j++) {
+          const a = items[i]; const b = items[j];
+          if (a.start < b.start + b.duration && b.start < a.start + a.duration) {
+            ids.add(a.id); ids.add(b.id);
+          }
+        }
+      }
+      return ids;
+    };
+    return {
+      graphics: detect(overlays.filter(o => o.type === 'motion_graphic' || o.type === 'animated_text')),
+      overlay: detect(overlays.filter(o => o.type !== 'motion_graphic' && o.type !== 'animated_text')),
+      broll: detect(bRollClips),
+    };
+  }, [overlays, bRollClips]);
   const [mediaPanelVisible, setMediaPanelVisible] = useState(true);
   const [aiPanelVisible, setAiPanelVisible] = useState(true);
 
@@ -3009,15 +3031,35 @@ const ChatcutAI = () => {
                         />
                       )}
 
-                      {/* All overlays — V2/V3 unified renderer with SmartOverlay (DOM) or AI image */}
-                      {(trackVisibility.v2 || trackVisibility.v3) && overlays
-                        .filter(o => {
+                      {/* All overlays — V2/V3 unified renderer with SmartOverlay (DOM) or AI image.
+                          We pre-compute which overlays overlap so we can: (a) auto-stagger them
+                          vertically in the preview to avoid garbled stacked text, and (b) flag
+                          the conflict to the user. */}
+                      {(() => {
+                        const visibleOverlays = overlays.filter(o => {
                           if (o.hidden) return false;
                           if (currentTime < o.start || currentTime >= o.start + o.duration) return false;
                           const isV3 = o.type === 'motion_graphic' || o.type === 'animated_text';
                           return isV3 ? trackVisibility.v3 : trackVisibility.v2;
-                        })
-                        .map(ov => {
+                        });
+                        // Build "stack groups" — overlays sharing roughly the same on-screen position
+                        const positionKey = (o: typeof visibleOverlays[number]) => {
+                          const p = o.position || { x: 50, y: 30 };
+                          // 15% bucket so near-identical positions collapse together
+                          return `${Math.round(p.x / 15)}:${Math.round(p.y / 15)}`;
+                        };
+                        const stackIndexById = new Map<string, { idx: number; total: number }>();
+                        const groups = new Map<string, string[]>();
+                        visibleOverlays.forEach(o => {
+                          if (o.fullCoverage || (o.scale || 1) >= 5) return; // full-coverage owns the screen anyway
+                          const k = positionKey(o);
+                          if (!groups.has(k)) groups.set(k, []);
+                          groups.get(k)!.push(o.id);
+                        });
+                        groups.forEach(ids => {
+                          ids.forEach((id, i) => stackIndexById.set(id, { idx: i, total: ids.length }));
+                        });
+                        return visibleOverlays.map(ov => {
                           const elapsed = currentTime - ov.start;
                           const remaining = ov.duration - elapsed;
                           const entrance = ov.animation?.entrance || 'fade-in';
@@ -3045,22 +3087,43 @@ const ChatcutAI = () => {
                           const useDOM = !isVideo && !isImage; // pure DOM SmartOverlay
                           const showLoader = (isVideo && !videoReady) || (isImage && !imageReady);
 
+                          // Auto-stagger overlapping overlays so text doesn't render on top of itself
+                          // and become garbled. We push each subsequent overlay 9% further down.
+                          const stack = stackIndexById.get(ov.id);
+                          const stackOffsetY = stack && stack.total > 1 ? stack.idx * 9 : 0;
+                          const isStacked = !!(stack && stack.total > 1);
+                          const adjustedTop = Math.min(95, pos.y + stackOffsetY);
                           return (
                             <div
                               key={ov.id}
                               className={cn(
-                                "absolute z-10 cursor-grab active:cursor-grabbing",
+                                "absolute z-10 cursor-grab active:cursor-grabbing group/preview-ov",
                                 animClass,
-                                draggingOverlayId === ov.id && "opacity-80",
+                                draggingOverlayId === ov.id && "opacity-80 ring-2 ring-amber-400 rounded-lg",
                                 isFull && "inset-0 flex items-center justify-center"
                               )}
-                              style={isFull ? {} : { left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)' }}
+                              style={isFull ? {} : { left: `${pos.x}%`, top: `${adjustedTop}%`, transform: 'translate(-50%, -50%)' }}
                               onMouseDown={(e) => !isFull && handleOverlayMouseDown(e, ov.id)}
                               onDoubleClick={(e) => {
                                 e.stopPropagation();
                                 setOverlays(prev => prev.map(o => o.id === ov.id ? { ...o, scale: ((o.scale || 1) % 5) + 1 } : o));
                               }}
+                              title={isFull ? ov.text : `Drag to reposition · double-click to resize`}
                             >
+                              {!isFull && (
+                                <div className="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover/preview-ov:opacity-100 transition-opacity pointer-events-none z-20">
+                                  <div className="text-[9px] px-1.5 py-0.5 rounded bg-black/80 text-white whitespace-nowrap">
+                                    ✥ Drag · {Math.round(pos.x)}% × {Math.round(pos.y)}%
+                                  </div>
+                                </div>
+                              )}
+                              {isStacked && !isFull && (
+                                <div className="absolute -top-2 -right-2 z-20 pointer-events-none">
+                                  <div className="text-[8px] px-1.5 py-0.5 rounded-full bg-red-500 text-white font-bold shadow-lg" title="Overlapping with another overlay at the same position — text may render garbled. Drag this one to a new spot or ask Marco to fix.">
+                                    ⚠ {stack!.total}× stacked
+                                  </div>
+                                </div>
+                              )}
                               {showLoader ? (
                                 <div className="bg-black/70 backdrop-blur-sm px-4 py-3 rounded-lg border border-purple-500/40 flex items-center gap-2 pointer-events-none">
                                   <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
@@ -3111,8 +3174,8 @@ const ChatcutAI = () => {
                               )}
                             </div>
                           );
-                        })
-                      }
+                        });
+                      })()}
 
                       {/* B-Roll status indicators */}
                       {bRollClips
@@ -3417,6 +3480,7 @@ const ChatcutAI = () => {
                                 className={cn(
                                   "absolute inset-y-0 rounded border flex items-center cursor-grab active:cursor-grabbing transition-colors group/clip select-none",
                                   ov.hidden && "opacity-40",
+                                  overlapIdsByTrack.graphics.has(ov.id) && "ring-2 ring-red-500 ring-offset-1 ring-offset-background",
                                   ov.imageStatus === 'generating'
                                     ? "bg-purple-500/10 border-purple-500/30 animate-pulse"
                                     : ov.imageStatus === 'ready'
@@ -3496,7 +3560,8 @@ const ChatcutAI = () => {
                                 key={ov.id}
                                 className={cn(
                                   "absolute inset-y-0 rounded bg-pink-500/25 border border-pink-500/50 flex items-center cursor-grab active:cursor-grabbing hover:bg-pink-500/35 transition-colors group/clip select-none",
-                                  ov.hidden && "opacity-40"
+                                  ov.hidden && "opacity-40",
+                                  overlapIdsByTrack.overlay.has(ov.id) && "ring-2 ring-red-500 ring-offset-1 ring-offset-background"
                                 )}
                                 style={{
                                   left: `${(ov.start / Math.max(duration, 1)) * 100}%`,
@@ -3586,6 +3651,7 @@ const ChatcutAI = () => {
                                 key={br.id}
                                 className={cn(
                                   "absolute inset-y-0 rounded border flex items-center cursor-grab active:cursor-grabbing transition-colors group/clip select-none",
+                                  overlapIdsByTrack.broll.has(br.id) && "ring-2 ring-red-500 ring-offset-1 ring-offset-background",
                                   br.imageStatus === 'generating' || br.videoStatus === 'generating'
                                     ? "bg-green-500/10 border-green-500/30 animate-pulse"
                                     : br.videoStatus === 'ready'
