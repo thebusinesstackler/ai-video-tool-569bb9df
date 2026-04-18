@@ -3631,7 +3631,7 @@ const ChatcutAI = () => {
 
                       {/* B-Roll Track */}
                       <div className="flex items-center h-8 border-b border-border/50 group hover:bg-muted/20">
-                        <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-2" title="B-Roll cutaway images">
+                        <div className="w-[100px] flex-shrink-0 flex items-center gap-1 px-2" title="B-Roll cutaway images">
                           <span className="text-[9px] font-semibold text-green-400 truncate">B-Roll</span>
                         </div>
                         <div
@@ -3765,7 +3765,7 @@ const ChatcutAI = () => {
 
                       {/* Video Track */}
                       <div className="flex items-center h-9 border-b border-border/50 group hover:bg-muted/20">
-                        <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-2" title="Main video track">
+                        <div className="w-[100px] flex-shrink-0 flex items-center gap-1 px-2" title="Main video track">
                           <span className="text-[9px] font-semibold text-primary truncate">Video</span>
                           <Button variant="ghost" size="icon" className="h-4 w-4 opacity-60 hover:opacity-100" onClick={() => toggleTrackMute('v1')}>
                             {trackMuted.v1 ? <VolumeX className="w-2.5 h-2.5" /> : <Volume2 className="w-2.5 h-2.5" />}
@@ -3818,7 +3818,7 @@ const ChatcutAI = () => {
 
                       {/* Music Track */}
                       <div className="flex items-center h-8 group hover:bg-muted/20">
-                        <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-1" title="Music & audio tracks">
+                        <div className="w-[100px] flex-shrink-0 flex items-center gap-1 px-1" title="Music & audio tracks">
                           <span className="text-[9px] font-semibold text-cyan-400 truncate">Music</span>
                           <Button variant="ghost" size="icon" className="h-4 w-4 opacity-60 hover:opacity-100 flex-shrink-0" onClick={() => toggleTrackMute('a1')}>
                             {trackMuted.a1 ? <VolumeX className="w-2.5 h-2.5" /> : <Volume2 className="w-2.5 h-2.5" />}
