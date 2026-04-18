@@ -2203,6 +2203,12 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                       )}
                     </div>
 
+                    {/* Alternative angles — let user pivot the script direction */}
+                    <AlternativeAngles
+                      onPick={applyAlternativeAngle}
+                      disabled={isChatting || isAnalyzing || isGenerating || isStitching}
+                    />
+
                     <Button
                       onClick={generateFromScript}
                       className="w-full h-12 text-base font-semibold rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white gap-2 shadow-lg"
