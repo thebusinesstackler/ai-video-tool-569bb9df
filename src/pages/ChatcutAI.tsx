@@ -1843,6 +1843,41 @@ const ChatcutAI = () => {
           }
           break;
         }
+        case 'hide_overlay': {
+          const ids: string[] = Array.isArray(act.ids) ? act.ids : (act.id ? [act.id] : (act.overlayId ? [act.overlayId] : []));
+          if (ids.length) {
+            setOverlays(prev => prev.map(o => ids.includes(o.id) ? { ...o, hidden: true } : o));
+            toast({ title: `Hid ${ids.length} graphic${ids.length > 1 ? 's' : ''}`, description: 'They stay on the timeline — say "show them" to bring them back.' });
+          }
+          break;
+        }
+        case 'show_overlay': {
+          const ids: string[] = Array.isArray(act.ids) ? act.ids : (act.id ? [act.id] : (act.overlayId ? [act.overlayId] : []));
+          if (ids.length) {
+            setOverlays(prev => prev.map(o => ids.includes(o.id) ? { ...o, hidden: false } : o));
+            toast({ title: `Restored ${ids.length} graphic${ids.length > 1 ? 's' : ''}` });
+          } else {
+            // No id → un-hide all
+            setOverlays(prev => prev.map(o => ({ ...o, hidden: false })));
+            toast({ title: 'Restored all hidden graphics' });
+          }
+          break;
+        }
+        case 'update_overlay': {
+          const id = act.id || act.overlayId;
+          if (!id) break;
+          setOverlays(prev => prev.map(o => {
+            if (o.id !== id) return o;
+            const next = { ...o };
+            if (typeof act.start === 'number') next.start = Math.max(0, act.start);
+            if (typeof act.duration === 'number') next.duration = Math.max(0.5, act.duration);
+            if (typeof act.text === 'string') next.text = act.text;
+            if (typeof act.hidden === 'boolean') next.hidden = act.hidden;
+            return next;
+          }));
+          toast({ title: 'Graphic updated' });
+          break;
+        }
       }
     }
   }, [toast, duration, currentTime, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, thumbnail, generateBRollImage, generateMotionGraphic, generateAnimatedGraphic, savedBrollClips, addBRollFromVideoClip, generateThumbnail, productImages, addBRollFromImage, reelPreview]);
