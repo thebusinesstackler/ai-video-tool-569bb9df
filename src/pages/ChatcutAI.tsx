@@ -3560,7 +3560,8 @@ const ChatcutAI = () => {
                                 key={ov.id}
                                 className={cn(
                                   "absolute inset-y-0 rounded bg-pink-500/25 border border-pink-500/50 flex items-center cursor-grab active:cursor-grabbing hover:bg-pink-500/35 transition-colors group/clip select-none",
-                                  ov.hidden && "opacity-40"
+                                  ov.hidden && "opacity-40",
+                                  overlapIdsByTrack.overlay.has(ov.id) && "ring-2 ring-red-500 ring-offset-1 ring-offset-background"
                                 )}
                                 style={{
                                   left: `${(ov.start / Math.max(duration, 1)) * 100}%`,
@@ -3650,6 +3651,7 @@ const ChatcutAI = () => {
                                 key={br.id}
                                 className={cn(
                                   "absolute inset-y-0 rounded border flex items-center cursor-grab active:cursor-grabbing transition-colors group/clip select-none",
+                                  overlapIdsByTrack.broll.has(br.id) && "ring-2 ring-red-500 ring-offset-1 ring-offset-background",
                                   br.imageStatus === 'generating' || br.videoStatus === 'generating'
                                     ? "bg-green-500/10 border-green-500/30 animate-pulse"
                                     : br.videoStatus === 'ready'
