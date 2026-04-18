@@ -227,6 +227,7 @@ const ProjectNameInput = ({ value, onSave }: { value: string; onSave: (v: string
 const ChatcutAI = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { mode: creatorMode } = useCreatorMode();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   // Media reference: when the user clicks the 🎯 button on a media tile, we pin it as
