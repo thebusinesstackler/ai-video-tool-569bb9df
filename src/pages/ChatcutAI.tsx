@@ -2395,7 +2395,7 @@ const ChatcutAI = () => {
           <ResizablePanelGroup direction="horizontal" className="flex-1 hidden md:flex">
             {/* Left Panel: AI Chat + Transcript */}
             {aiPanelVisible ? (
-            <ResizablePanel defaultSize={28} minSize={20} maxSize={40}>
+            <ResizablePanel defaultSize={24} minSize={18} maxSize={34}>
               <div className="h-full flex flex-col bg-card relative">
                 <Button
                   variant="ghost"
@@ -2721,11 +2721,11 @@ const ChatcutAI = () => {
             {aiPanelVisible && <ResizableHandle withHandle />}
 
             {/* Center Panel: Video + Transport + Timeline */}
-            <ResizablePanel defaultSize={52} minSize={35}>
-              <div className="h-full flex flex-col bg-black/95">
+            <ResizablePanel defaultSize={60} minSize={42}>
+              <div className="h-full min-h-0 flex flex-col bg-black/95">
                 {/* Video preview */}
                 {videoUrl ? (
-                  <div className="flex-1 flex items-center justify-center min-h-0 overflow-hidden bg-black">
+                  <div className="flex-1 flex items-center justify-center min-h-[240px] sm:min-h-[280px] lg:min-h-[320px] overflow-hidden bg-black">
                     {/* Video wrapper – sized to match the actual video aspect ratio so portrait/reel videos display correctly */}
                     <div
                       ref={videoWrapperRef}
@@ -3064,7 +3064,7 @@ const ChatcutAI = () => {
                 )}
 
                 {/* Transport controls */}
-                <div className="flex items-center gap-1 px-3 py-1.5 bg-card border-t border-border flex-shrink-0">
+                <div className="flex items-center gap-1 px-2 sm:px-3 py-1.5 bg-card border-t border-border flex-shrink-0">
                   <Button variant="ghost" size="icon" className="h-7 w-7" title="Split at playhead"
                     onClick={() => {
                       if (timelineClips.length === 0 || duration === 0) return;
@@ -3213,10 +3213,10 @@ const ChatcutAI = () => {
                 </div>
 
                 {/* Multi-Track Timeline */}
-                <div className={cn("border-t border-border bg-card flex-shrink-0 relative overflow-x-auto", timelineCollapsed && "h-8 overflow-hidden")}>
+                <div className={cn("border-t border-border bg-card flex-shrink-0 relative overflow-x-auto overflow-y-auto max-h-[24svh] sm:max-h-[28svh] lg:max-h-[32svh]", timelineCollapsed && "h-8 overflow-hidden") }>
                  <div style={{ width: `${zoomLevel}%`, minWidth: '100%' }}>
                   {/* Timeline ruler with inline collapse toggle */}
-                  <div className="relative h-6 border-b border-border overflow-hidden bg-muted/30 cursor-pointer flex items-center"
+                    <div className="relative h-5 sm:h-6 border-b border-border overflow-hidden bg-muted/30 cursor-pointer flex items-center"
                     onClick={(e) => {
                       if (duration <= 0) return;
                       const rect = e.currentTarget.getBoundingClientRect();
@@ -3262,7 +3262,7 @@ const ChatcutAI = () => {
                     <div className="flex flex-col relative">
                       {/* Graphics Track */}
                       {trackVisibility.v3 && (
-                      <div className="flex items-center h-9 border-b border-border/50 group hover:bg-muted/20">
+                      <div className="flex items-center h-8 border-b border-border/50 group hover:bg-muted/20">
                         <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-2" title="Motion graphics & animated text overlays">
                           <span className="text-[9px] font-semibold text-purple-400 truncate">Graphics</span>
                           <Button variant="ghost" size="icon" className="h-4 w-4 opacity-60 hover:opacity-100" onClick={() => toggleTrackVisibility('v3')}>
@@ -3311,7 +3311,7 @@ const ChatcutAI = () => {
 
                       {/* Overlays / Captions Track */}
                       {trackVisibility.v2 && (
-                      <div className="flex items-center h-9 border-b border-border/50 group hover:bg-muted/20">
+                      <div className="flex items-center h-8 border-b border-border/50 group hover:bg-muted/20">
                         <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-2" title="Text overlays, lower thirds & captions">
                           <span className="text-[9px] font-semibold text-pink-400 truncate">Overlay</span>
                           <Button variant="ghost" size="icon" className="h-4 w-4 opacity-60 hover:opacity-100" onClick={() => toggleTrackVisibility('v2')}>
@@ -3354,7 +3354,7 @@ const ChatcutAI = () => {
                       )}
 
                       {/* B-Roll Track */}
-                      <div className="flex items-center h-9 border-b border-border/50 group hover:bg-muted/20">
+                      <div className="flex items-center h-8 border-b border-border/50 group hover:bg-muted/20">
                         <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-2" title="B-Roll cutaway images">
                           <span className="text-[9px] font-semibold text-green-400 truncate">B-Roll</span>
                         </div>
@@ -3487,7 +3487,7 @@ const ChatcutAI = () => {
                       </div>
 
                       {/* Video Track */}
-                      <div className="flex items-center h-11 border-b border-border/50 group hover:bg-muted/20">
+                      <div className="flex items-center h-9 border-b border-border/50 group hover:bg-muted/20">
                         <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-2" title="Main video track">
                           <span className="text-[9px] font-semibold text-primary truncate">Video</span>
                           <Button variant="ghost" size="icon" className="h-4 w-4 opacity-60 hover:opacity-100" onClick={() => toggleTrackMute('v1')}>
@@ -3540,7 +3540,7 @@ const ChatcutAI = () => {
                       </div>
 
                       {/* Music Track */}
-                      <div className="flex items-center h-9 group hover:bg-muted/20">
+                      <div className="flex items-center h-8 group hover:bg-muted/20">
                         <div className="w-[80px] flex-shrink-0 flex items-center gap-1 px-1" title="Music & audio tracks">
                           <span className="text-[9px] font-semibold text-cyan-400 truncate">Music</span>
                           <Button variant="ghost" size="icon" className="h-4 w-4 opacity-60 hover:opacity-100 flex-shrink-0" onClick={() => toggleTrackMute('a1')}>
@@ -3646,8 +3646,8 @@ const ChatcutAI = () => {
                       )}
                     </div>
                   ) : (
-                    <div
-                      className="h-28 flex items-center justify-center text-sm text-muted-foreground cursor-pointer"
+                      <div
+                        className="h-24 flex items-center justify-center text-sm text-muted-foreground cursor-pointer"
                       onDrop={handleDrop}
                       onDragOver={(e) => e.preventDefault()}
                       onClick={() => fileInputRef.current?.click()}
