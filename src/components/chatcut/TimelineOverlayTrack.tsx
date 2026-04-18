@@ -41,6 +41,8 @@ export interface TimelineOverlayTrackProps {
   /** Caption indicator shown only on the 'overlay' (text) track. */
   captionsEnabled?: boolean;
   captionsStyleLabel?: string;
+  /** Optional "Add image" affordance — currently used by the Graphic track. */
+  onAddImage?: () => void;
 }
 
 const colorPresets = {
@@ -94,7 +96,7 @@ const colorPresets = {
 export const TimelineOverlayTrack: React.FC<TimelineOverlayTrackProps> = ({
   kind, label, color, items, duration, laneOf, laneCount, overlapIds,
   trackVisible, onToggleTrack, onSeek, onDragClip, onToggleClipHidden,
-  onDelete, captionsEnabled, captionsStyleLabel,
+  onDelete, captionsEnabled, captionsStyleLabel, onAddImage,
 }) => {
   const c = colorPresets[color];
   const rowH = Math.max(40, 12 + laneCount * 22);
