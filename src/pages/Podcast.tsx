@@ -92,6 +92,43 @@ const Podcast = () => {
   // Brand product images (used to feature the product in shot)
   const [productImages, setProductImages] = useState<ProductImage[]>([]);
 
+  // ===== Bulk planning + queue =====
+  interface BulkItem {
+    id: string;
+    plan: VideoPlan;
+    selected: boolean;
+    status: 'pending' | 'script' | 'voice' | 'image' | 'video' | 'done' | 'failed';
+    progress: number;
+    videoUrl?: string;
+    audioUrl?: string;
+    sceneImageUrl?: string;
+    error?: string;
+    projectId?: string;
+  }
+  const [bulkItems, setBulkItems] = useState<BulkItem[]>([]);
+  const [bulkOutput, setBulkOutput] = useState<'video' | 'voiceover'>('video');
+  const [isBulkRunning, setIsBulkRunning] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>('talking-head');
+
+  // ===== History =====
+  interface HistoryProject {
+    id: string;
+    topic: string;
+    hook?: string | null;
+    narration: string;
+    style_label?: string | null;
+    setting_label?: string | null;
+    audience?: string | null;
+    twin_name?: string | null;
+    duration?: number | null;
+    audio_url?: string | null;
+    video_url?: string | null;
+    status: string;
+    created_at: string;
+  }
+  const [history, setHistory] = useState<HistoryProject[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
   const selectedTwin = twins.find(t => t.id === selectedTwinId);
 
   // Auto-estimate duration from word count
