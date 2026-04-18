@@ -3445,6 +3445,25 @@ const ChatcutAI = () => {
                                     : <VolumeX className="w-2 h-2 text-muted-foreground" />}
                                 </button>
                                 <button
+                                  className="hidden group-hover/clip:flex w-3.5 h-3.5 items-center justify-center rounded bg-primary/80 hover:bg-primary flex-shrink-0 mr-1 z-10 relative"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedReference({
+                                      kind: 'broll-on-timeline',
+                                      id: br.id,
+                                      label: br.name,
+                                      thumbUrl: br.imageUrl,
+                                      start: br.start,
+                                      duration: br.duration,
+                                    });
+                                    toast({ title: 'Pinned for Marco', description: `Tell Marco what to do with "${br.name}"` });
+                                  }}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  title="Pin this B-Roll for Marco — then tell him to delete, move, or replace it"
+                                >
+                                  <Sparkles className="w-2 h-2 text-primary-foreground" />
+                                </button>
+                                <button
                                   className="hidden group-hover/clip:flex w-3.5 h-3.5 items-center justify-center rounded bg-destructive/80 hover:bg-destructive flex-shrink-0 mr-1.5 z-10 relative"
                                   onClick={(e) => { e.stopPropagation(); deleteBRoll(br.id); }}
                                   onMouseDown={(e) => e.stopPropagation()}
