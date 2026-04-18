@@ -120,6 +120,17 @@ export const TimelineOverlayTrack: React.FC<TimelineOverlayTrackProps> = ({
         >
           {trackVisible ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5 text-muted-foreground" />}
         </Button>
+        {onAddImage && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-4 w-4 opacity-60 hover:opacity-100"
+            onClick={onAddImage}
+            title="Upload an image to this track (placed at the playhead)"
+          >
+            <Plus className="w-2.5 h-2.5" />
+          </Button>
+        )}
         {kind === 'overlay' && captionsEnabled && (
           <Badge className={cn('text-[7px] px-1 py-0 h-3', c.badge)}>CC</Badge>
         )}
