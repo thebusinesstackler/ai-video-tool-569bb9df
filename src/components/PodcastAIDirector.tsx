@@ -59,8 +59,22 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
     return match ? match[1].trim() : null;
   };
 
+  const extractPlan = (text: string): VideoPlan[] | null => {
+    const match = text.match(/<VIDEO_PLAN>([\s\S]*?)<\/VIDEO_PLAN>/);
+    if (!match) return null;
+    try {
+      const json = JSON.parse(match[1].trim());
+      const arr: VideoPlan[] = Array.isArray(json?.plans) ? json.plans : [];
+      return arr.filter(p => p?.topic && p?.narration).slice(0, 10);
+    } catch {
+      return null;
+    }
+  };
+
   const stripScriptTags = (text: string): string => {
-    return text.replace(/<\/?SCRIPT_SUGGESTION>/g, '');
+    return text
+      .replace(/<\/?SCRIPT_SUGGESTION>/g, '')
+      .replace(/<VIDEO_PLAN>[\s\S]*?<\/VIDEO_PLAN>/g, '');
   };
 
   const streamChat = async (allMessages: Message[]) => {
