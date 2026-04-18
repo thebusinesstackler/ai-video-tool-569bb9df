@@ -49,6 +49,8 @@ import { ContentCalendarTab } from '@/components/ContentCalendarTab';
 import { VideoRepoTimeline } from '@/components/VideoRepoTimeline';
 import { FrameExtractorDialog } from '@/components/FrameExtractorDialog';
 import { ProductPickerDialog, type SelectedProductContext } from '@/components/ProductPickerDialog';
+import { MarcoVoiceChat } from '@/components/MarcoVoiceChat';
+import { StylePicker, AlternativeAngles, STYLE_OPTIONS } from '@/components/StyleAnglePicker';
 
 interface ChatMessage {
   id: string;
