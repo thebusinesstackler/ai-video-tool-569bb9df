@@ -3588,6 +3588,7 @@ const ChatcutAI = () => {
                       Drop media here or add from Media panel
                     </div>
                   )}
+                 </div>
                 </div>
               </div>
             </ResizablePanel>
