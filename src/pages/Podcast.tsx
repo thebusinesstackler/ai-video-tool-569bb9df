@@ -1259,6 +1259,215 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                   onUseTranscriptForVideo={(t) => setMessage(t)}
                 />
               </TabsContent>
+
+              {/* ============== BULK QUEUE ============== */}
+              <TabsContent value="bulk" className="space-y-4 mt-0">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Layers className="w-6 h-6 text-primary" />
+                    <h1 className="text-2xl font-bold">Bulk Generate</h1>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Ask Marcus to "Plan 10 Videos" → review → select → bulk render with one click.
+                  </p>
+                </div>
+
+                {!selectedTwin && (
+                  <Card className="border-dashed border-primary/30">
+                    <CardContent className="p-3 text-xs text-muted-foreground">
+                      ⚠️ Pick a character on the <button className="underline text-primary" onClick={() => setActiveTab('talking-head')}>Single tab</button> first.
+                    </CardContent>
+                  </Card>
+                )}
+
+                {bulkItems.length === 0 ? (
+                  <Card className="border-dashed">
+                    <CardContent className="p-6 text-center space-y-3">
+                      <Layers className="w-10 h-10 mx-auto text-muted-foreground/50" />
+                      <p className="text-sm text-muted-foreground">
+                        No queue yet. Click <strong>"Plan 10 Videos"</strong> in Marcus on the left.
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <>
+                    {/* Output type + actions */}
+                    <Card>
+                      <CardContent className="p-3 space-y-3">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setBulkOutput('video')}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${bulkOutput === 'video' ? 'border-primary bg-primary/10 text-foreground' : 'border-border text-muted-foreground'}`}
+                            >
+                              🎬 Full talking-head video
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setBulkOutput('voiceover')}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${bulkOutput === 'voiceover' ? 'border-primary bg-primary/10 text-foreground' : 'border-border text-muted-foreground'}`}
+                            >
+                              🎙️ Voiceover only (faster)
+                            </button>
+                          </div>
+                          <div className="flex gap-1">
+                            <Button size="sm" variant="ghost" className="h-7 text-xs"
+                              onClick={() => setBulkItems(prev => prev.map(i => ({ ...i, selected: true })))}>
+                              <CheckSquare className="w-3 h-3 mr-1" /> All
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-7 text-xs"
+                              onClick={() => setBulkItems(prev => prev.map(i => ({ ...i, selected: false })))}>
+                              <Square className="w-3 h-3 mr-1" /> None
+                            </Button>
+                          </div>
+                        </div>
+                        <Button
+                          className="w-full h-11 rounded-xl bg-gradient-to-r from-primary to-primary/80"
+                          onClick={startBulkGeneration}
+                          disabled={isBulkRunning || !selectedTwin || bulkItems.filter(i => i.selected && i.status !== 'done').length === 0}
+                        >
+                          {isBulkRunning ? (
+                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Running queue...</>
+                          ) : (
+                            <><Sparkles className="w-4 h-4 mr-2" /> Bulk generate {bulkItems.filter(i => i.selected && i.status !== 'done').length} {bulkOutput === 'video' ? 'videos' : 'voiceovers'}</>
+                          )}
+                        </Button>
+                      </CardContent>
+                    </Card>
+
+                    {/* Queue list */}
+                    <div className="space-y-2">
+                      {bulkItems.map((it, idx) => (
+                        <Card key={it.id} className={`${it.status === 'done' ? 'border-primary/30 bg-primary/5' : it.status === 'failed' ? 'border-destructive/40' : ''}`}>
+                          <CardContent className="p-3 space-y-2">
+                            <div className="flex items-start gap-2">
+                              <button
+                                type="button"
+                                onClick={() => toggleBulkSelected(it.id)}
+                                disabled={isBulkRunning || it.status === 'done'}
+                                className="mt-0.5 flex-shrink-0"
+                              >
+                                {it.selected ? <CheckSquare className="w-4 h-4 text-primary" /> : <Square className="w-4 h-4 text-muted-foreground" />}
+                              </button>
+                              <div className="flex-1 min-w-0 space-y-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-[10px] font-mono text-muted-foreground">#{idx + 1}</span>
+                                  <p className="text-sm font-semibold truncate">{it.plan.topic}</p>
+                                  {it.status === 'done' && <Badge className="text-[10px] bg-green-500/15 text-green-600 border-green-500/30">Done</Badge>}
+                                  {it.status === 'failed' && <Badge variant="destructive" className="text-[10px]">Failed</Badge>}
+                                  {it.status !== 'pending' && it.status !== 'done' && it.status !== 'failed' && (
+                                    <Badge variant="secondary" className="text-[10px]"><Loader2 className="w-2.5 h-2.5 mr-1 animate-spin inline" /> {it.status}</Badge>
+                                  )}
+                                </div>
+                                {it.plan.hook && <p className="text-[11px] text-muted-foreground line-clamp-1 italic">"{it.plan.hook}"</p>}
+                                <p className="text-[11px] text-muted-foreground line-clamp-2">{it.plan.narration}</p>
+                                {it.error && <p className="text-[11px] text-destructive">{it.error}</p>}
+                                {it.status !== 'pending' && it.status !== 'done' && it.status !== 'failed' && (
+                                  <Progress value={it.progress} className="h-1" />
+                                )}
+                                {it.videoUrl && (
+                                  <video src={it.videoUrl} controls className="w-32 rounded-md mt-1 aspect-[9/16] object-cover" />
+                                )}
+                                {!it.videoUrl && it.audioUrl && (
+                                  <audio src={it.audioUrl} controls className="w-full h-7 mt-1" />
+                                )}
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                {it.status === 'failed' && (
+                                  <Button size="sm" variant="outline" className="h-7 px-2 text-xs"
+                                    onClick={() => retryBulkItem(it.id)} disabled={isBulkRunning}>
+                                    <RefreshCw className="w-3 h-3" />
+                                  </Button>
+                                )}
+                                <Button size="sm" variant="ghost" className="h-7 px-2 text-xs"
+                                  onClick={() => removeBulkItem(it.id)} disabled={isBulkRunning}>
+                                  <X className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </TabsContent>
+
+              {/* ============== HISTORY ============== */}
+              <TabsContent value="history" className="space-y-4 mt-0">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <History className="w-6 h-6 text-primary" />
+                      <h1 className="text-2xl font-bold">Podcast History</h1>
+                    </div>
+                    <p className="text-sm text-muted-foreground">All your talking-head projects. Click to edit & re-render.</p>
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={loadHistory}>
+                    <RefreshCw className={`w-4 h-4 ${loadingHistory ? 'animate-spin' : ''}`} />
+                  </Button>
+                </div>
+
+                {loadingHistory ? (
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm py-4">
+                    <Loader2 className="w-4 h-4 animate-spin" /> Loading...
+                  </div>
+                ) : history.length === 0 ? (
+                  <Card className="border-dashed">
+                    <CardContent className="p-6 text-center text-sm text-muted-foreground">
+                      No podcast projects yet. Generate one to see it here.
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="space-y-2">
+                    {history.map(h => (
+                      <Card key={h.id} className={h.status === 'done' ? 'border-primary/20' : h.status === 'failed' ? 'border-destructive/30' : ''}>
+                        <CardContent className="p-3 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap mb-1">
+                                <p className="text-sm font-semibold truncate">{h.topic}</p>
+                                {h.status === 'done' && <Badge className="text-[10px] bg-green-500/15 text-green-600 border-green-500/30">Done</Badge>}
+                                {h.status === 'failed' && <Badge variant="destructive" className="text-[10px]">Failed</Badge>}
+                                {h.twin_name && <Badge variant="outline" className="text-[10px]">{h.twin_name}</Badge>}
+                                {h.duration && <Badge variant="outline" className="text-[10px]">{h.duration}s</Badge>}
+                              </div>
+                              {h.hook && <p className="text-[11px] text-muted-foreground italic line-clamp-1">"{h.hook}"</p>}
+                              <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{h.narration}</p>
+                              <p className="text-[10px] text-muted-foreground/60 mt-1">{new Date(h.created_at).toLocaleString()}</p>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => editFromHistory(h)} title="Edit script">
+                                <Wand2 className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                                onClick={() => deleteHistoryItem(h.id)} title="Delete">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 flex-wrap">
+                            {h.video_url && (
+                              <video src={h.video_url} controls className="w-28 rounded-md aspect-[9/16] object-cover" />
+                            )}
+                            {!h.video_url && h.audio_url && (
+                              <audio src={h.audio_url} controls className="w-full h-8" />
+                            )}
+                            {h.video_url && (
+                              <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
+                                <a href={h.video_url} download target="_blank" rel="noopener noreferrer">
+                                  <Download className="w-3 h-3 mr-1" /> Download
+                                </a>
+                              </Button>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
             </Tabs>
           </div>
         </div>
