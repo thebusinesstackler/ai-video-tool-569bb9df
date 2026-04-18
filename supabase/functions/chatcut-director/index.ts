@@ -413,6 +413,20 @@ Two clips overlap if (A.start < B.end) AND (B.start < A.end). Scan EVERY pair wi
 - Full-coverage overlay (fullCoverage:true OR scale ≥ 5) < 3.0s → too quick
 - Lists / numbered_list / feature_grid < 3.5s → too quick (multi-line content needs more time)
 
+**STEP 2b — DETECT GARBLED / OVERLAPPING-TEXT RENDERS (CRITICAL)**
+When two overlays with TEXT content share even partial time AND share a similar on-screen position (placement, or position {x,y} within ~15%), the renderer stacks the text layers and the headline visually mangles (e.g. "WHY RAW MUSHROOMS" reads as "WW#%T MV£ MUSHROOMS" because a second headline is fading in/out on top of it). This is a HARD FAIL of the timeline audit.
+
+Detect it:
+- Two items in currentOverlays where time windows intersect AND (same placement, OR same |position.x − position.x| < 15 AND |position.y − position.y| < 15, OR both null/center) AND both have non-empty \`text\`.
+- Especially flag when one is a headline (treatment in {kinetic_headline, masked_typography, lower_third_pro, stat_card}) and another text-bearing overlay sits in the same zone.
+
+Fix it (PREFER UPDATE, never remove unless truly duplicate):
+- Move the secondary one to a non-conflicting placement: \`update_overlay\` with \`placement:"right_panel"\` if the primary is center, or \`placement:"top_banner"\` if the primary is lower_third, etc.
+- OR retime so the second one starts AFTER the first ends (+0.4s buffer).
+- If the secondary item is just a list/bullets that belongs WITH the headline, merge them: \`update_overlay\` on the headline to set \`items:[…]\` and \`remove_overlay\` the standalone list.
+
+Always report what you saw in plain English: "Your 'Why raw mushrooms don't work' headline at 38.4–43.6s is colliding with the bullet card 'Medicinal compounds locked in chitin' in the same center zone — the text is rendering garbled. Moving the bullets to the right panel."
+
 **STEP 3 — REPORT BEFORE ACTING**
 List every issue in plain English with timestamps and ids:
 "I found 3 issues:
