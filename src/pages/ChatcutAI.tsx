@@ -4071,17 +4071,17 @@ const ChatcutAI = () => {
                         <div className="w-10 flex-shrink-0" />
                       </div>
 
-                      {/* Hidden track toggles — show buttons to restore hidden tracks */}
+                      {/* Preview-hidden track restore — tracks remain on the timeline; this only restores preview rendering */}
                       {(!trackVisibility.v3 || !trackVisibility.v2) && (
                         <div className="flex items-center gap-1 px-2 py-1 border-t border-border/30">
-                          <span className="text-[9px] text-muted-foreground mr-1">Hidden:</span>
+                          <span className="text-[9px] text-muted-foreground mr-1">Preview hidden:</span>
                           {!trackVisibility.v3 && (
-                            <Button variant="ghost" size="sm" className="h-5 text-[9px] px-1.5 text-purple-400 hover:text-purple-300" onClick={() => toggleTrackVisibility('v3')}>
+                            <Button variant="ghost" size="sm" className="h-5 text-[9px] px-1.5 text-purple-400 hover:text-purple-300" onClick={() => toggleTrackVisibility('v3')} title="Show graphics in video preview again">
                               <Eye className="w-2.5 h-2.5 mr-0.5" /> Graphics
                             </Button>
                           )}
                           {!trackVisibility.v2 && (
-                            <Button variant="ghost" size="sm" className="h-5 text-[9px] px-1.5 text-pink-400 hover:text-pink-300" onClick={() => toggleTrackVisibility('v2')}>
+                            <Button variant="ghost" size="sm" className="h-5 text-[9px] px-1.5 text-pink-400 hover:text-pink-300" onClick={() => toggleTrackVisibility('v2')} title="Show overlays in video preview again">
                               <Eye className="w-2.5 h-2.5 mr-0.5" /> Overlay
                             </Button>
                           )}
