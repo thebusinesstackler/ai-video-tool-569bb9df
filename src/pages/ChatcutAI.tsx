@@ -849,11 +849,15 @@ const ChatcutAI = () => {
         ? `The source video is loaded on track V1 and plays CONTINUOUSLY from 0.0s to ${(duration || 0).toFixed(1)}s. There are NO gaps in the source video footage — every second between 0 and ${(duration || 0).toFixed(1)}s has visual content. NEVER tell the user "there's no visual at Xs" — the source video covers the entire timeline. Only B-Roll, overlays, music, and captions can be missing.`
         : 'No source video uploaded yet.',
     },
+    playhead: {
+      currentTime: +(currentTime || 0).toFixed(2),
+      note: `User's playhead is currently at ${(currentTime || 0).toFixed(2)}s. When the user says "this", "here", "what I'm looking at", or "near the playhead", inspect overlays/B-roll/clips whose [start, start+duration] window contains ${(currentTime || 0).toFixed(2)}s and act on those specifically.`,
+    },
     clips: timelineClips.map(c => ({ name: c.name, startAt: c.startAt, duration: c.duration })),
     cuts: cuts.filter(c => c.accepted),
     musicTracks: musicTracks.map(t => ({ name: t.name, genre: t.genre, mood: t.mood, volume: t.volume, startAt: t.startAt, duration: t.duration, hasAudio: !!t.audioUrl })),
-    overlays: overlays.map(o => ({ type: o.type, text: o.text, start: o.start, duration: o.duration, hasImage: !!o.imageUrl, scale: o.scale })),
-    bRollClips: bRollClips.map(b => ({ name: b.name, start: b.start, duration: b.duration, hasImage: !!b.imageUrl })),
+    overlays: overlays.map(o => ({ id: o.id, type: o.type, text: o.text, start: o.start, duration: o.duration, hasImage: !!o.imageUrl, scale: o.scale, imageUrl: o.imageUrl || null })),
+    bRollClips: bRollClips.map(b => ({ id: b.id, name: b.name, start: b.start, duration: b.duration, hasImage: !!b.imageUrl, imageUrl: b.imageUrl || null })),
     captionsEnabled: captionSettings.enabled,
     captionStyle: captionSettings.style,
     brandSettings: {
@@ -862,7 +866,7 @@ const ChatcutAI = () => {
       font: brandSettings.font,
       hasLogo: !!brandSettings.logoUrl,
     },
-  }), [videoUrl, duration, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, brandSettings]);
+  }), [videoUrl, duration, currentTime, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, brandSettings]);
 
   const saveDraft = useCallback(async () => {
     if (!user) return;
