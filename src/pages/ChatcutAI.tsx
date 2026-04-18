@@ -1978,6 +1978,16 @@ const ChatcutAI = () => {
               audioEnabled: !!b.audioEnabled,
               ready: (b.videoStatus === 'ready') || (b.imageStatus === 'ready'),
             })),
+            currentOverlays: overlays.map((o) => ({
+              id: o.id,
+              type: o.type,
+              text: o.text,
+              start: +(o.start || 0).toFixed(2),
+              end: +(((o.start || 0) + (o.duration || 0))).toFixed(2),
+              duration: +(o.duration || 0).toFixed(2),
+              fullCoverage: !!(o as any).fullCoverage || (o.scale || 0) >= 5,
+              renderMode: (o as any).renderMode || 'dom',
+            })),
             currentThumbnail: thumbnail
               ? { url: thumbnail.url, headline: thumbnail.headline, duration: thumbnail.duration }
               : null,
