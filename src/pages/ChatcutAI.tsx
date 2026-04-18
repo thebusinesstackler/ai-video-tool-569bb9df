@@ -2722,7 +2722,7 @@ const ChatcutAI = () => {
 
             {/* Center Panel: Video + Transport + Timeline */}
             <ResizablePanel defaultSize={60} minSize={42}>
-              <div className="h-full flex flex-col bg-black/95">
+              <div className="h-full min-h-0 flex flex-col bg-black/95">
                 {/* Video preview */}
                 {videoUrl ? (
                   <div className="flex-1 flex items-center justify-center min-h-[240px] sm:min-h-[280px] lg:min-h-[320px] overflow-hidden bg-black">
@@ -3064,7 +3064,7 @@ const ChatcutAI = () => {
                 )}
 
                 {/* Transport controls */}
-                <div className="flex items-center gap-1 px-3 py-1.5 bg-card border-t border-border flex-shrink-0">
+                <div className="flex items-center gap-1 px-2 sm:px-3 py-1.5 bg-card border-t border-border flex-shrink-0">
                   <Button variant="ghost" size="icon" className="h-7 w-7" title="Split at playhead"
                     onClick={() => {
                       if (timelineClips.length === 0 || duration === 0) return;
@@ -3213,10 +3213,10 @@ const ChatcutAI = () => {
                 </div>
 
                 {/* Multi-Track Timeline */}
-                <div className={cn("border-t border-border bg-card flex-shrink-0 relative overflow-x-auto", timelineCollapsed && "h-8 overflow-hidden")}>
+                <div className={cn("border-t border-border bg-card flex-shrink-0 relative overflow-x-auto overflow-y-auto max-h-[24svh] sm:max-h-[28svh] lg:max-h-[32svh]", timelineCollapsed && "h-8 overflow-hidden") }>
                  <div style={{ width: `${zoomLevel}%`, minWidth: '100%' }}>
                   {/* Timeline ruler with inline collapse toggle */}
-                  <div className="relative h-6 border-b border-border overflow-hidden bg-muted/30 cursor-pointer flex items-center"
+                    <div className="relative h-5 sm:h-6 border-b border-border overflow-hidden bg-muted/30 cursor-pointer flex items-center"
                     onClick={(e) => {
                       if (duration <= 0) return;
                       const rect = e.currentTarget.getBoundingClientRect();
