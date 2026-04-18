@@ -2259,7 +2259,83 @@ const ChatcutAI = () => {
     window.addEventListener('mouseup', onUp);
   };
 
-  const deleteMusicTrack = (id: string) => {
+  // Drag / resize an OVERLAY clip on the timeline (mirrors handleBRollDrag).
+  // Lets the user — and Marco — physically move overlays around the V2/V3 tracks.
+  const handleOverlayClipDrag = (
+    e: React.MouseEvent<HTMLDivElement>,
+    ovId: string,
+    mode: 'move' | 'resize-left' | 'resize-right',
+    trackKind: 'graphics' | 'overlay',
+  ) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const trackEl = (e.currentTarget.closest('[data-overlay-track]') || e.currentTarget.parentElement) as HTMLElement | null;
+    if (!trackEl) return;
+    const trackRect = trackEl.getBoundingClientRect();
+    const startX = e.clientX;
+    const ov = overlays.find(o => o.id === ovId);
+    if (!ov) return;
+    const startStart = ov.start;
+    const startDuration = ov.duration;
+    const total = Math.max(duration, 1);
+    document.body.style.cursor = mode === 'move' ? 'grabbing' : 'ew-resize';
+
+    // Only check overlap against siblings on the SAME track (graphics vs overlay).
+    const isOnGraphics = (o: OverlayItem) => o.type === 'motion_graphic' || o.type === 'animated_text';
+    const sameTrack = (o: OverlayItem) => trackKind === 'graphics' ? isOnGraphics(o) : !isOnGraphics(o);
+
+    const onMove = (ev: MouseEvent) => {
+      const deltaPx = ev.clientX - startX;
+      const deltaSec = (deltaPx / trackRect.width) * total;
+      setOverlays(prev => {
+        const others = prev.filter(o => o.id !== ovId && sameTrack(o)).sort((a, b) => a.start - b.start);
+        return prev.map(o => {
+          if (o.id !== ovId) return o;
+          if (mode === 'move') {
+            let newStart = Math.max(0, Math.min(total - startDuration, startStart + deltaSec));
+            const newEnd = newStart + startDuration;
+            for (const oth of others) {
+              const oStart = oth.start;
+              const oEnd = oth.start + oth.duration;
+              if (newStart < oEnd && newEnd > oStart) {
+                const moveLeft = oStart - startDuration;
+                const moveRight = oEnd;
+                newStart = Math.abs(newStart - moveLeft) < Math.abs(newStart - moveRight) ? Math.max(0, moveLeft) : moveRight;
+              }
+            }
+            newStart = Math.max(0, Math.min(total - startDuration, newStart));
+            return { ...o, start: newStart };
+          }
+          if (mode === 'resize-left') {
+            const maxShift = startDuration - 0.3;
+            let shift = Math.max(-startStart, Math.min(maxShift, deltaSec));
+            const proposedStart = startStart + shift;
+            const leftNeighbor = [...others].reverse().find(n => n.start + n.duration <= startStart + 0.001);
+            if (leftNeighbor) {
+              const minStart = leftNeighbor.start + leftNeighbor.duration;
+              if (proposedStart < minStart) shift = minStart - startStart;
+            }
+            return { ...o, start: startStart + shift, duration: startDuration - shift };
+          }
+          // resize-right
+          let newDuration = Math.max(0.3, Math.min(total - startStart, startDuration + deltaSec));
+          const rightNeighbor = others.find(n => n.start >= startStart + 0.001);
+          if (rightNeighbor) {
+            const maxDur = rightNeighbor.start - startStart;
+            if (newDuration > maxDur) newDuration = Math.max(0.3, maxDur);
+          }
+          return { ...o, duration: newDuration };
+        });
+      });
+    };
+    const onUp = () => {
+      document.body.style.cursor = '';
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
     const audioEl = musicAudioRefs.current.get(id);
     if (audioEl) { audioEl.pause(); audioEl.src = ''; musicAudioRefs.current.delete(id); }
     setMusicTracks(prev => prev.filter(t => t.id !== id));
