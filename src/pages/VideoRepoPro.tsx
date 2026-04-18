@@ -2373,6 +2373,21 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
         projectId={frameExtractor?.projectId}
         projectLabel={frameExtractor?.label}
       />
+      <ProductPickerDialog
+        open={showProductPicker}
+        onOpenChange={setShowProductPicker}
+        onSelect={(ctx: SelectedProductContext) => {
+          setProductImageUrl(ctx.imageUrl);
+          setProductImageName(ctx.productName);
+          setPersistentImageUrl(ctx.imageUrl);
+          setProductImageFile(null);
+          setShowProductPicker(false);
+          toast({
+            title: `${ctx.productName} attached ✓`,
+            description: 'Marco will use this product image, name, and benefits in the script.',
+          });
+        }}
+      />
     </Layout>
   );
 };
