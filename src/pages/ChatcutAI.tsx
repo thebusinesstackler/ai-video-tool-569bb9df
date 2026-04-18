@@ -2774,7 +2774,7 @@ const ChatcutAI = () => {
                           </div>
                         </div>
                       )}
-                      {/* B-Roll overlay when active — prefer video over still */}
+                      {/* B-Roll overlay when active — prefer video over still. Smooth crossfade on enter so it doesn't pop. */}
                       {activeBRoll && (
                         activeBRoll.videoUrl && activeBRoll.videoStatus === 'ready' ? (
                           <video
@@ -2784,7 +2784,7 @@ const ChatcutAI = () => {
                             muted={!activeBRoll.audioEnabled}
                             loop={typeof activeBRoll.sourceStart !== 'number'}
                             playsInline
-                            className="block absolute inset-0 w-full h-full object-cover z-[5]"
+                            className="block absolute inset-0 w-full h-full object-cover z-[5] animate-fade-in transition-opacity duration-300"
                             onLoadedMetadata={(e) => {
                               if (typeof activeBRoll.sourceStart === 'number') {
                                 (e.currentTarget as HTMLVideoElement).currentTime = activeBRoll.sourceStart;
@@ -2801,9 +2801,10 @@ const ChatcutAI = () => {
                           />
                         ) : (
                           <img
+                            key={activeBRoll.id}
                             src={activeBRoll.imageUrl}
                             alt={activeBRoll.name}
-                            className="block absolute inset-0 w-full h-full object-cover z-[5]"
+                            className="block absolute inset-0 w-full h-full object-cover z-[5] animate-fade-in transition-opacity duration-300"
                           />
                         )
                       )}
