@@ -2050,6 +2050,7 @@ const ChatcutAI = () => {
   const musicWaveHeights = useMemo(() => Array.from({ length: 50 }, () => 15 + Math.random() * 65), []);
   const audioWaveHeights = useMemo(() => Array.from({ length: 40 }, () => 20 + Math.random() * 60), []);
   const [mediaPanelVisible, setMediaPanelVisible] = useState(true);
+  const [aiPanelVisible, setAiPanelVisible] = useState(true);
 
   const toggleTrackVisibility = (track: 'v1' | 'v2' | 'v3' | 'a1') => {
     setTrackVisibility(prev => ({ ...prev, [track]: !prev[track] }));
