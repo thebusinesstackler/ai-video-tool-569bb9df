@@ -2311,6 +2311,21 @@ const ChatcutAI = () => {
   const handleOverlayMouseDown = useCallback((e: React.MouseEvent, overlayId: string) => {
     e.preventDefault();
     e.stopPropagation();
+    // If the overlay is currently in full-coverage mode (inset-0), it can't be
+    // freely repositioned. The moment the user starts dragging it, demote it to
+    // a normal positioned overlay (scale capped + fullCoverage off) so the drag
+    // logic can move it via position.x/position.y.
+    setOverlays(prev => prev.map(o => {
+      if (o.id !== overlayId) return o;
+      const wasFull = o.fullCoverage || (o.scale || 1) >= 5;
+      if (!wasFull) return o;
+      return {
+        ...o,
+        fullCoverage: false,
+        scale: Math.min(o.scale || 1, 3),
+        position: o.position || { x: 50, y: 50 },
+      };
+    }));
     setDraggingOverlayId(overlayId);
   }, []);
 
@@ -3370,12 +3385,12 @@ const ChatcutAI = () => {
                                 isFull && "inset-0 flex items-center justify-center"
                               )}
                               style={isFull ? {} : { left: `${pos.x}%`, top: `${adjustedTop}%`, transform: 'translate(-50%, -50%)' }}
-                              onMouseDown={(e) => !isFull && handleOverlayMouseDown(e, ov.id)}
+                              onMouseDown={(e) => handleOverlayMouseDown(e, ov.id)}
                               onDoubleClick={(e) => {
                                 e.stopPropagation();
-                                setOverlays(prev => prev.map(o => o.id === ov.id ? { ...o, scale: ((o.scale || 1) % 5) + 1 } : o));
+                                setOverlays(prev => prev.map(o => o.id === ov.id ? { ...o, scale: ((o.scale || 1) % 5) + 1, fullCoverage: false } : o));
                               }}
-                              title={isFull ? ov.text : `Drag to reposition · double-click to resize`}
+                              title={`Drag to reposition · double-click to resize`}
                             >
                               {!isFull && (
                                 <div className="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover/preview-ov:opacity-100 transition-opacity pointer-events-none z-20">
