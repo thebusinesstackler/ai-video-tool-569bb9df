@@ -338,6 +338,129 @@ const AnimateStatics = () => {
     setMusicUrl(null);
     setMusicPrompt('');
     setProjectId(null);
+    setBulkMode(false);
+    setBulkSelected(new Set());
+    setBulkJobs([]);
+  };
+
+  const toggleBulkSelect = (url: string) => {
+    setBulkSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(url)) next.delete(url);
+      else next.add(url);
+      return next;
+    });
+  };
+
+  const updateBulkJob = (imageUrl: string, patch: Partial<typeof bulkJobs[number]>) => {
+    setBulkJobs(prev => prev.map(j => j.imageUrl === imageUrl ? { ...j, ...patch } : j));
+  };
+
+  const processOneBulkJob = async (imageUrl: string, musicMoodPrompt: string) => {
+    if (!user) throw new Error('Not authenticated');
+
+    // 1. Analyze
+    updateBulkJob(imageUrl, { status: 'analyzing', progress: 5 });
+    const { data: analysisData, error: analysisErr } = await supabase.functions.invoke('analyze-animate-image', {
+      body: { imageUrl },
+    });
+    if (analysisErr) throw new Error(analysisErr.message);
+    if (analysisData?.error) throw new Error(analysisData.userMessage || analysisData.error);
+    const a = analysisData as Analysis;
+
+    // 2. Build best-of-the-best prompt (use ALL suggestions + director's brief)
+    const preservationPrefix = a.objects?.length ? `[PRESERVE EXACTLY: ${a.objects.join('; ')}] ` : '';
+    const textItems = a.objects?.filter((o: string) => /^Text:/i.test(o)) || [];
+    const textFreeze = textItems.length > 0
+      ? `[TEXT FREEZE: All visible text and lettering must remain exactly as shown — treat as fixed texture, do not regenerate any characters. Detected text: ${textItems.join('; ')}] `
+      : '[TEXT FREEZE: All visible text, lettering, and typography must be treated as fixed texture — do not regenerate, redraw, or alter any characters.] ';
+    const finalPrompt = preservationPrefix + textFreeze + (a.directorPrompt || 'Subtle cinematic motion with slow zoom and gentle parallax');
+
+    // 3. Insert project
+    const { data: project, error: projErr } = await supabase
+      .from('animated_statics')
+      .insert({
+        user_id: user.id,
+        source_image_url: imageUrl,
+        analysis: a as any,
+        prompt: finalPrompt,
+        status: 'generating',
+      })
+      .select()
+      .single();
+    if (projErr) throw projErr;
+
+    // 4. Generate video
+    updateBulkJob(imageUrl, { status: 'generating', progress: 15 });
+    const taskId = await createWaveSpeedVideo({
+      prompt: finalPrompt,
+      imageUrls: [imageUrl],
+      model: 'wan-2.5-i2v',
+      aspectRatio: '9:16',
+      userId: user.id,
+      source: 'animate-statics',
+      sourceId: project.id,
+    });
+
+    // 5. Poll
+    const pollStart = Date.now();
+    let videoOut: string | null = null;
+    while (!videoOut) {
+      await new Promise(r => setTimeout(r, 5000));
+      if (Date.now() - pollStart > 5 * 60 * 1000) throw new Error('Video timed out');
+      try {
+        const job = await getWaveSpeedVideoJob(taskId);
+        if (job.progress) updateBulkJob(imageUrl, { progress: Math.max(15, Math.min(80, job.progress)) });
+        if (job.status === 'completed' && job.videoUrl) videoOut = job.videoUrl;
+        else if (job.status === 'failed') throw new Error(job.error || 'Video generation failed');
+      } catch (e: any) {
+        if (e.message?.includes('Video generation failed') || e.message?.includes('timed out')) throw e;
+      }
+    }
+    await supabase.from('animated_statics').update({ animation_url: videoOut, status: 'completed' }).eq('id', project.id);
+    updateBulkJob(imageUrl, { videoUrl: videoOut, progress: 85, status: 'music' });
+
+    // 6. Music
+    let musicOut: string | undefined;
+    try {
+      const { data: musicData, error: musicErr } = await supabase.functions.invoke('generate-music', {
+        body: { mood: musicMoodPrompt, duration: 30 },
+      });
+      if (musicErr) throw new Error(musicErr.message);
+      if (musicData?.error) throw new Error(musicData.error);
+      musicOut = musicData?.audioUrl;
+      if (musicOut) {
+        await supabase.from('animated_statics').update({ music_url: musicOut }).eq('id', project.id);
+      }
+    } catch (e: any) {
+      console.warn('Music generation failed for bulk job:', e.message);
+    }
+
+    updateBulkJob(imageUrl, { musicUrl: musicOut, status: 'done', progress: 100 });
+  };
+
+  const startBulkGeneration = async () => {
+    if (!user || bulkSelected.size === 0) return;
+    const moodPreset = MUSIC_PRESETS.find(p => p.label === bulkMusicPreset) || MUSIC_PRESETS[0];
+    const urls = Array.from(bulkSelected);
+    setBulkRunning(true);
+    setBulkJobs(urls.map(u => ({ imageUrl: u, status: 'pending', progress: 0 })));
+
+    // Process sequentially to avoid overwhelming WaveSpeed quotas
+    for (const url of urls) {
+      try {
+        await processOneBulkJob(url, moodPreset.prompt);
+      } catch (e: any) {
+        updateBulkJob(url, { status: 'failed', error: e.message });
+      }
+    }
+
+    setBulkRunning(false);
+    const successes = bulkJobs.filter(j => j.status === 'done').length;
+    toast({
+      title: 'Bulk generation complete 🎬',
+      description: `Processed ${urls.length} images. Check History for all results.`,
+    });
   };
 
   return (
