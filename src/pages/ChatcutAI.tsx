@@ -2464,6 +2464,9 @@ const ChatcutAI = () => {
   //   • Image   → static PNG/JPG graphics (renderMode 'image' or has an imageUrl, but not motion)
   //   • Overlay → DOM-rendered text cards (lower_third, stat_callout, benefit_chip, quote_pop, cta_button, title_card, lower_third_pro, etc.)
   const classifyOverlay = (o: OverlayItem): 'motion' | 'image' | 'overlay' => {
+    // Commercial Director graphics (have a `treatment`) ALWAYS belong on the Motion track,
+    // even when their underlying type is something generic like 'lower_third'.
+    if (o.treatment) return 'motion';
     if (o.type === 'motion_graphic' || o.type === 'animated_text' || o.renderMode === 'video') return 'motion';
     if (o.renderMode === 'image' || (!!o.imageUrl && o.renderMode !== 'dom')) return 'image';
     return 'overlay';
