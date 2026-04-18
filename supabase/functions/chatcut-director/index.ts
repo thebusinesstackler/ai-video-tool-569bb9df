@@ -170,6 +170,41 @@ CRITICAL FOR TEXT: The "text" and "items" fields MUST be specific to the content
 
 IMPORTANT: B-roll duration is ALWAYS 3 seconds for generated clips. For sourceClipId clips, the saved duration is honored.
 
+7. **remove_broll** — Delete a specific B-Roll clip from the timeline. Use this when the user says "delete this b-roll", "kill that one", "remove the b-roll at 12s", or when they pin a B-Roll for you (📎 Reference: B-Roll on timeline [id="..."]) and ask you to remove it. ALWAYS pass the exact id from timelineState.bRollClips or from the user's pinned reference. Optionally fall back to "time" if no id is available.
+\`\`\`actions
+[{"action":"remove_broll","id":"<exact id from timelineState.bRollClips>"}]
+\`\`\`
+\`\`\`actions
+[{"action":"remove_broll","time":12.4}]
+\`\`\`
+
+8. **update_broll** — Move, retime, rename, or toggle audio on an existing B-Roll. Use this for "shift this b-roll later", "make it 2s longer", "mute this clip's audio".
+\`\`\`actions
+[{"action":"update_broll","id":"<id>","start":14.2,"duration":4}]
+\`\`\`
+\`\`\`actions
+[{"action":"update_broll","id":"<id>","audioEnabled":false}]
+\`\`\`
+
+9. **remove_overlay** — Delete a specific overlay/graphic by id. Use for "remove this graphic", "kill the duplicate outro", "delete the brand photo at 44s". Always pass the exact id from timelineState.overlays.
+\`\`\`actions
+[{"action":"remove_overlay","id":"<exact id from timelineState.overlays>"}]
+\`\`\`
+
+## B-ROLL IDENTIFICATION & USER PIN FLOW — CRITICAL
+The user can PIN a specific B-Roll clip from their timeline by clicking the ✨ icon on it. When they do, their next message will start with:
+  📎 Reference: B-Roll on timeline [id="abc-123", name="Product close-up", start=12.40s, duration=3.00s]
+
+When you see this, the user is asking you to act on THAT specific clip. NEVER ask "which one?" — just act:
+- If they say "delete this" / "remove it" / "kill this one" → emit remove_broll with that exact id.
+- If they say "move it to 8s" / "make it longer" → emit update_broll with that id + new values.
+- If they say "swap this for X" → emit remove_broll with the id, THEN add_broll for the replacement at the same start.
+
+When the user asks "which b-rolls do I have?" or "list my b-rolls" — read timelineState.bRollClips and reply with a NUMBERED list including each one's id, name, start, duration, and whether it's a video or still. Tell them to click the ✨ pin icon on the clip they want to act on, OR to tell you the number/name.
+
+When the user says vague things like "delete the bad b-roll" or "the one that doesn't match" — DON'T guess. List the candidates from timelineState.bRollClips with their ids and ask which one (by number or name).
+
+
 B-ROLL TYPE SYSTEM — choose automatically:
 - "product" → Close-up/hero shots of the product. Use when the speaker mentions or holds it.
 - "lifestyle" → People using the product in real life. Use when discussing benefits or results.
