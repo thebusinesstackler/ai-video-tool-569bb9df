@@ -824,9 +824,22 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
     }
   };
 
+  const resolveItemTwin = (item: BulkItem): AITwin | null => {
+    if (item.assignedTwinId) {
+      const found = twins.find(t => t.id === item.assignedTwinId);
+      if (found) return found;
+    }
+    if (item.assignedTwinName) {
+      const norm = item.assignedTwinName.trim().toLowerCase();
+      const byName = twins.find(t => t.name.trim().toLowerCase() === norm);
+      if (byName) return byName;
+    }
+    return selectedTwin || null;
+  };
+
   const startBulkGeneration = async () => {
-    if (!selectedTwin) {
-      toast({ title: 'Pick a character', description: 'Select an AI Twin first.', variant: 'destructive' });
+    if (twins.length === 0) {
+      toast({ title: 'No AI twins available', description: 'Create at least one AI Twin first.', variant: 'destructive' });
       return;
     }
     const queue = bulkItems.filter(i => i.selected && i.status !== 'done');
@@ -834,10 +847,17 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
       toast({ title: 'Nothing selected', description: 'Tick at least one script.', variant: 'destructive' });
       return;
     }
+    // Verify every queued item has a resolvable twin
+    const missing = queue.find(it => !resolveItemTwin(it));
+    if (missing) {
+      toast({ title: 'Missing cast for an item', description: `"${missing.plan.topic}" has no twin assigned. Pick a default character first.`, variant: 'destructive' });
+      return;
+    }
     setIsBulkRunning(true);
     toast({ title: `Bulk generating ${queue.length} ${bulkOutput === 'video' ? 'videos' : 'voiceovers'}`, description: 'Running sequentially. Stay on this page.' });
     for (const item of queue) {
-      await processBulkItem(item, selectedTwin);
+      const twin = resolveItemTwin(item)!;
+      await processBulkItem(item, twin);
     }
     setIsBulkRunning(false);
     loadHistory();
@@ -845,12 +865,16 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
   };
 
   const retryBulkItem = async (id: string) => {
-    if (!selectedTwin) return;
     const item = bulkItems.find(i => i.id === id);
     if (!item) return;
+    const twin = resolveItemTwin(item);
+    if (!twin) {
+      toast({ title: 'No twin for this plan', description: 'Pick a default character first.', variant: 'destructive' });
+      return;
+    }
     updateBulkItem(id, { status: 'pending', progress: 0, error: undefined });
     setIsBulkRunning(true);
-    await processBulkItem({ ...item, status: 'pending', progress: 0, error: undefined }, selectedTwin);
+    await processBulkItem({ ...item, status: 'pending', progress: 0, error: undefined }, twin);
     setIsBulkRunning(false);
     loadHistory();
   };
