@@ -516,33 +516,49 @@ const VideoRepo = () => {
         contentParts.push({ type: 'image_url', image_url: { url: productImageUrl } });
       }
 
-      const systemPrompt = `You are a UGC ad video strategist and visual analyst. When given reference video frames, study them carefully: identify the hook technique (first 3 seconds), pacing rhythm, camera movements, talent actions, lighting style, text overlays, and transition patterns. Use these insights to craft a new video that captures the same energy and conversion potential.`;
+      const systemPrompt = `You are an elite UGC ad director and Sora-2 prompt engineer. Your job is to write video prompts that produce FINISHED, broadcast-ready short-form ads — not generic clips. Every prompt you write must:
+
+• Open with a SCROLL-STOPPING DYNAMIC HOOK in the first 1.5s (visual surprise + spoken pattern-interrupt). Vary the hook type each time — never repeat the same opener style. Rotate across: bold claim, contrarian take, problem-callout, "POV:" shot, fast cut montage, in-your-face close-up, on-screen text reveal, motion-jump cut, ASMR product reveal, before/after flash.
+• Tell a COMPLETE micro-story with a clear arc: Hook → Problem/Tension → Reveal/Solution (product) → Proof/Demo → CTA. The story must MAKE SENSE end-to-end with no missing beats.
+• Specify the CHARACTER in detail: age, gender, ethnicity, hair, wardrobe, energy, micro-expressions, hand gestures, body language. If a reference frame shows a person, MATCH that look exactly.
+• Specify the VOICE explicitly: gender, age, accent (e.g. warm American female late-20s), tone (confident / conspiratorial / excited), pacing (~2.5 words/sec), mic quality ("clean broadcast voiceover, zero room echo, studio-grade clarity, no muffled audio, no static, no low-bitrate compression"). Sora-2 must produce SYNCED, HIGH-QUALITY DIALOGUE — never mumbled, never low-bitrate.
+• Write the EXACT spoken script in quotes inside the prompt so Sora-2 lip-syncs the right words. Pace it to fit the duration (~2.5 words/second).
+• Include cinematography: camera (handheld iPhone selfie / gimbal push-in / locked tripod / overhead), lens feel, lighting (golden hour, bright daylight window, ring light), color palette, transitions, on-screen text/captions style.
+• Vary the CREATIVE STYLE every generation. Never default to the same talking-head format. Pick intentionally from: Founder POV selfie, Street vox-pop, Day-in-the-life vlog, ASMR ritual / unboxing, Mockumentary skit, Before/After transformation, Problem-Agitate-Solve (PAS), Kinetic typography over b-roll, Testimonial w/ supers, Demo + voiceover, Lifestyle cinematic, Comedy sketch.
+• Anchor product fidelity: when a product image is provided, instruct Sora-2 to keep the bottle/label/colors PIXEL-EXACT to the reference — no logo drift, no color shift.
+• End with a punchy CTA on screen + spoken (URL, "shop now", brand name).
+
+You write prompts that are 180–280 words — long enough to direct every beat, short enough for Sora-2 to execute cleanly. Never produce a generic 50-word prompt.`;
 
       const productContextBlock = selectedProductCtx
-        ? `\n\n**FEATURED PRODUCT (must appear naturally in the ad):**
+        ? `\n\n**FEATURED PRODUCT (must appear naturally in the ad — pixel-exact to reference image):**
 - Name: ${selectedProductCtx.productName}
 ${selectedProductCtx.description ? `- Description: ${selectedProductCtx.description}` : ''}
 ${selectedProductCtx.benefits && selectedProductCtx.benefits.length ? `- Key benefits: ${selectedProductCtx.benefits.join(', ')}` : ''}
 ${selectedProductCtx.targetAudience ? `- Target audience: ${selectedProductCtx.targetAudience}` : ''}
-- Reference image: provided above (treat as the hero product to feature)`
+- Reference image: provided above (lock label, bottle shape, colors — no AI drift)`
         : '';
 
       const analysisInstruction = `User request: "${userMsg.content}"
+Target duration: ${soraDuration}s. Aspect ratio: 9:16 vertical.
 
-${videoFrames.length > 0 ? `Reference video: "${referenceVideoName}" — I've provided ${videoFrames.length} key frames above. Study them carefully.` : ''}
-${productImageUrl ? 'Product image provided above — incorporate this product naturally.' : ''}${productContextBlock}
+${videoFrames.length > 0 ? `Reference video: "${referenceVideoName}" — ${videoFrames.length} key frames provided above. Reverse-engineer what makes it work, then BEAT it — same energy, fresher execution, NOT a copy.` : ''}
+${productImageUrl ? 'Product image provided above — incorporate this product naturally and keep it pixel-exact.' : ''}${productContextBlock}
 
-Provide:
-1. **Reference Analysis**: What you observed in the reference frames — hook type, pacing, camera style, talent energy, visual effects
-2. **Hook Strategy**: How the first 3 seconds will stop the scroll (based on what works in the reference)
-3. **Scene-by-Scene Script**: A 15-30 second UGC-style script with specific visual directions inspired by the reference
-4. **Product Integration**: How and when the product appears naturally
-5. **CTA Strategy**: Closing technique for maximum conversion
+Provide a complete creative brief, then the final prompt:
 
-Then provide a final **VIDEO PROMPT** block:
+1. **Reference Analysis** — hook technique, pacing rhythm, camera style, talent energy, visual effects, audio quality observed in the reference (or, if no reference, the chosen creative style and why).
+2. **Chosen Creative Style** — pick ONE format from the list (Founder POV / Vox-pop / ASMR / PAS / Mockumentary / Before-After / Kinetic Typography / Demo / Testimonial / Lifestyle Cinematic / Comedy). Explicitly say which one and why it fits THIS product. Do NOT default to the last style used.
+3. **Dynamic Hook (first 1.5s)** — write the EXACT opening visual + opening spoken line. It must pattern-interrupt the scroll.
+4. **Scene-by-Scene Script** — break the ${soraDuration}s into beats with timestamps. For EACH beat: visual, camera, talent action, exact dialogue (quoted), on-screen text. Pace at ~2.5 words/sec so the story is fully told within the duration.
+5. **Character & Voice Casting** — full physical description of the on-camera talent + voice profile (gender, age, accent, tone, energy). Voice MUST be specified as "studio-clean broadcast quality, perfectly lip-synced, no muffled audio, no compression artifacts, no low-bitrate static."
+6. **Product Integration** — exact moment(s) the product appears, how it's held, label visibility, hero shot framing.
+7. **CTA** — final on-screen text + final spoken line.
+
+Then provide the final **VIDEO PROMPT** block — this is what Sora-2 will execute. It MUST be 180–280 words, contain the exact spoken script in quotes, lock the character description, lock the product fidelity, and lock the audio quality directive ("clean studio-grade voiceover, perfectly lip-synced, no muffled or low-bitrate audio").
 
 \`\`\`video-prompt
-[Your detailed video generation prompt — 80-150 words covering environment, character, action, camera, lighting, product placement, pacing. Incorporate the visual style from the reference.]
+[Your 180–280 word Sora-2 prompt: ENVIRONMENT + CHARACTER (full physical) + WARDROBE + EXACT SPOKEN SCRIPT IN QUOTES (paced at ~2.5 words/sec to fully fit ${soraDuration}s) + VOICE PROFILE (gender, age, accent, tone, "studio-clean broadcast audio, perfectly synced, no muffling, no low-bitrate compression") + CAMERA (movement, lens, framing) + LIGHTING + COLOR + PACING (beat-by-beat) + PRODUCT PLACEMENT (pixel-exact to reference) + ON-SCREEN TEXT + CTA. Open with the dynamic hook in the first 1.5s. Tell a complete story with a clear arc: Hook → Tension → Reveal → Proof → CTA. Vary the style from previous generations — pick a different creative format than the most recent video.]
 \`\`\``;
 
       contentParts.push({ type: 'text', text: analysisInstruction });
@@ -756,14 +772,22 @@ Previous video prompt was:
 ${lastVideoPrompt || 'N/A'}
 \`\`\`
 
-Based on the user's feedback, revise the script and provide an updated **VIDEO PROMPT** block:
+Revise the script per the user's feedback. The revised prompt MUST still:
+- Open with a dynamic scroll-stopping hook in the first 1.5s (use a DIFFERENT hook style than the previous version unless the user asked to keep it).
+- Tell a complete story (Hook → Tension → Reveal → Proof → CTA).
+- Pick a fresh creative style if the user wants variety (Founder POV / Vox-pop / ASMR / PAS / Mockumentary / Before-After / Kinetic Typography / Demo / Testimonial / Lifestyle Cinematic / Comedy).
+- Lock the character description and product fidelity (pixel-exact to reference image).
+- Quote the EXACT spoken script (paced ~2.5 words/sec to fit the duration).
+- Specify voice as "studio-clean broadcast quality, perfectly lip-synced, no muffled or low-bitrate audio."
+
+Provide the updated **VIDEO PROMPT** block (180–280 words):
 
 \`\`\`video-prompt
-[Your revised detailed video generation prompt — 80-150 words. Incorporate the user's requested changes.]
+[Revised Sora-2 prompt with all the elements above.]
 \`\`\``,
       });
 
-      const systemPrompt = `You are a UGC ad video strategist helping iterate on a video script. The user has already generated a video and wants to make changes. Review the conversation history, understand their feedback, and provide a revised script with an updated video-prompt block. Be concise — focus on what changed and why.`;
+      const systemPrompt = `You are an elite UGC ad director iterating on a previous video. Apply the user's feedback while keeping every prompt broadcast-ready: dynamic hook, complete story arc, detailed character, exact spoken script in quotes, studio-clean voice directive ("perfectly lip-synced, no muffled audio, no low-bitrate compression"), pixel-exact product fidelity, and intentional creative-style variety. Never produce a generic short prompt — always 180–280 words.`;
 
       const { data: aiData, error: aiError } = await supabase.functions.invoke('ai', {
         body: {
