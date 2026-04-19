@@ -1987,6 +1987,26 @@ const ChatcutAI = () => {
         case 'review':
           // Review is handled conversationally by the AI
           break;
+        case 'add_punch_in': {
+          const start = typeof act.start === 'number' ? act.start : currentTime;
+          const dur = Math.max(0.5, Math.min(6, typeof act.duration === 'number' ? act.duration : 2));
+          const sc = Math.max(1.05, Math.min(1.4, typeof act.scale === 'number' ? act.scale : 1.15));
+          const id = crypto.randomUUID();
+          setPunchIns(prev => [...prev, { id, start, duration: dur, scale: sc, reason: act.reason }].sort((a, b) => a.start - b.start));
+          toast({ title: '🎯 Punch-in added', description: `${sc.toFixed(2)}× zoom @ ${start.toFixed(1)}s for ${dur.toFixed(1)}s${act.reason ? ` — ${act.reason}` : ''}` });
+          break;
+        }
+        case 'remove_punch_in': {
+          const id = act.id as string | undefined;
+          const at = typeof act.at === 'number' ? act.at : null;
+          setPunchIns(prev => prev.filter(p => {
+            if (id && p.id === id) return false;
+            if (at != null && at >= p.start && at < p.start + p.duration) return false;
+            return true;
+          }));
+          toast({ title: 'Punch-in removed' });
+          break;
+        }
         case 'trim_tail': {
           // Cut off a long ending. Marco passes how many seconds of tail to remove,
           // or an explicit start time. We add a "cut" so playback skips the tail.
