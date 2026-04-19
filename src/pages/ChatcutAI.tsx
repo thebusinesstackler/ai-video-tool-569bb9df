@@ -203,6 +203,26 @@ interface OverlayAnimation {
   exit: 'fade-out' | 'scale-out' | 'slide-down' | 'none';
 }
 
+/**
+ * Phase 2: Transitions Marco can place between scenes / cuts.
+ *  - fade           → CSS opacity dip (black flash)
+ *  - dip_to_black   → longer hold-on-black, then back in
+ *  - zoom           → quick CSS scale punch on the video wrapper
+ *  - speed_ramp     → temporarily ramps videoRef.playbackRate (slow-mo or speed-up)
+ *  - whip           → quick blur+x-translate "whip-pan" feel
+ * `at` is the start time on the master timeline. `duration` is the visible effect length.
+ */
+interface Transition {
+  id: string;
+  kind: 'fade' | 'dip_to_black' | 'zoom' | 'speed_ramp' | 'whip';
+  at: number;
+  duration: number;
+  /** Used by speed_ramp — 0.5=slow-mo, 2=double-speed. Defaults to 0.5 for slow-mo. */
+  rate?: number;
+  /** Optional human label Marco passes for the timeline marker. */
+  label?: string;
+}
+
 type TimelineAction = {
   action: string;
   [key: string]: any;
