@@ -3131,6 +3131,10 @@ const ChatcutAI = () => {
     'youtube-landscape': [
       { name: 'yt_player_controls', x: 0,  y: 88, width: 100, height: 12, reason: 'YouTube player chrome appears bottom 12% on hover' },
     ],
+    square: [
+      { name: 'sq_caption_strip',   x: 5,  y: 80, width: 90, height: 14, reason: 'Feed caption strip on Instagram/LinkedIn 1:1 posts' },
+      { name: 'sq_top_safe',        x: 0,  y: 0,  width: 100, height: 6, reason: 'Top platform chrome on square posts' },
+    ],
   };
 
   // Build the active safe-zone list = platform-specific zones + caption strip (if enabled)
@@ -4559,6 +4563,7 @@ const ChatcutAI = () => {
                     <option value="shorts">Shorts</option>
                     <option value="youtube">YouTube</option>
                     <option value="youtube-landscape">YT 16:9</option>
+                    <option value="square">Square 1:1</option>
                   </select>
                   <Button variant="ghost" size="icon" className="h-7 w-7" title={showSafeZones ? 'Hide platform safe zones' : 'Show platform UI safe zones'}
                     onClick={() => setShowSafeZones(v => !v)}>
