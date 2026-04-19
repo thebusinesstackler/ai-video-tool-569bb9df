@@ -1018,12 +1018,12 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
     startPreview?: string;
     endPreview?: string;
   }) => {
-    const usingOverrides = !!overrides?.startUrl;
-    if (!usingOverrides && !motionStartFrame) {
+    const hasOverrideStart = !!overrides?.startUrl;
+    if (!hasOverrideStart && !motionStartFrame) {
       toast({ title: 'Start frame required', description: 'Please upload at least a start frame image.', variant: 'destructive' });
       return;
     }
-    if (!usingOverrides && motionModel === 'vidu-start-end' && !motionEndFrame) {
+    if (motionModel === 'vidu-start-end' && !overrides?.endUrl && !motionEndFrame) {
       toast({ title: 'End frame required', description: 'VIDU requires both a start and end frame.', variant: 'destructive' });
       return;
     }
@@ -1031,14 +1031,14 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
 
     setIsMotionGenerating(true);
 
-    const finalPrompt = overrides?.promptText ?? motionPrompt.trim();
-    const startPreviewUrl = overrides?.startPreview ?? motionStartFramePreview!;
-    const endPreviewUrl = overrides?.endPreview ?? motionEndFramePreview;
+    const promptForRun = (overrides?.promptText ?? motionPrompt).trim();
+    const startPreviewUrl = overrides?.startPreview || overrides?.startUrl || motionStartFramePreview!;
+    const endPreviewUrl = overrides?.endPreview || overrides?.endUrl || motionEndFramePreview;
 
     const userMsg: ChatMessage = {
       id: `user-motion-${Date.now()}`,
       role: 'user',
-      content: finalPrompt || `Generate a ${motionModel} motion video from keyframes`,
+      content: promptForRun || `Generate a ${motionModel} motion video from keyframes`,
       attachments: [
         { type: 'image' as const, url: startPreviewUrl, name: 'Start Frame' },
         ...(endPreviewUrl ? [{ type: 'image' as const, url: endPreviewUrl, name: 'End Frame' }] : []),
@@ -1048,8 +1048,8 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
     scrollToBottom('auto');
 
     try {
-      // Upload frames to storage (or use override URLs already on storage/CDN)
-      const startUrl = overrides?.startUrl ?? await uploadFileToStorage(motionStartFrame!, 'motion-frames');
+      // Resolve frame URLs (upload only when not overridden)
+      const startUrl = overrides?.startUrl || (await uploadFileToStorage(motionStartFrame!, 'motion-frames'));
       let endUrl: string | undefined = overrides?.endUrl;
       if (!endUrl && motionEndFrame) {
         endUrl = await uploadFileToStorage(motionEndFrame, 'motion-frames');
@@ -1061,7 +1061,7 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
         .from('video_repo_projects')
         .insert({
           user_id: user.id,
-          prompt: finalPrompt || 'Motion video from keyframes',
+          prompt: promptForRun || 'Motion video from keyframes',
           product_image_url: startUrl,
           status: 'generating',
           model: motionModel,
@@ -1078,7 +1078,7 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
       setMessages(prev => [...prev, generatingMsg]);
 
       const taskId = await createWaveSpeedVideo({
-        prompt: finalPrompt || 'Smooth cinematic transition between keyframes',
+        prompt: promptForRun || 'Smooth cinematic transition between keyframes',
         model: motionModel,
         startFrameUrl: startUrl,
         endFrameUrl: endUrl,
@@ -1130,80 +1130,110 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
     }
   };
 
-  // ✨ One-click: AI strategy → generate start+end frames → write motion prompt → render
+  // ✨ One-click: pick a strategy → generate start+end frames → run motion video
   const autoGenerateMotionVideo = async () => {
     if (!user) return;
+    if (isMotionGenerating || isAutoMotion) return;
+
     setIsAutoMotion(true);
-    setAutoMotionStatus('Picking strategy…');
+    setAutoMotionStatus('Picking creative strategy...');
+
     try {
-      const brandName = brandProfile?.company_name || 'the brand';
-      const brandUrl = brandProfile?.brand_url ? brandProfile.brand_url.replace(/^https?:\/\//, '') : '';
-      const brandDesc = brandProfile?.brand_description || '';
+      const brandLine = brandProfile
+        ? `Brand: ${brandProfile.company_name || 'Lifecykel'}${brandProfile.brand_url ? ' (' + brandProfile.brand_url + ')' : ''}. ${brandProfile.brand_description || ''}`.trim()
+        : 'Brand: Lifecykel — premium mushroom extract drops (Lion\'s Mane, Reishi, Cordyceps, Chaga, Turkey Tail, Tremella). Wellness ritual, feminine, bright daylight.';
 
-      const strategyInstruction = `You are a senior motion-graphics director for ${brandName}${brandUrl ? ` (${brandUrl})` : ''}.${brandDesc ? ` Brand context: ${brandDesc}` : ''}
+      const productHint = productImageUrl ? `Source product image is provided to inform the keyframes.` : `Subject: a premium dropper bottle of mushroom extract on a clean styled surface.`;
 
-Pick ONE high-impact 5-second cinematic motion concept that would stop the scroll on TikTok/Reels. Rotate through these strategies — pick whichever fits the brand best (do NOT default to the same one):
-- Product Reveal (closed box → open glowing product)
-- Macro Pour (liquid drops mid-air → splash crown in glass)
-- Day-to-Night (bright kitchen → moody evening with product lit up)
-- Before/After Energy (tired posture → vibrant posture)
-- Ingredient Burst (raw ingredient → finished product surrounded by ingredients)
-- Hero Push-In (wide environment → tight macro on product label)
+      const strategyPrompt = `You are a cinematic motion-video director. Pick ONE high-performing strategy from this list and design a 5-second hero motion clip:
+- Macro Pour (extract dropping into water/glass)
+- Hero Push-In (slow camera push onto product)
+- Day-to-Night Mood Shift (lighting evolves)
+- Ingredient Burst (mushroom/ingredient swirling around bottle)
+- Product Reveal (object slides/rotates into frame)
 
-Return STRICT JSON only, no markdown:
+${brandLine}
+${productHint}
+
+Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly:
 {
-  "strategy": "<short label, e.g. 'Macro Pour Hero'>",
-  "concept": "<1-sentence creative idea>",
-  "startFramePrompt": "<detailed image-generation prompt for the OPENING keyframe — describe environment, lighting, composition, product placement, mood, camera angle, photographic style. 60-120 words. Cinematic, broadcast-quality, photorealistic. Aspect ratio 16:9.>",
-  "endFramePrompt": "<detailed image-generation prompt for the FINAL keyframe — must visually evolve from the start frame (e.g. closed→open, empty→full, dim→glowing) while keeping environment, lighting style, and product identity consistent. 60-120 words.>",
-  "motionPrompt": "<motion description for keyframe interpolation: describe the transition, camera move, physics (pour, drift, sparkle, focus pull), and pacing across 5 seconds. 50-100 words.>"
+  "strategy": "Macro Pour" | "Hero Push-In" | "Day-to-Night Mood Shift" | "Ingredient Burst" | "Product Reveal",
+  "startFramePrompt": "detailed photoreal prompt for the FIRST frame of the clip — describe subject, composition, lighting, lens, mood. 16:9.",
+  "endFramePrompt": "detailed photoreal prompt for the LAST frame — same subject and continuity, but in the final state of the motion. 16:9.",
+  "motionPrompt": "describe the camera motion + subject motion that interpolates between the two frames in 5 seconds, cinematic, smooth"
 }`;
 
       const { data: stratData, error: stratErr } = await supabase.functions.invoke('ai', {
-        body: { messages: [{ role: 'user', content: strategyInstruction }] },
+        body: {
+          model: 'google/gemini-2.5-flash',
+          messages: [{ role: 'user', content: strategyPrompt }],
+        },
       });
-      if (stratErr) throw new Error(stratErr.message || 'Strategy generation failed');
-      const stratText = stratData?.choices?.[0]?.message?.content || stratData?.text || '';
-      const jsonMatch = stratText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('Strategy AI did not return JSON');
-      const plan = JSON.parse(jsonMatch[0]);
-      if (!plan.startFramePrompt || !plan.endFramePrompt || !plan.motionPrompt) {
-        throw new Error('Strategy plan is missing required fields');
+      if (stratErr) throw new Error(stratErr.message || 'Strategy AI failed');
+
+      const raw: string =
+        stratData?.content ||
+        stratData?.choices?.[0]?.message?.content ||
+        stratData?.text ||
+        (typeof stratData === 'string' ? stratData : '');
+
+      // Robust JSON extraction (handles ```json fences and stray prose)
+      let plan: any = null;
+      try { plan = JSON.parse(raw); } catch {
+        const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+        const candidate = fenced ? fenced[1] : raw;
+        const match = candidate.match(/\{[\s\S]*\}/);
+        if (match) {
+          try { plan = JSON.parse(match[0]); } catch { /* fall through */ }
+        }
       }
 
-      toast({ title: `Strategy: ${plan.strategy}`, description: plan.concept });
+      if (!plan || !plan.startFramePrompt || !plan.endFramePrompt) {
+        console.error('[Auto Motion] raw strategy response:', raw);
+        throw new Error('Strategy AI did not return valid JSON. Try again.');
+      }
 
-      setAutoMotionStatus('Rendering keyframes…');
-      const [startRes, endRes] = await Promise.all([
-        supabase.functions.invoke('generate-premium-visual', {
-          body: { type: 'thumbnail', topic: plan.strategy, style: 'Cinematic', customPrompt: plan.startFramePrompt },
-        }),
-        supabase.functions.invoke('generate-premium-visual', {
-          body: { type: 'thumbnail', topic: plan.strategy, style: 'Cinematic', customPrompt: plan.endFramePrompt },
-        }),
+      setAutoMotionStatus(`Strategy: ${plan.strategy}. Rendering keyframes...`);
+
+      const renderFrame = async (visualPrompt: string) => {
+        const { data, error } = await supabase.functions.invoke('generate-premium-visual', {
+          body: {
+            type: 'thumbnail',
+            topic: visualPrompt,
+            style: 'cinematic-product',
+            sceneDescriptions: visualPrompt,
+            characterDescription: productImageUrl ? 'Use the provided product as the hero subject.' : undefined,
+            size: '1536x1024',
+          },
+        });
+        if (error) throw new Error(error.message || 'Frame generation failed');
+        const url = data?.imageUrl;
+        if (!url) throw new Error('Frame generation returned no image');
+        return url as string;
+      };
+
+      const [startUrl, endUrl] = await Promise.all([
+        renderFrame(plan.startFramePrompt),
+        renderFrame(plan.endFramePrompt),
       ]);
 
-      const startFrameUrl: string | undefined = startRes.data?.imageUrl;
-      const endFrameUrl: string | undefined = endRes.data?.imageUrl;
-      if (!startFrameUrl || !endFrameUrl) {
-        throw new Error('Failed to generate one or both keyframes');
-      }
+      // Reflect into UI so the user can see what we used
+      setMotionStartFramePreview(startUrl);
+      setMotionEndFramePreview(endUrl);
+      setMotionPrompt(plan.motionPrompt || '');
 
-      setMotionStartFramePreview(startFrameUrl);
-      setMotionEndFramePreview(endFrameUrl);
-      setMotionPrompt(plan.motionPrompt);
+      setAutoMotionStatus('Generating motion video...');
 
-      setAutoMotionStatus('Generating motion video…');
       await generateMotionVideo({
-        startUrl: startFrameUrl,
-        endUrl: endFrameUrl,
-        promptText: `[${plan.strategy}] ${plan.motionPrompt}`,
-        startPreview: startFrameUrl,
-        endPreview: endFrameUrl,
+        startUrl,
+        endUrl,
+        promptText: plan.motionPrompt || `Smooth cinematic ${plan.strategy} transition`,
+        startPreview: startUrl,
+        endPreview: endUrl,
       });
     } catch (err: any) {
       console.error('[Auto Motion] Error:', err);
-      toast({ title: 'Auto-generate failed', description: err.message || 'Could not auto-generate motion video', variant: 'destructive' });
+      toast({ title: 'Auto-generate failed', description: err.message, variant: 'destructive' });
     } finally {
       setIsAutoMotion(false);
       setAutoMotionStatus('');
@@ -1692,6 +1722,16 @@ Return STRICT JSON only, no markdown:
                         </div>
 
                         <Button
+                          variant="outline"
+                          className="w-full rounded-xl gap-1.5 border-primary/40 hover:bg-primary/5"
+                          onClick={() => autoGenerateMotionVideo()}
+                          disabled={isMotionGenerating || isAutoMotion}
+                        >
+                          {isAutoMotion ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-primary" />}
+                          {isAutoMotion ? (autoMotionStatus || 'Auto-generating...') : '✨ Auto-Generate Motion Video'}
+                        </Button>
+
+                        <Button
                           className="w-full rounded-xl gap-1.5"
                           onClick={() => generateMotionVideo()}
                           disabled={isMotionGenerating || isAutoMotion || !motionStartFrame}
@@ -1699,24 +1739,6 @@ Return STRICT JSON only, no markdown:
                           {isMotionGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
                           Generate Motion Video
                         </Button>
-
-                        <div className="relative">
-                          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border/60" /></div>
-                          <div className="relative flex justify-center"><span className="bg-background px-2 text-[10px] uppercase tracking-wider text-muted-foreground">or</span></div>
-                        </div>
-
-                        <Button
-                          variant="outline"
-                          className="w-full rounded-xl gap-1.5 border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary"
-                          onClick={autoGenerateMotionVideo}
-                          disabled={isMotionGenerating || isAutoMotion}
-                        >
-                          {isAutoMotion ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                          {isAutoMotion ? (autoMotionStatus || 'Auto-generating…') : '✨ Auto-Generate Motion Video'}
-                        </Button>
-                        <p className="text-[10px] text-muted-foreground text-center leading-tight">
-                          AI picks a strategy, generates the start + end frames, writes the motion prompt, and renders the video — fully automatic.
-                        </p>
                       </div>
                     </div>
                   </>
