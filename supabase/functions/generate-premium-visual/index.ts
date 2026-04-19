@@ -211,7 +211,39 @@ OUTPUT: The improved prompt ONLY. No explanation.`
   return prompt;
 }
 
-// Step 3: Generate with gpt-image-1
+// Step 3a: Generate via Lovable AI Gateway (Gemini image preview) — primary, no billing limits
+async function generateWithGateway(prompt: string): Promise<string> {
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
+
+  const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-2.5-flash-image-preview',
+      messages: [{ role: 'user', content: prompt }],
+      modalities: ['image', 'text'],
+    }),
+  });
+
+  if (!resp.ok) {
+    const err = await resp.text();
+    console.error('Gateway image error:', resp.status, err);
+    if (resp.status === 429) throw new Error('Gateway rate limit. Please try again shortly.');
+    if (resp.status === 402) throw new Error('Lovable AI credits exhausted. Add credits in Settings.');
+    throw new Error(`Gateway image generation failed: ${resp.status}`);
+  }
+
+  const data = await resp.json();
+  const imgUrl = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+  if (imgUrl) return imgUrl;
+  throw new Error('No image in gateway response');
+}
+
+// Step 3b: Optional OpenAI fallback (kept for parity, but skipped when billing-limited)
 async function generateWithOpenAI(prompt: string, size: string = '1024x1536'): Promise<string> {
   const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
   if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY not configured');
@@ -234,9 +266,7 @@ async function generateWithOpenAI(prompt: string, size: string = '1024x1536'): P
   if (!response.ok) {
     const err = await response.text();
     console.error('OpenAI image error:', response.status, err);
-    if (response.status === 429) throw new Error('Rate limit exceeded. Please try again.');
-    if (response.status === 401 || response.status === 402) throw new Error('OpenAI API key invalid or payment issue.');
-    throw new Error(`Image generation failed: ${response.status}`);
+    throw new Error(`OpenAI image generation failed: ${response.status}`);
   }
 
   const data = await response.json();
@@ -244,7 +274,17 @@ async function generateWithOpenAI(prompt: string, size: string = '1024x1536'): P
   const url = data.data?.[0]?.url;
   if (b64) return `data:image/png;base64,${b64}`;
   if (url) return url;
-  throw new Error('No image in response');
+  throw new Error('No image in OpenAI response');
+}
+
+// Unified: try Gateway first, fall back to OpenAI
+async function generateImage(prompt: string, size: string): Promise<string> {
+  try {
+    return await generateWithGateway(prompt);
+  } catch (gwErr) {
+    console.warn('Gateway image gen failed, trying OpenAI:', (gwErr as Error).message);
+    return await generateWithOpenAI(prompt, size);
+  }
 }
 
 serve(async (req) => {
