@@ -1160,7 +1160,17 @@ const ChatcutAI = () => {
       font: brandSettings.font,
       hasLogo: !!brandSettings.logoUrl,
     },
-  }), [videoUrl, duration, currentTime, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, brandSettings]);
+    sceneLayouts: sceneLayouts.map(l => ({ id: l.id, start: l.start, duration: l.duration, layout: l.layout, actorScale: l.actorScale, actorPosition: l.actorPosition })),
+    currentSceneLayout: (sceneLayouts.find(l => currentTime >= l.start && currentTime < l.start + l.duration)) || null,
+    vision: visionAnalysis ? {
+      summary: visionAnalysis.summary,
+      currentFrame: visionAnalysis.frames.reduce<typeof visionAnalysis.frames[number] | null>((best, cur) => {
+        if (!best) return cur;
+        return Math.abs(cur.time - currentTime) < Math.abs(best.time - currentTime) ? cur : best;
+      }, null),
+      note: 'Use vision.currentFrame.subjectPosition + vision.currentFrame.negativeSpaceSide BEFORE choosing placement on every add_motion_graphic / add_overlay. If subject=left → text on right. If busyRating=high → use treatment:full_card instead of overlay. If negativeSpaceSide=top → use top_banner. If negativeSpaceSide=bottom → use lower_third.',
+    } : null,
+  }), [videoUrl, duration, currentTime, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, brandSettings, sceneLayouts, visionAnalysis]);
 
   const saveDraft = useCallback(async () => {
     if (!user) return;
@@ -1183,6 +1193,10 @@ const ChatcutAI = () => {
         targetPlatform,
         variantSets,
         showSafeZones,
+        // PiP scene layouts + Marco vision cache
+        sceneLayouts,
+        visionAnalysis,
+        punchIns,
       };
       const payload: Record<string, unknown> = {
         user_id: user.id,
@@ -1204,7 +1218,7 @@ const ChatcutAI = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [user, draftId, draftName, videoUrl, transcript, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, messages, toast, transitions, sfxClips, duckEnabled, duckStrength, targetPlatform, variantSets, showSafeZones]);
+  }, [user, draftId, draftName, videoUrl, transcript, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, messages, toast, transitions, sfxClips, duckEnabled, duckStrength, targetPlatform, variantSets, showSafeZones, sceneLayouts, visionAnalysis, punchIns]);
 
   const loadDraft = useCallback(async (id: string) => {
     if (!user) return;
@@ -1234,6 +1248,9 @@ const ChatcutAI = () => {
       if (typeof ts.showSafeZones === 'boolean') setShowSafeZones(ts.showSafeZones);
       if (ts.captionSettings) setCaptionSettings(ts.captionSettings);
       if (ts.thumbnail) setThumbnail(ts.thumbnail);
+      if (Array.isArray(ts.sceneLayouts)) setSceneLayouts(ts.sceneLayouts);
+      if (Array.isArray(ts.punchIns)) setPunchIns(ts.punchIns);
+      if (ts.visionAnalysis && Array.isArray(ts.visionAnalysis.frames)) setVisionAnalysis(ts.visionAnalysis);
     }
     const ch = data.chat_history as any;
     if (Array.isArray(ch)) setMessages(ch);
