@@ -54,6 +54,8 @@ interface MotionApprovalCard {
   duration: 5 | 10;
   productImageUrl?: string | null;
   productName?: string | null;
+  productSwapStatus?: 'none' | 'applied' | 'partial' | 'failed';
+  productSwapNote?: string | null;
   status: 'pending' | 'approved' | 'cancelled';
 }
 
@@ -1271,7 +1273,7 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
         return url as string;
       };
 
-      const startUrl = await renderFrame({
+      const startUrlRaw = await renderFrame({
         visualPrompt: [
           identityAnchor && `IDENTITY ANCHOR: ${identityAnchor}`,
           'FRAME ROLE: START FRAME. Scene one of a two-scene premium ad story.',
@@ -1285,7 +1287,7 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
           : 'Create a premium wellness creator or grounded hand interaction that looks physically believable and photoreal.',
       });
 
-      const endUrl = await renderFrame({
+      const endUrlRaw = await renderFrame({
         visualPrompt: [
           identityAnchor && `IDENTITY ANCHOR: ${identityAnchor}`,
           'FRAME ROLE: END FRAME. Scene two of the same premium ad story.',
@@ -1294,9 +1296,64 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
           hasProductRef ? 'The product must still match the user\'s real bottle exactly.' : 'Maintain the same hero subject identity established in the reference frame.',
           'No text, captions, logos, or thumbnail typography. Cinematic 16:9 still frame only.',
         ].filter(Boolean).join('\n'),
-        referenceUrl: startUrl,
+        referenceUrl: startUrlRaw,
         characterInstructions: 'Use the attached reference frame as an identity anchor. Keep the exact same character face, hair, wardrobe, hand identity, and the same product, but restage them into a clearly different second scene. No floating props, no disconnected droppers, no duplicate frame.',
       });
+
+      // ─── PRODUCT SWAP PASS ───────────────────────────────────────────
+      // Marco's "Product Swap" guarantee: if a product is selected, run a second-pass
+      // edit on each keyframe that locks the visible bottle/label to the user's REAL
+      // product image. Uses edit-scene-image with the rendered keyframe + the product
+      // photo as references — same recipe SegmentCard.handleSwapProduct uses.
+      let startUrl = startUrlRaw;
+      let endUrl = endUrlRaw;
+      let productSwapStatus: 'none' | 'applied' | 'partial' | 'failed' = 'none';
+      let productSwapNote: string | null = null;
+
+      if (hasProductRef && productImageUrl) {
+        setAutoMotionStatus('Locking product onto keyframes (Product Swap)...');
+        const swapPrompt = `Replace the product/bottle in the first reference image with the EXACT product shown in the second reference image. Keep EVERYTHING else identical — same person, same face, same pose, same hand position, same wardrobe, same lighting, same background, same camera angle. ONLY swap the bottle/dropper/label so it matches the user's real product pixel-for-pixel. No floating props — the swapped product must stay in the same hand position as the original.`;
+        const productLabel = productName || 'product';
+
+        const swapFrame = async (frameUrl: string): Promise<string> => {
+          const { data, error } = await supabase.functions.invoke('edit-scene-image', {
+            body: {
+              prompt: swapPrompt,
+              referenceImages: [frameUrl, productImageUrl],
+              characterDescription: identityAnchor || `Premium wellness creator holding ${productLabel}.`,
+              productImageUrl,
+              productName: productLabel,
+            },
+          });
+          if (error) throw new Error(error.message || 'Product swap failed');
+          const url = data?.imageUrl;
+          if (!url) throw new Error('Product swap returned no image');
+          return url as string;
+        };
+
+        const [startSwap, endSwap] = await Promise.allSettled([
+          swapFrame(startUrlRaw),
+          swapFrame(endUrlRaw),
+        ]);
+
+        const startOk = startSwap.status === 'fulfilled';
+        const endOk = endSwap.status === 'fulfilled';
+        if (startOk) startUrl = (startSwap as PromiseFulfilledResult<string>).value;
+        if (endOk) endUrl = (endSwap as PromiseFulfilledResult<string>).value;
+
+        if (startOk && endOk) {
+          productSwapStatus = 'applied';
+          productSwapNote = `Locked to your real ${productLabel}.`;
+        } else if (startOk || endOk) {
+          productSwapStatus = 'partial';
+          productSwapNote = `⚠️ Product locked on ${startOk ? 'start' : 'end'} frame only — the other frame kept the AI-generated bottle. Re-roll the failed frame before approving.`;
+        } else {
+          productSwapStatus = 'failed';
+          productSwapNote = '⚠️ Product Swap failed on both frames — the bottle in the previews is AI-generated and may not match your real product. Cancel and try again, or approve at your own risk.';
+        }
+      } else {
+        productSwapNote = '⚠️ No product picked from your library — Marco will use a generic bottle. Pick a product before approving for brand-accurate output.';
+      }
 
       // Reflect into the left panel so the user sees what we picked
       setMotionStartFramePreview(startUrl);
@@ -1304,10 +1361,18 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
       setMotionPrompt(plan.motionPrompt || '');
 
       // STOP HERE — push an approval card into the chat. Nothing burns Kling credits until the user clicks Approve.
+      const productLine = hasProductRef
+        ? (productSwapStatus === 'applied'
+            ? `🧴 **Product:** ${productName || 'your product'} — locked onto both keyframes via Product Swap.`
+            : productSwapStatus === 'partial'
+              ? `🧴 **Product:** ${productName || 'your product'} — locked on one frame only. ${productSwapNote}`
+              : `🧴 **Product:** ${productName || 'your product'} — Product Swap FAILED. ${productSwapNote}`)
+        : `⚠️ **No product selected** — using a generic bottle. Pick a product from your library for brand-accurate output.`;
+
       const approvalMsg: ChatMessage = {
         id: `approval-motion-${Date.now()}`,
         role: 'assistant',
-        content: `🎬 **Strategy:** ${plan.strategy}\n\nReview the keyframes and motion prompt below — nothing is sent to the video model until you approve.`,
+        content: `🎬 **Strategy:** ${plan.strategy}\n\n${productLine}\n\nReview the keyframes and motion prompt below — nothing is sent to the video model until you approve.`,
         approvalCard: {
           strategy: plan.strategy,
           startUrl,
@@ -1317,6 +1382,8 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
           duration: motionDuration,
           productImageUrl: hasProductRef ? productImageUrl : null,
           productName,
+          productSwapStatus,
+          productSwapNote,
           status: 'pending',
         },
       };
@@ -2168,15 +2235,40 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
                                     />
                                   </div>
                                 </div>
-                                {msg.approvalCard.productImageUrl && (
-                                  <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-2 py-1.5">
+                                {msg.approvalCard.productImageUrl ? (
+                                  <div className={`flex items-start gap-2 rounded-lg px-2 py-1.5 ${
+                                    msg.approvalCard.productSwapStatus === 'applied'
+                                      ? 'bg-emerald-500/10 border border-emerald-500/30'
+                                      : msg.approvalCard.productSwapStatus === 'partial'
+                                        ? 'bg-amber-500/10 border border-amber-500/30'
+                                        : msg.approvalCard.productSwapStatus === 'failed'
+                                          ? 'bg-destructive/10 border border-destructive/30'
+                                          : 'bg-muted/50'
+                                  }`}>
                                     <img
                                       src={msg.approvalCard.productImageUrl}
                                       alt="Locked product"
-                                      className="w-8 h-8 rounded object-cover border border-border/60"
+                                      className="w-10 h-10 rounded object-cover border border-border/60 shrink-0"
                                     />
-                                    <div className="text-[11px] text-muted-foreground">
-                                      Locked to your product{msg.approvalCard.productName ? `: ${msg.approvalCard.productName}` : ''}
+                                    <div className="text-[11px] leading-snug">
+                                      <div className="font-medium">
+                                        {msg.approvalCard.productSwapStatus === 'applied' && '✓ Product Swap applied'}
+                                        {msg.approvalCard.productSwapStatus === 'partial' && '⚠️ Product Swap partial'}
+                                        {msg.approvalCard.productSwapStatus === 'failed' && '⚠️ Product Swap failed'}
+                                        {(!msg.approvalCard.productSwapStatus || msg.approvalCard.productSwapStatus === 'none') && 'Locked to your product'}
+                                        {msg.approvalCard.productName ? `: ${msg.approvalCard.productName}` : ''}
+                                      </div>
+                                      {msg.approvalCard.productSwapNote && (
+                                        <div className="text-muted-foreground mt-0.5">{msg.approvalCard.productSwapNote}</div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2 rounded-lg bg-amber-500/10 border border-amber-500/30 px-2 py-1.5">
+                                    <span className="text-base">⚠️</span>
+                                    <div className="text-[11px] leading-snug">
+                                      <div className="font-medium">No product picked</div>
+                                      <div className="text-muted-foreground">Marco is using a generic bottle. Pick a product from your library for brand-accurate output.</div>
                                     </div>
                                   </div>
                                 )}
