@@ -3775,6 +3775,45 @@ const ChatcutAI = () => {
                         ))
                       }
 
+                      {/* ── Phase 2: Visual transition layer (fade / dip / zoom / whip).
+                          Pointer-events off so overlays underneath remain interactive. */}
+                      {activeVisualTransition && (() => {
+                        const t = activeVisualTransition;
+                        const progress = Math.min(1, Math.max(0, (currentTime - t.at) / Math.max(0.05, t.duration)));
+                        const bell = Math.sin(progress * Math.PI);
+                        if (t.kind === 'fade' || t.kind === 'dip_to_black') {
+                          const opacity = t.kind === 'dip_to_black'
+                            ? (progress < 0.4 ? progress / 0.4 : progress > 0.6 ? (1 - progress) / 0.4 : 1)
+                            : bell * 0.92;
+                          return <div className="absolute inset-0 z-[35] pointer-events-none bg-black" style={{ opacity }} />;
+                        }
+                        if (t.kind === 'whip') {
+                          return (
+                            <div
+                              className="absolute inset-0 z-[35] pointer-events-none"
+                              style={{
+                                background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%)',
+                                filter: `blur(${bell * 12}px)`,
+                                transform: `translateX(${(progress - 0.5) * 60}%)`,
+                              }}
+                            />
+                          );
+                        }
+                        if (t.kind === 'zoom') {
+                          return (
+                            <div
+                              className="absolute inset-0 z-[35] pointer-events-none"
+                              style={{
+                                boxShadow: `inset 0 0 ${40 + bell * 80}px ${20 + bell * 40}px rgba(0,0,0,${0.3 + bell * 0.4})`,
+                                transform: `scale(${1 + bell * 0.04})`,
+                                transformOrigin: 'center',
+                              }}
+                            />
+                          );
+                        }
+                        return null;
+                      })()}
+
                       {/* Live caption overlay – constrained to video bounds, always on top */}
                       {captionSettings.enabled && transcriptSegments.length > 0 && (() => {
                         const segs = transcriptSegments;
