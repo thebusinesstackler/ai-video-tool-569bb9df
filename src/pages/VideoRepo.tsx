@@ -1011,12 +1011,19 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
     e.target.value = '';
   };
 
-  const generateMotionVideo = async () => {
-    if (!motionStartFrame) {
+  const generateMotionVideo = async (overrides?: {
+    startUrl?: string;
+    endUrl?: string;
+    promptText?: string;
+    startPreview?: string;
+    endPreview?: string;
+  }) => {
+    const hasOverrideStart = !!overrides?.startUrl;
+    if (!hasOverrideStart && !motionStartFrame) {
       toast({ title: 'Start frame required', description: 'Please upload at least a start frame image.', variant: 'destructive' });
       return;
     }
-    if (motionModel === 'vidu-start-end' && !motionEndFrame) {
+    if (motionModel === 'vidu-start-end' && !overrides?.endUrl && !motionEndFrame) {
       toast({ title: 'End frame required', description: 'VIDU requires both a start and end frame.', variant: 'destructive' });
       return;
     }
@@ -1024,23 +1031,27 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
 
     setIsMotionGenerating(true);
 
+    const promptForRun = (overrides?.promptText ?? motionPrompt).trim();
+    const startPreviewUrl = overrides?.startPreview || overrides?.startUrl || motionStartFramePreview!;
+    const endPreviewUrl = overrides?.endPreview || overrides?.endUrl || motionEndFramePreview;
+
     const userMsg: ChatMessage = {
       id: `user-motion-${Date.now()}`,
       role: 'user',
-      content: motionPrompt.trim() || `Generate a ${motionModel} motion video from keyframes`,
+      content: promptForRun || `Generate a ${motionModel} motion video from keyframes`,
       attachments: [
-        { type: 'image' as const, url: motionStartFramePreview!, name: 'Start Frame' },
-        ...(motionEndFramePreview ? [{ type: 'image' as const, url: motionEndFramePreview, name: 'End Frame' }] : []),
+        { type: 'image' as const, url: startPreviewUrl, name: 'Start Frame' },
+        ...(endPreviewUrl ? [{ type: 'image' as const, url: endPreviewUrl, name: 'End Frame' }] : []),
       ],
     };
     setMessages(prev => [...prev, userMsg]);
     scrollToBottom('auto');
 
     try {
-      // Upload frames to storage
-      const startUrl = await uploadFileToStorage(motionStartFrame, 'motion-frames');
-      let endUrl: string | undefined;
-      if (motionEndFrame) {
+      // Resolve frame URLs (upload only when not overridden)
+      const startUrl = overrides?.startUrl || (await uploadFileToStorage(motionStartFrame!, 'motion-frames'));
+      let endUrl: string | undefined = overrides?.endUrl;
+      if (!endUrl && motionEndFrame) {
         endUrl = await uploadFileToStorage(motionEndFrame, 'motion-frames');
       }
 
@@ -1050,7 +1061,7 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
         .from('video_repo_projects')
         .insert({
           user_id: user.id,
-          prompt: motionPrompt.trim() || 'Motion video from keyframes',
+          prompt: promptForRun || 'Motion video from keyframes',
           product_image_url: startUrl,
           status: 'generating',
           model: motionModel,
@@ -1067,7 +1078,7 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
       setMessages(prev => [...prev, generatingMsg]);
 
       const taskId = await createWaveSpeedVideo({
-        prompt: motionPrompt.trim() || 'Smooth cinematic transition between keyframes',
+        prompt: promptForRun || 'Smooth cinematic transition between keyframes',
         model: motionModel,
         startFrameUrl: startUrl,
         endFrameUrl: endUrl,
@@ -1116,6 +1127,116 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
       toast({ title: 'Motion video failed', description: err.message, variant: 'destructive' });
     } finally {
       setIsMotionGenerating(false);
+    }
+  };
+
+  // ✨ One-click: pick a strategy → generate start+end frames → run motion video
+  const autoGenerateMotionVideo = async () => {
+    if (!user) return;
+    if (isMotionGenerating || isAutoMotion) return;
+
+    setIsAutoMotion(true);
+    setAutoMotionStatus('Picking creative strategy...');
+
+    try {
+      const brandLine = brandProfile
+        ? `Brand: ${brandProfile.company_name || 'Lifecykel'}${brandProfile.brand_url ? ' (' + brandProfile.brand_url + ')' : ''}. ${brandProfile.brand_description || ''}`.trim()
+        : 'Brand: Lifecykel — premium mushroom extract drops (Lion\'s Mane, Reishi, Cordyceps, Chaga, Turkey Tail, Tremella). Wellness ritual, feminine, bright daylight.';
+
+      const productHint = productImageUrl ? `Source product image is provided to inform the keyframes.` : `Subject: a premium dropper bottle of mushroom extract on a clean styled surface.`;
+
+      const strategyPrompt = `You are a cinematic motion-video director. Pick ONE high-performing strategy from this list and design a 5-second hero motion clip:
+- Macro Pour (extract dropping into water/glass)
+- Hero Push-In (slow camera push onto product)
+- Day-to-Night Mood Shift (lighting evolves)
+- Ingredient Burst (mushroom/ingredient swirling around bottle)
+- Product Reveal (object slides/rotates into frame)
+
+${brandLine}
+${productHint}
+
+Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly:
+{
+  "strategy": "Macro Pour" | "Hero Push-In" | "Day-to-Night Mood Shift" | "Ingredient Burst" | "Product Reveal",
+  "startFramePrompt": "detailed photoreal prompt for the FIRST frame of the clip — describe subject, composition, lighting, lens, mood. 16:9.",
+  "endFramePrompt": "detailed photoreal prompt for the LAST frame — same subject and continuity, but in the final state of the motion. 16:9.",
+  "motionPrompt": "describe the camera motion + subject motion that interpolates between the two frames in 5 seconds, cinematic, smooth"
+}`;
+
+      const { data: stratData, error: stratErr } = await supabase.functions.invoke('ai', {
+        body: {
+          model: 'google/gemini-2.5-flash',
+          messages: [{ role: 'user', content: strategyPrompt }],
+        },
+      });
+      if (stratErr) throw new Error(stratErr.message || 'Strategy AI failed');
+
+      const raw: string =
+        stratData?.content ||
+        stratData?.choices?.[0]?.message?.content ||
+        stratData?.text ||
+        (typeof stratData === 'string' ? stratData : '');
+
+      // Robust JSON extraction (handles ```json fences and stray prose)
+      let plan: any = null;
+      try { plan = JSON.parse(raw); } catch {
+        const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+        const candidate = fenced ? fenced[1] : raw;
+        const match = candidate.match(/\{[\s\S]*\}/);
+        if (match) {
+          try { plan = JSON.parse(match[0]); } catch { /* fall through */ }
+        }
+      }
+
+      if (!plan || !plan.startFramePrompt || !plan.endFramePrompt) {
+        console.error('[Auto Motion] raw strategy response:', raw);
+        throw new Error('Strategy AI did not return valid JSON. Try again.');
+      }
+
+      setAutoMotionStatus(`Strategy: ${plan.strategy}. Rendering keyframes...`);
+
+      const renderFrame = async (visualPrompt: string) => {
+        const { data, error } = await supabase.functions.invoke('generate-premium-visual', {
+          body: {
+            type: 'thumbnail',
+            topic: visualPrompt,
+            style: 'cinematic-product',
+            sceneDescriptions: visualPrompt,
+            characterDescription: productImageUrl ? 'Use the provided product as the hero subject.' : undefined,
+            size: '1536x1024',
+          },
+        });
+        if (error) throw new Error(error.message || 'Frame generation failed');
+        const url = data?.imageUrl;
+        if (!url) throw new Error('Frame generation returned no image');
+        return url as string;
+      };
+
+      const [startUrl, endUrl] = await Promise.all([
+        renderFrame(plan.startFramePrompt),
+        renderFrame(plan.endFramePrompt),
+      ]);
+
+      // Reflect into UI so the user can see what we used
+      setMotionStartFramePreview(startUrl);
+      setMotionEndFramePreview(endUrl);
+      setMotionPrompt(plan.motionPrompt || '');
+
+      setAutoMotionStatus('Generating motion video...');
+
+      await generateMotionVideo({
+        startUrl,
+        endUrl,
+        promptText: plan.motionPrompt || `Smooth cinematic ${plan.strategy} transition`,
+        startPreview: startUrl,
+        endPreview: endUrl,
+      });
+    } catch (err: any) {
+      console.error('[Auto Motion] Error:', err);
+      toast({ title: 'Auto-generate failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsAutoMotion(false);
+      setAutoMotionStatus('');
     }
   };
 
