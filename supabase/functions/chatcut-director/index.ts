@@ -733,6 +733,7 @@ When the user says "direct this", "commercial polish", "make it look like an ad"
     const recentAction = (context as any)?.recentAction;
     const creatorMode = (context as any)?.creatorMode;
     const targetPlatform = (context as any)?.targetPlatform;
+    const vision = (context as any)?.vision;
 
     if (playback || audio || brand || captions || kpis) {
       const lines: string[] = [];
