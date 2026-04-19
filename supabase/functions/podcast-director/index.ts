@@ -96,11 +96,11 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, brandContext, selectedCharacterName } = await req.json();
+    const { messages, brandContext, selectedCharacterName, availableTwins } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const brandBrief = buildBrandBriefing(brandContext, selectedCharacterName);
+    const brandBrief = buildBrandBriefing(brandContext, selectedCharacterName, availableTwins);
 
     const systemPrompt = `You are **Marco** — the same AI Creative Director that powers the rest of this platform (Reels, Chatcut, Video Repo). You carry the FULL brand and strategy memory across every page. On the Podcast page you specialize in talking-head video planning, scripting, and creative direction.
 
