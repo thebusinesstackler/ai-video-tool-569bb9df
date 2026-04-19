@@ -2157,7 +2157,59 @@ const ChatcutAI = () => {
           toast({ title: 'Transition removed' });
           break;
         }
-        case 'hide_overlay': {
+        // ── Phase 3: SFX actions ──────────────────────────────────────
+        case 'add_sfx': {
+          const validKinds: SfxKind[] = ['whoosh', 'ding', 'pop', 'swoosh', 'thud', 'click'];
+          const kind = (validKinds.includes(act.kind) ? act.kind : 'whoosh') as SfxKind;
+          let at = typeof act.at === 'number' ? act.at : currentTime;
+          if (typeof act.at !== 'number' && act.pairedOverlayId) {
+            const ov = overlays.find(o => o.id === act.pairedOverlayId);
+            if (ov) at = ov.start;
+          }
+          const sfx: SfxClip = {
+            id: crypto.randomUUID(),
+            kind, at,
+            volume: typeof act.volume === 'number' ? Math.max(0, Math.min(1, act.volume)) : 0.6,
+            label: act.label,
+            pairedOverlayId: act.pairedOverlayId,
+          };
+          setSfxClips(prev => [...prev, sfx].sort((a, b) => a.at - b.at));
+          if (hasInteracted) playSfx(kind, sfx.volume);
+          toast({ title: `🔊 ${kind} added`, description: `@ ${at.toFixed(1)}s${act.label ? ` · ${act.label}` : ''}` });
+          break;
+        }
+        case 'remove_sfx': {
+          const id = act.id || act.sfxId;
+          if (!id) break;
+          setSfxClips(prev => prev.filter(s => s.id !== id));
+          toast({ title: 'SFX removed' });
+          break;
+        }
+        case 'set_ducking': {
+          if (typeof act.enabled === 'boolean') setDuckEnabled(act.enabled);
+          if (typeof act.strength === 'number') setDuckStrength(Math.max(0, Math.min(1, act.strength)));
+          toast({
+            title: act.enabled === false ? '🔇 Ducking off' : '🎚️ Ducking updated',
+            description: typeof act.strength === 'number' ? `Strength ${(act.strength * 100).toFixed(0)}%` : undefined,
+          });
+          break;
+        }
+        // ── Phase 3: Word-level overlay alignment ─────────────────────
+        case 'align_overlay_to_word': {
+          const id = act.id || act.overlayId;
+          const word = act.word;
+          if (!id || !word) break;
+          const occurrence = typeof act.occurrence === 'number' ? act.occurrence : 1;
+          const lead = typeof act.lead === 'number' ? act.lead : 0;
+          const hit = findWordTime(String(word), occurrence);
+          if (!hit) {
+            toast({ title: 'Word not found in transcript', description: `"${word}" (occurrence ${occurrence})`, variant: 'destructive' });
+            break;
+          }
+          setOverlays(prev => prev.map(o => o.id === id ? { ...o, start: Math.max(0, hit.start + lead) } : o));
+          toast({ title: '🎯 Overlay synced to word', description: `"${hit.matchedWord}" → ${hit.start.toFixed(2)}s` });
+          break;
+        }
           const ids: string[] = Array.isArray(act.ids) ? act.ids : (act.id ? [act.id] : (act.overlayId ? [act.overlayId] : []));
           if (ids.length) {
             setOverlays(prev => prev.map(o => ids.includes(o.id) ? { ...o, hidden: true } : o));
