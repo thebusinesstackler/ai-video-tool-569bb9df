@@ -40,9 +40,8 @@ export async function callClaude(options: {
   system?: string;
   thinkingBudget?: number;
   maxTokens?: number;
-  model?: string;
 } | string, userMessage?: string, maxTokensLegacy?: number): Promise<{ text: string; thinking?: string }> {
-  let opts: { messages: any[]; system?: string; thinkingBudget?: number; maxTokens?: number; model?: string };
+  let opts: { messages: any[]; system?: string; thinkingBudget?: number; maxTokens?: number };
   if (typeof options === 'string') {
     opts = {
       messages: [
@@ -61,9 +60,8 @@ export async function callClaude(options: {
   }
 
   const gatewayMessages = buildMessages(opts.messages, opts.system);
-  const modelToUse = opts.model || DEFAULT_MODEL;
-
-  console.log(`Calling Lovable AI Gateway (${modelToUse}) with ${gatewayMessages.length} messages`);
+  
+  console.log(`Calling Lovable AI Gateway (${DEFAULT_MODEL}) with ${gatewayMessages.length} messages`);
 
   const response = await fetch(GATEWAY_URL, {
     method: 'POST',
@@ -72,7 +70,7 @@ export async function callClaude(options: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: modelToUse,
+      model: DEFAULT_MODEL,
       messages: gatewayMessages,
       max_tokens: opts.maxTokens || 16000,
     }),

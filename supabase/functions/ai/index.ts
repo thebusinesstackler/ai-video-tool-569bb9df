@@ -152,7 +152,7 @@ serve(async (req) => {
       { role: "user", content: message },
     ];
 
-    const result = await callClaude({ messages: chatMessages, model });
+    const result = await callClaude({ messages: chatMessages });
 
     return new Response(JSON.stringify({ response: result.text || '', imageUrl: null }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

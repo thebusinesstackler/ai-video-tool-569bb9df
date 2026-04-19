@@ -536,24 +536,35 @@ ${selectedProductCtx.targetAudience ? `- Target audience: ${selectedProductCtx.t
 - Reference image: provided above (treat as the hero product to feature)`
         : '';
 
+      const productFidelityBlock = persistentImageUrl
+        ? `\n\n**🔒 PRODUCT FIDELITY (NON-NEGOTIABLE):**
+The attached image is the EXACT hero product. The video model MUST keep label text, color, bottle/box shape, cap, branding, and proportions PIXEL-IDENTICAL to the reference image. Do NOT redesign, restyle, recolor, or invent variants. Do NOT change the label typography. The product on screen must be visually indistinguishable from the reference.`
+        : '';
+
       const analysisInstruction = `User request: "${userMsg.content}"
 
 ${videoFrames.length > 0 ? `Reference video: "${referenceVideoName}" — I've provided ${videoFrames.length} key frames above. Study them carefully.` : ''}
-${productImageUrl ? 'Product image provided above — incorporate this product naturally.' : ''}${productContextBlock}
+${productImageUrl ? 'Product image provided above — incorporate this product naturally.' : ''}${productContextBlock}${productFidelityBlock}
 
-Target video duration: ${soraDuration} seconds. The script MUST fully fill this duration with a clear three-act structure (Hook → Body → Payoff/CTA) and end with a deliberate closing beat — never leave dead air or an unresolved ending.
+Target duration: ${soraDuration} seconds. The script and action MUST fully fill this duration with a complete three-act arc (Hook → Body → Payoff/CTA) — no fade-outs before the end, no dead air.
 
 Provide:
 1. **Reference Analysis**: What you observed in the reference frames — hook type, pacing, camera style, talent energy, visual effects
-2. **Hook Strategy**: How the first 1.5–3 seconds will stop the scroll (based on what works in the reference)
-3. **Scene-by-Scene Script**: A ${soraDuration}-second UGC-style script broken into timed beats (e.g. 0–3s Hook, 3–${Math.floor(soraDuration * 0.6)}s Body, ${Math.floor(soraDuration * 0.6)}–${soraDuration - 3}s Reveal/Demo, ${soraDuration - 3}–${soraDuration}s CTA + Payoff). Include EXACT spoken lines in quotes paced at ~2.5 words/second so dialogue length matches each beat.
-4. **Product Integration**: How and when the product appears naturally
-5. **CTA Strategy**: A concrete closing line + final on-screen action that lands in the LAST 2–3 seconds. The video must feel finished, not cut off.
+2. **Hook Strategy**: How the first 1.5–3 seconds will stop the scroll
+3. **Scene-by-Scene Script**: Timed beats (0-3s, 3-8s, etc.) summing to exactly ${soraDuration}s. Voiceover paced at ~2.5 words/second (~${Math.round(soraDuration * 2.5)} words total).
+4. **ACTION MANIFEST** — a literal bullet list of countable physical actions the video model MUST execute exactly. Be specific with COUNTS (e.g. "squeeze dropper TWO times — exactly 2 drops fall", "hand lifts glass once"). Format:
+\`\`\`
+ACTION MANIFEST (execute exactly):
+- [action 1 with explicit count/direction]
+- [action 2]
+\`\`\`
+5. **Product Integration**: How and when the product appears (must match reference image exactly)
+6. **CTA Strategy**: Final 2-3 seconds payoff line + on-screen text
 
 Then provide a final **VIDEO PROMPT** block:
 
 \`\`\`video-prompt
-[Your detailed video generation prompt — 180-280 words covering: scene-by-scene timed beats with quoted dialogue for the full ${soraDuration}s, environment, character, action, camera, lighting, product placement, voice quality (studio-clean, broadcast-grade), and an explicit final-frame description so the video ends on a deliberate payoff/CTA, not mid-action.]
+[180–280 word cinematic directive covering: environment, character, action choreography (literal counts from ACTION MANIFEST — non-negotiable), camera movement, lighting, product placement (pixel-identical to reference if attached), pacing, sound design, final-frame description. Explicitly state "Follow the ACTION MANIFEST literally — counts like 'two drops' are non-negotiable." End with the closing shot description so the ${soraDuration}s video ends on a complete payoff, not a cut-off.]
 \`\`\``;
 
       contentParts.push({ type: 'text', text: analysisInstruction });
@@ -564,7 +575,6 @@ Then provide a final **VIDEO PROMPT** block:
             { role: 'system', content: systemPrompt },
             { role: 'user', content: contentParts.length > 1 ? contentParts : analysisInstruction },
           ],
-          model: 'google/gemini-2.5-pro',
         },
       });
 
@@ -616,15 +626,22 @@ Then provide a final **VIDEO PROMPT** block:
 
         const isT2V = inputMode === 't2v' || !persistentImageUrl;
         const useProductLock = lockProduct && !!persistentImageUrl && !isT2V;
-        // T2V always routes to sora-2-pro (sora-2 requires an image)
+        // Auto-upgrade to Sora 2 Pro whenever a product image is attached (broadcast-grade audio + better fidelity).
+        // T2V also forces Pro since standard sora-2 requires an image input.
+        const autoProForImage = !!persistentImageUrl && !useProductLock;
         const generationModel = useProductLock
           ? 'wan-2.5-i2v'
-          : (isT2V ? 'sora-2-pro' : (useSoraPro ? 'sora-2-pro' : 'sora-2'));
+          : (isT2V || useSoraPro || autoProForImage ? 'sora-2-pro' : 'sora-2');
         if (useProductLock) {
-          setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: '🎬 Generating with Wan 2.5 i2v (product-locked) for pixel-accurate product fidelity...' } : m));
+          setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `🔒 Locking product to attached reference image. 🎬 Generating with Wan 2.5 i2v (product-locked) for pixel-accurate product fidelity...` } : m));
+        } else if (autoProForImage && !useSoraPro) {
+          setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `🔒 Locking product to attached reference image.\n⭐ Auto-upgraded to Sora 2 PRO (${soraProResolution}) for broadcast-grade audio + product fidelity. Passing image directly to Sora as visual reference...` } : m));
         } else if (useSoraPro) {
           setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `⭐ Generating with Sora 2 PRO (${soraProResolution}, premium tier) — physics-aware, synchronized audio, broadcast quality...` } : m));
+        } else if (isT2V) {
+          setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `📝 Text → Video: Generating with Sora 2 PRO (${soraProResolution})...` } : m));
         }
+        console.log('[VideoRepo] Generation routing:', { generationModel, hasImage: !!persistentImageUrl, persistentImageUrl, useProductLock, isT2V, autoProForImage });
         try {
           const taskId = await createWaveSpeedVideo({
             prompt: videoPrompt,
@@ -779,7 +796,7 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
 \`\`\``,
       });
 
-      const systemPrompt = `You are a UGC ad video strategist helping iterate on a video script. The user has already generated a video and wants to make changes. Review the conversation history, understand their feedback, and provide a revised script with an updated video-prompt block. The script MUST fully fill the target duration with a clear three-act structure (Hook → Body → Payoff/CTA), include exact quoted dialogue paced at ~2.5 words/second, and end on a deliberate closing beat (CTA + final-frame description) — never leave dead air or cut off mid-action. Voice quality must be studio-clean broadcast grade. Be concise in your reasoning — focus on what changed and why — but the final \`\`\`video-prompt\`\`\` block must be 180–280 words with timed beats covering the full duration.`;
+      const systemPrompt = `You are a UGC ad video strategist helping iterate on a video script. The user has already generated a video and wants to make changes. Review the conversation history, understand their feedback, and provide a revised script with an updated video-prompt block. Be concise — focus on what changed and why.`;
 
       const { data: aiData, error: aiError } = await supabase.functions.invoke('ai', {
         body: {
@@ -788,7 +805,6 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
             ...conversationHistory,
             { role: 'user', content: contentParts.length > 1 ? contentParts : contentParts[contentParts.length - 1].text },
           ],
-          model: 'google/gemini-2.5-pro',
         },
       });
 
