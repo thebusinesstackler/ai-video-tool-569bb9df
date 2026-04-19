@@ -309,13 +309,17 @@ B-ROLL PROMPT RULES — MATCH THE VIDEO'S FEEL, USE THE FRAMES YOU CAN SEE:
   - Specific outcomes: "in 20 minutes", "by week 2", "the first sip"
   - SKIP: filler talk, transitions, generic intros ("hey guys"), CTAs (handled by add_text_card)
 
-  HOW TO WRITE EACH PROMPT — visualize the phrase LITERALLY:
+  HOW TO WRITE EACH PROMPT — visualize the phrase LITERALLY as ONE continuous camera take:
+  - The video model renders a SINGLE unedited shot. NEVER use editing language: no "cut to", "split screen", "overlay", "graphic of", "text appears", "transition to", "then we see", "scene 2", "intercut".
+  - Describe the subject + their CONTINUOUS ACTION + setting + lighting + ONE camera move + tone — as if filmed in one take by a single camera.
+  - Center the key visual element in frame and keep it WHOLE in shot (don't describe things as floating, popping in, or as graphic elements — describe them as REAL physical objects in the scene).
+  - "found an ON switch" → "Close-up of a hand reaching out and flipping a wall light switch labelled 'ON' in the centre of the frame, the bulb above warmly illuminating, soft natural room light, slow push-in, warm everyday tones"
   - "better sleep" → "Soft morning light through linen curtains, woman slowly waking up smiling in white sheets, slow push-in, warm golden tones, cinematic shallow depth of field, peaceful"
   - "drop into your coffee" → "Amber dropper tilting over steaming mug of black coffee on wooden table, droplet falling in slow motion, soft window light, macro detail, warm rich tones"
   - "energy that lasts" → "Woman in athletic wear running uphill at golden hour, smooth handheld follow shot, sun flares through trees, vibrant warm tones, kinetic"
   - "calm focus" → "Person at minimalist wooden desk reading a book, soft natural window light, hands cupping a warm mug, slow gentle pan, muted earthy tones, serene"
   - Match the source video's aesthetic (UGC vs polished — see frames you receive)
-  - Keep prompts 25–45 words. Subject + setting + lighting + ONE camera move + tone.
+  - Keep prompts 25–45 words. Subject + setting + lighting + ONE camera move + tone. NEVER mention editing.
 
   ALWAYS use the "start" timestamp of the FIRST word of the phrase (from word-level transcript). The clip plays for 3s starting there.
 
