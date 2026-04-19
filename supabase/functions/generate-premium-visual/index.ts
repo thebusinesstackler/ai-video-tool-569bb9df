@@ -21,7 +21,6 @@ async function designPromptWithClaude(
   }
 ): Promise<string> {
   const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
-  if (!ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY not configured');
 
   const thumbnailSystem = `You are an ELITE THUMBNAIL DESIGNER who has created thumbnails for MrBeast, Ali Abdaal, and top YouTube creators. You write image generation prompts that produce REAL YouTube-quality thumbnails.
 
