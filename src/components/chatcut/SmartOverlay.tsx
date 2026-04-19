@@ -118,7 +118,10 @@ function placementStyle(p?: CommercialPlacement): React.CSSProperties {
   // Note: max-width values use cqw so they scale to the preview container, not the viewport.
   switch (p) {
     case 'behind_subject':
-      return { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6%' };
+      // z-index 0 keeps the masked text BEHIND the speaker layer (main <video> sits at z-index 1+
+      // while the overlay layer normally renders above the video). The overlay container will
+      // also receive `mix-blend-mode: screen` via MaskedTypography for the see-through illusion.
+      return { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6%', zIndex: 0 };
     case 'left_panel':
       return { position: 'absolute', left: '4%', top: '50%', transform: 'translateY(-50%)', maxWidth: '38cqw' };
     case 'right_panel':

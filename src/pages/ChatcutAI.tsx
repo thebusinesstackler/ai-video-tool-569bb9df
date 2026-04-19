@@ -337,6 +337,8 @@ const ChatcutAI = () => {
   const [bRollClips, setBRollClips] = useState<BRollClip[]>([]);
   // Phase 2: scene transitions Marco can place between cuts (fade, dip, zoom, speed-ramp, whip).
   const [transitions, setTransitions] = useState<Transition[]>([]);
+  // Director "punch-in" beats — temporary CSS scale on the main video preview for emphasis.
+  const [punchIns, setPunchIns] = useState<Array<{ id: string; start: number; duration: number; scale: number; reason?: string }>>([]);
   // Phase 3: sound effects + speech-aware music ducking strength (0=off, 1=full mute under speech).
   const [sfxClips, setSfxClips] = useState<SfxClip[]>([]);
   const [duckStrength, setDuckStrength] = useState<number>(0.65);
@@ -1985,6 +1987,26 @@ const ChatcutAI = () => {
         case 'review':
           // Review is handled conversationally by the AI
           break;
+        case 'add_punch_in': {
+          const start = typeof act.start === 'number' ? act.start : currentTime;
+          const dur = Math.max(0.5, Math.min(6, typeof act.duration === 'number' ? act.duration : 2));
+          const sc = Math.max(1.05, Math.min(1.4, typeof act.scale === 'number' ? act.scale : 1.15));
+          const id = crypto.randomUUID();
+          setPunchIns(prev => [...prev, { id, start, duration: dur, scale: sc, reason: act.reason }].sort((a, b) => a.start - b.start));
+          toast({ title: '🎯 Punch-in added', description: `${sc.toFixed(2)}× zoom @ ${start.toFixed(1)}s for ${dur.toFixed(1)}s${act.reason ? ` — ${act.reason}` : ''}` });
+          break;
+        }
+        case 'remove_punch_in': {
+          const id = act.id as string | undefined;
+          const at = typeof act.at === 'number' ? act.at : null;
+          setPunchIns(prev => prev.filter(p => {
+            if (id && p.id === id) return false;
+            if (at != null && at >= p.start && at < p.start + p.duration) return false;
+            return true;
+          }));
+          toast({ title: 'Punch-in removed' });
+          break;
+        }
         case 'trim_tail': {
           // Cut off a long ending. Marco passes how many seconds of tail to remove,
           // or an explicit start time. We add a "cut" so playback skips the tail.
@@ -3466,6 +3488,13 @@ const ChatcutAI = () => {
     ) || null;
   }, [currentTime, transitions]);
 
+  // Active director punch-in (CSS scale on main video — no extra render cost)
+  const activePunchIn = useMemo(() => {
+    return punchIns.find(p =>
+      currentTime >= p.start && currentTime < p.start + p.duration
+    ) || null;
+  }, [currentTime, punchIns]);
+
   return (
     <Layout>
       <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden">
@@ -4049,6 +4078,14 @@ const ChatcutAI = () => {
                           cutoutMode === 'white' && "mix-blend-multiply",
                           cutoutMode === 'dark' && "mix-blend-screen",
                         )}
+                        style={activePunchIn ? {
+                          transform: `scale(${activePunchIn.scale})`,
+                          transformOrigin: 'center 40%',
+                          transition: 'transform 0.6s cubic-bezier(.2,1,.36,1)',
+                        } : {
+                          transform: 'scale(1)',
+                          transition: 'transform 0.5s cubic-bezier(.2,1,.36,1)',
+                        }}
                         onClick={togglePlay}
                       />
 
