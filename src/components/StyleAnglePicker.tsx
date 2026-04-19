@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Camera, Film, Smile, Heart, Zap, MessageSquare, Sparkles, Newspaper } from 'lucide-react';
+import { Camera, Film, Smile, Heart, Zap, MessageSquare, Sparkles, Newspaper, Headphones, User, ArrowRightLeft, Type, Eye, Mic } from 'lucide-react';
 
 export interface StyleOption {
   id: string;
@@ -17,6 +17,12 @@ export const STYLE_OPTIONS: StyleOption[] = [
   { id: 'comedic', label: 'Comedic', description: 'Punchy timing, surprise reactions, fun pace', promptSuffix: 'Style: comedic skit. Quick cuts, exaggerated reactions, punchline at the end, lighthearted music vibe.', icon: Smile },
   { id: 'aspirational', label: 'Aspirational', description: 'Lifestyle, slow-mo, premium feel', promptSuffix: 'Style: aspirational lifestyle. Slow-motion, golden-hour locations, premium product hero shots, minimal voiceover.', icon: Heart },
   { id: 'high-energy', label: 'High Energy', description: 'Fast cuts, music-driven, hype edit', promptSuffix: 'Style: high-energy hype edit. Beat-synced cuts, whip pans, motion graphics, urgent VO with strong CTA.', icon: Zap },
+  { id: 'asmr', label: 'ASMR Ritual', description: 'Whispered, sensory close-ups, no music', promptSuffix: 'Style: ASMR ritual. Extreme close-ups of the dropper, glass clinks, liquid pouring, whispered voiceover, no background music — only natural sounds. Slow, sensory, calming.', icon: Headphones },
+  { id: 'founder-pov', label: 'Founder POV', description: 'First-person founder talking direct to camera', promptSuffix: 'Style: founder POV. First-person handheld walking shot, founder talking directly to camera about why they built the product, behind-the-scenes farm/lab cuts, raw and trust-building.', icon: User },
+  { id: 'before-after', label: 'Before/After', description: 'Split-screen transformation arc', promptSuffix: 'Style: before/after transformation. Open with a struggle moment (tired morning, restless night), introduce the dropper ritual, end with the after state (energized, calm, focused). Use split-screen or hard cuts to mark the shift.', icon: ArrowRightLeft },
+  { id: 'pas', label: 'Problem-Agitate-Solve', description: 'Hard pain hook → twist the knife → product rescue', promptSuffix: 'Style: problem-agitate-solve. Lead with the audience pain, agitate it with relatable specifics for 6-8 seconds, then introduce the dropper as the rescue. Direct-response tone, strong CTA.', icon: MessageSquare },
+  { id: 'kinetic-typography', label: 'Kinetic Typography', description: 'Text-driven, beat-synced, no actor needed', promptSuffix: 'Style: kinetic typography. Bold animated text on b-roll backgrounds, beat-synced word reveals, minimal or no voiceover — the typography IS the story. Premium magazine vibe.', icon: Type },
+  { id: 'mockumentary', label: 'Mockumentary', description: 'Deadpan interview style, dry humor', promptSuffix: 'Style: mockumentary. Deadpan talking-head interview framing, dry humor, awkward pauses, "real customer" energy played slightly straight-faced. Office-style B-roll cuts.', icon: Eye },
 ];
 
 export const ALTERNATIVE_ANGLES: { id: string; label: string; description: string; instruction: string; icon: React.ComponentType<{ className?: string }> }[] = [

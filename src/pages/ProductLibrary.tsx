@@ -54,6 +54,8 @@ interface GraphicImage {
 }
 
 const VARIATION_STYLES = [
+  { key: 'hero_premium', label: 'Hero Premium', icon: '✨', desc: 'Luxury magazine hero shot' },
+  { key: 'transparent_bg', label: 'Background Removed', icon: '🪄', desc: 'Clean cutout, sharp edges' },
   { key: 'lifestyle', label: 'Lifestyle Setting', icon: '🏡', desc: 'Warm home setting' },
   { key: 'white_bg', label: 'White Background', icon: '⬜', desc: 'Clean e-commerce shot' },
   { key: 'ugc', label: 'In-Hand UGC', icon: '🤳', desc: 'Authentic selfie style' },
