@@ -2250,6 +2250,68 @@ const ChatcutAI = () => {
           });
           break;
         }
+        case 'add_lipsync': {
+          if (!videoUrl) {
+            toast({ title: 'No video loaded', description: 'Upload or load a video first, then ask Marco to lip-sync it.', variant: 'destructive' });
+            break;
+          }
+          let lipAudioUrl: string | undefined = act.audioUrl;
+          if (!lipAudioUrl && act.musicTrackId) {
+            const t = musicTracks.find(m => m.id === act.musicTrackId);
+            lipAudioUrl = t?.audioUrl;
+          }
+          if (!lipAudioUrl) {
+            const t = musicTracks.find(m => !!m.audioUrl);
+            lipAudioUrl = t?.audioUrl;
+          }
+          if (!lipAudioUrl) {
+            toast({
+              title: 'Audio source needed for lip-sync',
+              description: 'Tell Marco which audio to use, or add a music/voiceover track to the timeline first.',
+              variant: 'destructive',
+            });
+            break;
+          }
+          toast({ title: '🎤 Lip-syncing video…', description: 'infinitetalk-hd is rendering — usually 1-4 minutes' });
+          (async () => {
+            try {
+              const { data: createData, error: createErr } = await supabase.functions.invoke('wavespeed-video', {
+                body: {
+                  action: 'create',
+                  model: 'infinitetalk-hd',
+                  videoUrl,
+                  audioUrl: lipAudioUrl,
+                  prompt: act.prompt || 'Replace the spoken audio with the new track. Match lip movement precisely. Keep natural facial expressions, head turns, and subtle micro-movements. Do not alter the background or environment.',
+                  aspectRatio: act.aspectRatio || '9:16',
+                },
+              });
+              if (createErr || !createData?.taskId) {
+                throw new Error(createErr?.message || createData?.error || 'Lip-sync job failed to start');
+              }
+              let attempts = 0;
+              const maxAttempts = 200;
+              let finalUrl: string | undefined;
+              while (attempts < maxAttempts) {
+                attempts++;
+                await new Promise(r => setTimeout(r, 3000));
+                const { data: status } = await supabase.functions.invoke('wavespeed-video', {
+                  body: { action: 'status', taskId: createData.taskId },
+                });
+                if (status?.status === 'completed' && status?.videoUrl) {
+                  finalUrl = status.videoUrl;
+                  break;
+                }
+                if (status?.status === 'failed') throw new Error(status?.error || 'Lip-sync render failed');
+              }
+              if (!finalUrl) throw new Error('Lip-sync timed out');
+              setVideoUrl(finalUrl);
+              toast({ title: '✨ Lip-sync complete!', description: 'Marco swapped your video for the lip-synced version.' });
+            } catch (err: any) {
+              toast({ title: 'Lip-sync failed', description: err?.message || 'Try again or pick a different audio track', variant: 'destructive' });
+            }
+          })();
+          break;
+        }
         case 'remove_broll': {
           const id = act.id || act.brollId;
           if (id) {

@@ -500,6 +500,13 @@ When to use:
 
 The user's brand color, brand name, and brand font are already passed in — DO NOT specify them in the action, the system handles that.
 
+9. **add_lipsync** — Run the current video through the infinitetalk-hd lip-sync engine to perfectly re-sync the speaker's mouth to an audio track. Use when the user asks to "lip-sync this", "fix the lip sync", "make their mouth match", "redub", or "replace the voice". REQUIRES an audioUrl — if the user hasn't provided one, ASK FIRST: "Sure! Want me to lip-sync to your existing audio, a music track on the timeline, or do you want to upload/generate new narration?" Pass the chosen audio URL as \`audioUrl\`. Optional \`prompt\` describes the desired delivery. Takes 1-4 minutes to render and replaces the main video on completion.
+\`\`\`actions
+[{"action":"add_lipsync","audioUrl":"https://...mp3","prompt":"Natural conversational delivery, matching mouth movement precisely to the new audio"}]
+\`\`\`
+- If the user has uploaded a music/voiceover track on the timeline (check \`context.musicTracks\`), you can reference it by id: \`{"action":"add_lipsync","musicTrackId":"<id>"}\`.
+- If the user just says "lip-sync this video" without specifying audio, ASK which audio source to use. DO NOT guess.
+
 You can combine multiple actions in one block:
 \`\`\`actions
 [
