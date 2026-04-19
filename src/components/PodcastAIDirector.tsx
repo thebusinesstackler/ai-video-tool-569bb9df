@@ -107,7 +107,7 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
         'Content-Type': 'application/json',
         Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       },
-      body: JSON.stringify({ messages: allMessages, brandContext, selectedCharacterName }),
+      body: JSON.stringify({ messages: allMessages, brandContext, selectedCharacterName, availableTwins }),
     });
 
     if (!resp.ok || !resp.body) {
