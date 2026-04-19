@@ -2565,6 +2565,79 @@ const ChatcutAI = () => {
     return 'overlay';
   };
 
+  // ── Phase 2: Motion-zone classification + collision detection ──────
+  // Buckets a position {x,y} (0–100%) into a named screen zone so we can detect
+  // when two motion graphics share the SAME ZONE at the SAME TIME (visual chaos).
+  // Zones cover the whole canvas; we use 7 buckets that map to common placements.
+  const zoneOfPosition = (pos: { x: number; y: number } | undefined | null): string => {
+    if (!pos) return 'center';
+    const { x, y } = pos;
+    // Vertical bands: top (<35), middle (35-65), bottom (>65)
+    const band = y < 35 ? 'top' : y > 65 ? 'bottom' : 'mid';
+    // Horizontal bands: left (<35), center (35-65), right (>65)
+    const col = x < 35 ? 'left' : x > 65 ? 'right' : 'center';
+    if (band === 'mid' && col === 'center') return 'center';
+    return `${band}-${col}`;
+  };
+
+  // Returns a Set of overlay IDs that share a zone with another motion overlay during overlapping time.
+  // Also returns a list of pairs so Marco can act on specific (a,b) collisions.
+  const motionZoneCollisions = useMemo(() => {
+    const motion = overlays.filter(o => classifyOverlay(o) === 'motion' && !o.fullCoverage && !o.hidden);
+    const conflicts = new Set<string>();
+    const pairs: { a: string; b: string; zone: string; overlapStart: number; overlapEnd: number }[] = [];
+    for (let i = 0; i < motion.length; i++) {
+      for (let j = i + 1; j < motion.length; j++) {
+        const a = motion[i]; const b = motion[j];
+        const zoneA = zoneOfPosition(a.position);
+        const zoneB = zoneOfPosition(b.position);
+        if (zoneA !== zoneB) continue;
+        const overlapStart = Math.max(a.start, b.start);
+        const overlapEnd = Math.min(a.start + a.duration, b.start + b.duration);
+        if (overlapEnd - overlapStart > 0.05) {
+          conflicts.add(a.id); conflicts.add(b.id);
+          pairs.push({ a: a.id, b: b.id, zone: zoneA, overlapStart, overlapEnd });
+        }
+      }
+    }
+    return { ids: conflicts, pairs };
+  }, [overlays]);
+
+  // Find the first free zone for a new motion graphic at [start, end] given a preferred zone.
+  // Falls back through a sensible order so Marco's "everything in lower_third" never triple-stacks.
+  const findFreeMotionZone = (preferredZone: string, start: number, end: number): string => {
+    const zoneFallbacks: Record<string, string[]> = {
+      'top-center':    ['top-center', 'top-right', 'top-left', 'mid-right', 'mid-left'],
+      'top-left':      ['top-left', 'mid-left', 'top-center', 'bottom-left'],
+      'top-right':     ['top-right', 'mid-right', 'top-center', 'bottom-right'],
+      'mid-left':      ['mid-left', 'top-left', 'bottom-left', 'top-center'],
+      'mid-right':     ['mid-right', 'top-right', 'bottom-right', 'top-center'],
+      'center':        ['center', 'mid-right', 'mid-left', 'top-center'],
+      'bottom-left':   ['bottom-left', 'mid-left', 'top-left'],
+      'bottom-center': ['bottom-center', 'top-center', 'mid-right', 'mid-left'],
+      'bottom-right':  ['bottom-right', 'mid-right', 'top-right'],
+    };
+    const order = zoneFallbacks[preferredZone] || [preferredZone, 'top-center', 'mid-right', 'mid-left', 'bottom-center'];
+    const motion = overlays.filter(o => classifyOverlay(o) === 'motion' && !o.fullCoverage && !o.hidden);
+    const occupied = (zone: string) =>
+      motion.some(o => zoneOfPosition(o.position) === zone &&
+        Math.max(o.start, start) < Math.min(o.start + o.duration, end) - 0.05);
+    for (const z of order) if (!occupied(z)) return z;
+    return preferredZone;
+  };
+
+  const zoneToPosition = (zone: string): { x: number; y: number } => ({
+    'top-left':      { x: 22, y: 16 },
+    'top-center':    { x: 50, y: 16 },
+    'top-right':     { x: 78, y: 16 },
+    'mid-left':      { x: 22, y: 50 },
+    'center':        { x: 50, y: 50 },
+    'mid-right':     { x: 78, y: 50 },
+    'bottom-left':   { x: 22, y: 78 },
+    'bottom-center': { x: 50, y: 82 },
+    'bottom-right':  { x: 78, y: 78 },
+  }[zone] || { x: 50, y: 50 });
+
   const toggleTrackMute = (track: 'v1' | 'v2' | 'a1') => {
     setTrackMuted(prev => {
       const next = { ...prev, [track]: !prev[track] };
