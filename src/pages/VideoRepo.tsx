@@ -620,8 +620,12 @@ Then provide the final **VIDEO PROMPT** block — this is what Sora-2 will execu
         setMessages((prev) => [...prev, generatingMsg]);
 
         const useProductLock = lockProduct && !!persistentImageUrl;
-        const generationModel = useProductLock ? 'wan-2.5-i2v' : (useSoraPro ? 'sora-2-pro' : 'sora-2');
-        if (useProductLock) {
+        const generationModel = useSeedance
+          ? 'seedance-2.0'
+          : (useProductLock ? 'wan-2.5-i2v' : (useSoraPro ? 'sora-2-pro' : 'sora-2'));
+        if (useSeedance) {
+          setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: '🌊 Generating with ByteDance Seedance 2.0 (1080p) — premium motion fidelity, native audio understanding...' } : m));
+        } else if (useProductLock) {
           setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: '🎬 Generating with Wan 2.5 i2v (product-locked) for pixel-accurate product fidelity...' } : m));
         } else if (useSoraPro) {
           setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `⭐ Generating with Sora 2 PRO (${soraProResolution}, premium tier) — physics-aware, synchronized audio, broadcast quality...` } : m));
