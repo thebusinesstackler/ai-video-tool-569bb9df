@@ -1163,34 +1163,54 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
   "motionPrompt": "describe the camera motion + subject motion that interpolates between the two frames in 5 seconds, cinematic, smooth"
 }`;
 
-      const { data: stratData, error: stratErr } = await supabase.functions.invoke('ai', {
-        body: {
-          model: 'google/gemini-2.5-flash',
-          messages: [{ role: 'user', content: strategyPrompt }],
-        },
-      });
-      if (stratErr) throw new Error(stratErr.message || 'Strategy AI failed');
+      const callStrategy = async (model: string) => {
+        return await supabase.functions.invoke('ai', {
+          body: {
+            model,
+            messages: [{ role: 'user', content: strategyPrompt }],
+          },
+        });
+      };
 
-      const raw: string =
-        stratData?.content ||
-        stratData?.choices?.[0]?.message?.content ||
-        stratData?.text ||
-        (typeof stratData === 'string' ? stratData : '');
-
-      // Robust JSON extraction (handles ```json fences and stray prose)
-      let plan: any = null;
-      try { plan = JSON.parse(raw); } catch {
+      const extractPlan = (stratData: any): any => {
+        // Try tool call first
+        const toolCalls = stratData?.choices?.[0]?.message?.tool_calls;
+        if (toolCalls?.[0]?.function?.arguments) {
+          try { return JSON.parse(toolCalls[0].function.arguments); } catch {}
+        }
+        const raw: string =
+          stratData?.content ||
+          stratData?.choices?.[0]?.message?.content ||
+          stratData?.text ||
+          (typeof stratData === 'string' ? stratData : '');
+        if (!raw) return null;
+        try { return JSON.parse(raw); } catch {}
         const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
         const candidate = fenced ? fenced[1] : raw;
         const match = candidate.match(/\{[\s\S]*\}/);
-        if (match) {
-          try { plan = JSON.parse(match[0]); } catch { /* fall through */ }
-        }
+        if (match) { try { return JSON.parse(match[0]); } catch {} }
+        return null;
+      };
+
+      let { data: stratData, error: stratErr } = await callStrategy('google/gemini-2.5-flash');
+      let plan = stratErr ? null : extractPlan(stratData);
+
+      // Retry once with a stronger model if first attempt failed
+      if (!plan || !plan.startFramePrompt || !plan.endFramePrompt) {
+        console.warn('[Auto Motion] First strategy attempt failed, retrying with Pro...', stratData);
+        const retry = await callStrategy('google/gemini-2.5-pro');
+        if (!retry.error) plan = extractPlan(retry.data);
       }
 
+      // Last-resort fallback: use a hardcoded strategy so the user is never blocked
       if (!plan || !plan.startFramePrompt || !plan.endFramePrompt) {
-        console.error('[Auto Motion] raw strategy response:', raw);
-        throw new Error('Strategy AI did not return valid JSON. Try again.');
+        console.warn('[Auto Motion] AI strategy unavailable, using fallback Macro Pour template');
+        plan = {
+          strategy: 'Macro Pour',
+          startFramePrompt: `Cinematic 16:9 macro shot of a premium amber glass dropper bottle of mushroom extract on a clean marble surface, soft morning daylight from the left, shallow depth of field, dropper held just above an empty crystal water glass, photoreal, editorial wellness aesthetic. ${brandLine}`,
+          endFramePrompt: `Cinematic 16:9 macro shot, same dropper bottle and crystal glass on the same marble surface, single golden droplet has just hit the water creating a soft ripple, soft morning daylight, shallow depth of field, photoreal continuity with the first frame. ${brandLine}`,
+          motionPrompt: 'Slow 5-second macro push-in toward the dropper. A single golden droplet falls from the dropper into the crystal glass and creates a soft, slow-motion ripple. Smooth cinematic camera, natural daylight, no cuts.',
+        };
       }
 
       setAutoMotionStatus(`Strategy: ${plan.strategy}. Rendering keyframes...`);
