@@ -191,7 +191,7 @@ Genres: wellness, upbeat, corporate, cinematic, lofi, energetic, ambient
 Motion graphics live on a SEPARATE timeline track from text overlays. NEVER stack 2+ motion graphics in the same zone unless they are sequential in time. Use the FULL canvas — top, sides, center, bottom — based on the beat's intent. NEVER default everything to lower_third.
 
 **Default placement by INTENT (always set \`intent\` on add_motion_graphic):**
-- intent:"hook"        → placement:"top_banner"     · treatment:"kinetic_headline"  · subjectAction:"push_in"
+- intent:"hook"        → placement:"top_banner"     · treatment:"bold_outline"     · subjectAction:"push_in"
 - intent:"stat"        → placement:"right_panel"    · treatment:"stat_card"         · subjectAction:"shift_left"
 - intent:"benefit"     → placement:"left_panel"     · treatment:"side_notes"        · subjectAction:"shift_right"
 - intent:"educational" → placement:"left_panel"     · treatment:"bullet_stack"      · subjectAction:"shift_right"
