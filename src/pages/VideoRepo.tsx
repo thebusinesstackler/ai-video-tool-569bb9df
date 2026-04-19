@@ -122,8 +122,6 @@ const VideoRepo = () => {
   const [referenceVideoFile, setReferenceVideoFile] = useState<File | null>(null);
   const [productImageFile, setProductImageFile] = useState<File | null>(null);
   const [soraDuration, setSoraDuration] = useState<10 | 20>(10);
-  const [useSoraPro, setUseSoraPro] = useState(false);
-  const [soraProResolution, setSoraProResolution] = useState<'720p' | '1080p'>('720p');
   const [lockProduct, setLockProduct] = useState(false);
   const [productPickerOpen, setProductPickerOpen] = useState(false);
   const [selectedProductCtx, setSelectedProductCtx] = useState<SelectedProductContext | null>(null);
@@ -702,29 +700,21 @@ Explicitly state "Follow the ACTION MANIFEST literally — counts are non-negoti
 
         const isT2V = inputMode === 't2v' || !persistentImageUrl;
         const useProductLock = lockProduct && !!persistentImageUrl && !isT2V;
-        // Auto-upgrade to Sora 2 Pro whenever a product image is attached (broadcast-grade audio + better fidelity).
-        // T2V also forces Pro since standard sora-2 requires an image input.
-        const autoProForImage = !!persistentImageUrl && !useProductLock;
-        const generationModel = useProductLock
-          ? 'wan-2.5-i2v'
-          : (isT2V || useSoraPro || autoProForImage ? 'sora-2-pro' : 'sora-2');
+        const generationModel = useProductLock ? 'wan-2.5-i2v' : 'sora-2';
         if (useProductLock) {
           setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `🔒 Locking product to attached reference image. 🎬 Generating with Wan 2.5 i2v (product-locked) for pixel-accurate product fidelity...` } : m));
-        } else if (autoProForImage && !useSoraPro) {
-          setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `🔒 Locking product to attached reference image.\n⭐ Auto-upgraded to Sora 2 PRO (${soraProResolution}) for broadcast-grade audio + product fidelity. Passing image directly to Sora as visual reference...` } : m));
-        } else if (useSoraPro) {
-          setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `⭐ Generating with Sora 2 PRO (${soraProResolution}, premium tier) — physics-aware, synchronized audio, broadcast quality...` } : m));
         } else if (isT2V) {
-          setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `📝 Text → Video: Generating with Sora 2 PRO (${soraProResolution})...` } : m));
+          setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `📝 Text → Video: Generating with Sora 2...` } : m));
+        } else {
+          setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `🎬 Generating with Sora 2...` } : m));
         }
-        console.log('[VideoRepo] Generation routing:', { generationModel, hasImage: !!persistentImageUrl, persistentImageUrl, useProductLock, isT2V, autoProForImage });
+        console.log('[VideoRepo] Generation routing:', { generationModel, hasImage: !!persistentImageUrl, persistentImageUrl, useProductLock, isT2V });
         try {
           const taskId = await createWaveSpeedVideo({
             prompt: videoPrompt,
             model: generationModel,
             aspectRatio: '9:16',
             duration: soraDuration,
-            ...(generationModel === 'sora-2-pro' ? { resolution: soraProResolution } : {}),
             userId: user?.id,
             source: 'video-repo',
             ...(persistentImageUrl ? { imageUrls: [persistentImageUrl] } : {}),
@@ -925,14 +915,13 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
         setMessages(prev => [...prev, generatingMsg]);
 
         const useProductLockFollow = lockProduct && !!newImageUrl;
-        const followModel = useProductLockFollow ? 'wan-2.5-i2v' : (useSoraPro ? 'sora-2-pro' : 'sora-2');
+        const followModel = useProductLockFollow ? 'wan-2.5-i2v' : 'sora-2';
         try {
           const taskId = await createWaveSpeedVideo({
             prompt: newVideoPrompt,
             model: followModel,
             aspectRatio: '9:16',
             duration: soraDuration,
-            ...(followModel === 'sora-2-pro' ? { resolution: soraProResolution } : {}),
             userId: user?.id,
             source: 'video-repo',
             ...(newImageUrl ? { imageUrls: [newImageUrl] } : {}),
@@ -2106,29 +2095,6 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
                             <SelectItem value="20">20s</SelectItem>
                           </SelectContent>
                         </Select>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={useSoraPro ? 'default' : 'outline'}
-                          className="h-8 text-xs rounded-lg gap-1 px-2.5"
-                          title={useSoraPro
-                            ? `Sora 2 PRO ON — premium tier, ${soraProResolution}, physics-aware, native synchronized audio. Higher cost.`
-                            : 'Switch to Sora 2 PRO ⭐ — premium quality (720p/1080p), physics-aware motion, synchronized audio'}
-                          onClick={() => setUseSoraPro((v) => !v)}
-                        >
-                          ⭐ {useSoraPro ? 'Sora 2 Pro' : 'Pro'}
-                        </Button>
-                        {useSoraPro && (
-                          <Select value={soraProResolution} onValueChange={(v) => setSoraProResolution(v as '720p' | '1080p')}>
-                            <SelectTrigger className="h-8 text-xs w-[100px] rounded-lg bg-background" title="Sora 2 Pro resolution">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="720p">720p</SelectItem>
-                              <SelectItem value="1080p">1080p</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        )}
                         <Button
                           type="button"
                           size="sm"
