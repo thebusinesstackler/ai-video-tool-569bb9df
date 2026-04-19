@@ -552,7 +552,7 @@ Provide:
 1. **Reference Analysis**: What you observed in the reference frames — hook type, pacing, camera style, talent energy, visual effects
 2. **Hook Strategy**: How the first 1.5–3 seconds will stop the scroll
 3. **Scene-by-Scene Script**: Timed beats (0-3s, 3-8s, etc.) summing to exactly ${soraDuration}s. Voiceover paced at ~2.5 words/second (~${Math.round(soraDuration * 2.5)} words total).
-4. **ACTION MANIFEST** — a literal bullet list of countable physical actions the video model MUST execute exactly. Be specific with COUNTS (e.g. "squeeze dropper TWO times — exactly 2 drops fall", "hand lifts glass once"). Format:
+4. **ACTION MANIFEST** — a literal bullet list of countable physical actions the video model MUST execute exactly. Be specific with COUNTS and TARGETS. For dropper/tincture products: ALWAYS specify "squeeze dropper 3-5 times — multiple visible drops fall into a [water glass / coffee mug / tea cup / smoothie / juice]" — NEVER just "a dropper in water." Pick a beverage that fits the scene (water, coffee, tea, smoothie, juice) and name it explicitly. Other examples: "hand lifts glass once," "stir spoon clockwise twice." Format:
 \`\`\`
 ACTION MANIFEST (execute exactly):
 - [action 1 with explicit count/direction]
