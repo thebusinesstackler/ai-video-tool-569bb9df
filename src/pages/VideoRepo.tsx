@@ -114,6 +114,7 @@ const VideoRepo = () => {
   const [selectedProductCtx, setSelectedProductCtx] = useState<SelectedProductContext | null>(null);
   const [inputMode, setInputMode] = useState<'i2v' | 't2v'>('i2v');
   const [contentStyle, setContentStyle] = useState<ContentArchetypeId>('auto');
+  const [brandProfile, setBrandProfile] = useState<{ company_name: string | null; brand_url: string | null; brand_description: string | null } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -218,6 +219,19 @@ const VideoRepo = () => {
   useEffect(() => {
     if (user) fetchHistory();
   }, [user, fetchHistory]);
+
+  // Fetch brand profile (company name, URL, description) for brand-aware prompts
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('company_name, brand_url, brand_description')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (data) setBrandProfile(data);
+    })();
+  }, [user]);
 
   const fileToDataUrl = (file: File): Promise<string> => {
     return new Promise((resolve) => {
@@ -526,9 +540,33 @@ const VideoRepo = () => {
         contentParts.push({ type: 'image_url', image_url: { url: productImageUrl } });
       }
 
-      const systemPrompt = inputMode === 't2v'
+      // Brand-aware context block — injects user's brand profile so Marco knows the brand without being told
+      const brandBlock = brandProfile && (brandProfile.company_name || brandProfile.brand_url || brandProfile.brand_description)
+        ? `\n\n**🏷️ BRAND CONTEXT (you already represent this brand — never ask for it):**
+${brandProfile.company_name ? `- Brand: ${brandProfile.company_name}` : ''}
+${brandProfile.brand_url ? `- Website (use for any URL/CTA overlay or voiceover mention): ${brandProfile.brand_url.replace(/^https?:\/\//, '')}` : ''}
+${brandProfile.brand_description ? `- Brand voice & positioning: ${brandProfile.brand_description}` : ''}
+RULES: When a CTA or on-screen URL is needed, use "${brandProfile.brand_url ? brandProfile.brand_url.replace(/^https?:\/\//, '') : (brandProfile.company_name || 'the brand')}" — NEVER use placeholders like "YourWebsite.com", "yoursite.com", "[Your Brand]", or generic stand-ins. Speak as if you are this brand's in-house creative director.`
+        : '';
+
+      // Recent-history awareness — gives Marco the last 8 successful concepts so it doesn't repeat itself
+      const recentSuccesses = (historyProjects || [])
+        .filter((p) => p.status === 'completed' && (p.prompt || p.analysis_text))
+        .slice(0, 8);
+      const historyBlock = recentSuccesses.length > 0
+        ? `\n\n**📚 RECENT WORK FOR THIS BRAND (avoid repeating these — make this one distinct):**
+${recentSuccesses.map((p, i) => {
+  const concept = (p.analysis_text || p.prompt || '').replace(/\s+/g, ' ').slice(0, 180);
+  return `${i + 1}. [${p.model || 'video'}] ${(p.custom_name || p.prompt || 'Untitled').slice(0, 60)} — ${concept}${concept.length >= 180 ? '…' : ''}`;
+}).join('\n')}
+RULES: Do NOT reuse the same hook, opening line, setting, or shot composition from the videos above. Vary the archetype, beverage choice (water/coffee/tea/smoothie/juice), location, time-of-day, and emotional arc. If the user keeps making the same product, your job is to find a NEW angle each time.`
+        : '';
+
+      const systemPrompt = (inputMode === 't2v'
         ? `You are a UGC ad video strategist and creative director specializing in pure text-to-video generation (no product image required). Your job is to translate the user's idea into a cinematic, scroll-stopping ad concept built from scratch. Focus on scene/concept storytelling: vivid setting, character casting, action choreography, lighting mood, camera movement, sound design. Enforce: a dynamic hook in the first 1.5s, a spoken voice script paced at ~2.5 words/second, studio-clean broadcast audio, and a varied creative style — never default to the same format twice (rotate Founder POV, ASMR Ritual, PAS, Mockumentary, Before/After, Kinetic Typography, Day-in-the-Life, etc.).`
-        : `You are a UGC ad video strategist and visual analyst. When given reference video frames, study them carefully: identify the hook technique (first 3 seconds), pacing rhythm, camera movements, talent actions, lighting style, text overlays, and transition patterns. Use these insights to craft a new video that captures the same energy and conversion potential.`;
+        : `You are a UGC ad video strategist and visual analyst. When given reference video frames, study them carefully: identify the hook technique (first 3 seconds), pacing rhythm, camera movements, talent actions, lighting style, text overlays, and transition patterns. Use these insights to craft a new video that captures the same energy and conversion potential.`)
+        + brandBlock
+        + historyBlock;
 
       const productContextBlock = selectedProductCtx
         ? `\n\n**FEATURED PRODUCT (must appear naturally in the ad):**
@@ -573,7 +611,7 @@ ACTION MANIFEST (execute exactly):
 \`\`\`
 ${disableHookBank ? '6' : '7'}. **CONTINUITY ANCHOR** (only if 2 segments): list things that MUST match across clips — same shirt, same hand position, same product placement, same lighting angle.
 ${disableHookBank ? '7' : '8'}. **Product Integration**: How and when the product appears, per the archetype's product-integration rule (must match reference image exactly if attached).
-${disableCTA ? '' : `${disableHookBank ? '8' : '9'}. **CTA / Closing**: Final 2-3 seconds payoff line + on-screen text. BANNED overlays: "Revitalize Your Day", "Try It Today", "Transform Your Life". Use ONE of: a specific number ("11 days. No fog."), a direct test ("Try it for a week."), a name-drop ("${selectedProductCtx?.productName || 'Brand name'}"), or a felt benefit ("Clear by 3pm.").`}
+${disableCTA ? '' : `${disableHookBank ? '8' : '9'}. **CTA / Closing**: Final 2-3 seconds payoff line + on-screen text. BANNED overlays: "Revitalize Your Day", "Try It Today", "Transform Your Life", "YourWebsite.com", any placeholder URL. Use ONE of: a specific number ("11 days. No fog."), a direct test ("Try it for a week."), a name-drop ("${selectedProductCtx?.productName || brandProfile?.company_name || 'Brand name'}"), the real brand URL ("${brandProfile?.brand_url ? brandProfile.brand_url.replace(/^https?:\/\//, '') : 'brand.com'}"), or a felt benefit ("Clear by 3pm.").`}
 
 Then provide a final **VIDEO PROMPT** block:
 
