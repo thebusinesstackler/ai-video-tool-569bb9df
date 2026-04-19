@@ -31,16 +31,29 @@ const QUICK_PROMPTS = [
   { icon: Users, label: 'Scroll-Stopping Hooks', description: 'Powerful opening lines', prompt: 'Give me 5 powerful opening hooks for a talking-head video that stops the scroll on social media.' },
 ];
 
+export interface DirectorBrandContext {
+  brandName?: string;
+  brandDescription?: string;
+  productLines?: string;
+  audience?: string;
+  websiteUrl?: string;
+  websiteSummary?: string;
+  userEmail?: string;
+  userFirstName?: string;
+}
+
 interface PodcastAIDirectorProps {
   onUseScript: (script: string) => void;
   onUseBatchPlan?: (plans: VideoPlan[]) => void;
   selectedCharacterName?: string;
+  brandContext?: DirectorBrandContext;
 }
 
 export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
   onUseScript,
   onUseBatchPlan,
   selectedCharacterName,
+  brandContext,
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -85,7 +98,7 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
         'Content-Type': 'application/json',
         Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       },
-      body: JSON.stringify({ messages: allMessages }),
+      body: JSON.stringify({ messages: allMessages, brandContext, selectedCharacterName }),
     });
 
     if (!resp.ok || !resp.body) {
