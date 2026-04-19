@@ -21,7 +21,6 @@ async function designPromptWithClaude(
   }
 ): Promise<string> {
   const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
-  if (!ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY not configured');
 
   const thumbnailSystem = `You are an ELITE THUMBNAIL DESIGNER who has created thumbnails for MrBeast, Ali Abdaal, and top YouTube creators. You write image generation prompts that produce REAL YouTube-quality thumbnails.
 
@@ -91,34 +90,74 @@ REQUIREMENTS:
 - NO actual text or letters in the image — pure visual design only
 - Must feel like a Netflix/Apple end screen`;
 
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+  const systemPrompt = type === 'thumbnail' ? thumbnailSystem : outroSystem;
+
+  // Try Claude first
+  if (ANTHROPIC_API_KEY) {
+    try {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 800,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userMessage }],
+        }),
+      });
+
+      if (resp.ok) {
+        const data = await resp.json();
+        const designedPrompt = data.content?.[0]?.text?.trim();
+        if (designedPrompt && designedPrompt.length >= 30) {
+          console.log('Claude designed prompt:', designedPrompt.substring(0, 200));
+          return designedPrompt;
+        }
+      } else {
+        const err = await resp.text();
+        console.warn('Claude unavailable, falling back to Lovable AI Gateway:', resp.status, err.substring(0, 200));
+      }
+    } catch (e) {
+      console.warn('Claude call threw, falling back to Lovable AI Gateway:', (e as Error).message);
+    }
+  }
+
+  // Fallback: Lovable AI Gateway (Gemini Pro)
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) throw new Error('Prompt design unavailable (Claude exhausted, no LOVABLE_API_KEY)');
+
+  const gwResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
     headers: {
-      'x-api-key': ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 800,
-      system: type === 'thumbnail' ? thumbnailSystem : outroSystem,
-      messages: [{ role: 'user', content: userMessage }],
+      model: 'google/gemini-2.5-pro',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage },
+      ],
     }),
   });
 
-  if (!resp.ok) {
-    const err = await resp.text();
-    console.error('Claude prompt design failed:', resp.status, err);
-    throw new Error('Failed to design prompt with Claude');
+  if (!gwResp.ok) {
+    const err = await gwResp.text();
+    console.error('Gateway prompt design failed:', gwResp.status, err);
+    throw new Error('Failed to design prompt (Claude exhausted, gateway error)');
   }
 
-  const data = await resp.json();
-  const designedPrompt = data.content?.[0]?.text?.trim();
+  const gwData = await gwResp.json();
+  const designedPrompt = gwData.choices?.[0]?.message?.content?.trim();
   if (!designedPrompt || designedPrompt.length < 30) {
-    throw new Error('Claude returned insufficient prompt design');
+    throw new Error('Prompt designer returned insufficient output');
   }
 
-  console.log('Claude designed prompt:', designedPrompt.substring(0, 200));
+  console.log('Gateway designed prompt:', designedPrompt.substring(0, 200));
   return designedPrompt;
 }
 
