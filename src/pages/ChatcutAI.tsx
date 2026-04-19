@@ -337,6 +337,8 @@ const ChatcutAI = () => {
   const [bRollClips, setBRollClips] = useState<BRollClip[]>([]);
   // Phase 2: scene transitions Marco can place between cuts (fade, dip, zoom, speed-ramp, whip).
   const [transitions, setTransitions] = useState<Transition[]>([]);
+  // Director "punch-in" beats — temporary CSS scale on the main video preview for emphasis.
+  const [punchIns, setPunchIns] = useState<Array<{ id: string; start: number; duration: number; scale: number; reason?: string }>>([]);
   // Phase 3: sound effects + speech-aware music ducking strength (0=off, 1=full mute under speech).
   const [sfxClips, setSfxClips] = useState<SfxClip[]>([]);
   const [duckStrength, setDuckStrength] = useState<number>(0.65);
