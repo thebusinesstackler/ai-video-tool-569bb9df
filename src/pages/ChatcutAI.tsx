@@ -2974,6 +2974,28 @@ const ChatcutAI = () => {
     }
   }, [activeBRoll, trackMuted.v1]);
 
+  // ── Phase 2: Apply speed_ramp transitions to videoRef.playbackRate during their window.
+  // We do NOT touch playbackRate when no speed_ramp is active so other features keep working.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const active = transitions.find(t =>
+      t.kind === 'speed_ramp' && currentTime >= t.at && currentTime < t.at + t.duration
+    );
+    const targetRate = active?.rate ?? 1;
+    if (Math.abs(v.playbackRate - targetRate) > 0.01) v.playbackRate = targetRate;
+  }, [currentTime, transitions]);
+
+  // Find the active visual transition (fade/dip/zoom/whip) at the current playhead so we
+  // can render its CSS effect on top of the preview wrapper.
+  const activeVisualTransition = useMemo(() => {
+    return transitions.find(t =>
+      t.kind !== 'speed_ramp' &&
+      currentTime >= t.at &&
+      currentTime < t.at + t.duration
+    ) || null;
+  }, [currentTime, transitions]);
+
   return (
     <Layout>
       <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden">
