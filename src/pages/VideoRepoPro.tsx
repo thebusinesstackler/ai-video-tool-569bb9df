@@ -36,6 +36,7 @@ import {
   Mic,
   Scissors,
   Package,
+  Trash2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
@@ -229,6 +230,22 @@ const VideoRepoPro = () => {
     if (error) {
       toast({ title: 'Error', description: 'Could not rename', variant: 'destructive' });
       fetchHistory();
+    }
+  };
+
+  const deleteProject = async (project: VideoRepoProject, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const label = project.custom_name || project.prompt?.slice(0, 60) || 'this video';
+    if (!confirm(`Delete "${label}"? This cannot be undone.`)) return;
+    const prev = historyProjects;
+    setHistoryProjects(prev.filter(p => p.id !== project.id));
+    if (selectedProject?.id === project.id) setSelectedProject(null);
+    const { error } = await supabase.from('video_repo_projects').delete().eq('id', project.id);
+    if (error) {
+      setHistoryProjects(prev);
+      toast({ title: 'Delete failed', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Deleted', description: 'Video removed from history.' });
     }
   };
 
@@ -2321,6 +2338,19 @@ Check word count vs ${singleDuration}s duration (~2.5 words/sec = ${wordTarget} 
                               <TooltipContent>Download</TooltipContent>
                             </Tooltip>
                           )}
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10 ml-auto"
+                                onClick={(e) => deleteProject(project, e)}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Delete</TooltipContent>
+                          </Tooltip>
                         </div>
                       </CardContent>
                     </Card>
