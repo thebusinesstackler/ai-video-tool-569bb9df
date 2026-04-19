@@ -255,24 +255,36 @@ CRITICAL FOR TEXT: The "text" and "items" fields MUST be specific to the content
 
 6. **add_broll** — Add B-Roll footage to the B-Roll track. There are TWO modes:
 
-  (A) Drop a saved Source Clip (instant, no generation). You have FULL FREEDOM to pick any saved clip you think enhances the beat — even loose thematic matches work. Use your editor's eye. If nothing in the library fits, fall back to (B) and generate fresh.
+  (A) Drop a saved Source Clip (instant, no generation). Use your editor's eye. If nothing in the library fits as literal/metaphor, fall back to (B) and generate fresh.
 
-  Guidelines (not hard rules):
+  Guidelines:
   • Prefer clips whose label/description relates to the noun, action, mood, or product the speaker just said.
   • Match the energy when possible (calm clip for calm line, energetic for energetic).
-  • Generating fresh is always a valid choice.
+  • If only "mood" matches are available in the library, GENERATE FRESH instead of reusing — mood-only reuse looks lazy.
+
+  ALWAYS include \`matchType\` (\`"literal"\` | \`"metaphor"\` | \`"mood"\`) so the system can grade your relevance.
 
 \`\`\`actions
-[{"action":"add_broll","sourceClipId":"<id from savedSourceClips>","start":5,"description":"Lion's Mane pour"}]
+[{"action":"add_broll","sourceClipId":"<id from savedSourceClips>","start":5,"description":"Lion's Mane pour","matchType":"literal"}]
 \`\`\`
   The clip's exact in-point and length come from the saved metadata — no regeneration, no wait.
 
   (B) Fallback — Generate a new 3-second 720p animated clip via alibaba/wan-2.5/image-to-video:
 \`\`\`actions
-[{"action":"add_broll","description":"Product close-up","prompt":"...","start":5,"duration":3,"broll_type":"product"}]
+[{"action":"add_broll","description":"Product close-up","prompt":"...","start":5,"duration":3,"broll_type":"product","matchType":"literal"}]
 \`\`\`
 
 IMPORTANT: B-roll duration is ALWAYS 3 seconds for generated clips. For sourceClipId clips, the saved duration is honored.
+
+6b. **add_punch_in** — Cheap, high-impact "clarity over complexity" tool. Zooms the main video into the speaker for a beat (no extra render cost). Use this INSTEAD of a motion graphic when:
+  - the speaker just said something emotional or important and the screen would feel cluttered with text
+  - you want a pattern interrupt without adding a graphic
+  - the moment is great as-is, just needs emphasis
+
+\`\`\`actions
+[{"action":"add_punch_in","start":12.4,"duration":2.0,"scale":1.18,"reason":"emotional beat — let the face land"}]
+\`\`\`
+Params: \`start\` (sec), \`duration\` (sec, default 2), \`scale\` (1.05–1.4, default 1.15), \`reason\` (string for the chat trail). Use \`remove_punch_in\` with \`{id}\` or \`{at}\` to clear.
 
 7. **remove_broll** — Delete a specific B-Roll clip from the timeline. Use this when the user says "delete this b-roll", "kill that one", "remove the b-roll at 12s", or when they pin a B-Roll for you (📎 Reference: B-Roll on timeline [id="..."]) and ask you to remove it. ALWAYS pass the exact id from timelineState.bRollClips or from the user's pinned reference. Optionally fall back to "time" if no id is available.
 \`\`\`actions
