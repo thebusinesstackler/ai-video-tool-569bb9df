@@ -53,6 +53,7 @@ import {
   PanelLeftOpen,
   Undo2,
   Smartphone,
+  Square,
   Package,
   RefreshCw,
   AlertTriangle,
@@ -240,6 +241,33 @@ interface SfxClip {
   pairedOverlayId?: string;
 }
 
+/**
+ * Phase 4: Target platform identifier — drives safe-zone selection so Marco
+ * never places overlays under the TikTok username strip, Reels right-rail, etc.
+ */
+type TargetPlatform = 'tiktok' | 'reels' | 'shorts' | 'youtube' | 'youtube-landscape';
+
+/**
+ * Phase 4: An A/B variant set — multiple alternative versions of an overlay
+ * (e.g. 3 hook variations, 3 CTA placements). Only `activeIndex` is rendered;
+ * the rest are stored as inactive items the user can swap to with one click.
+ */
+interface OverlayVariantSet {
+  id: string;
+  /** What we're varying — drives copy + UI label */
+  kind: 'hook' | 'cta' | 'overlay_position' | 'overlay_text';
+  /** Optional human label e.g. "Hook variations for opening 6s" */
+  label?: string;
+  /** Linked overlays (each a complete OverlayItem). Only `items[activeIndex]` is rendered. */
+  items: Array<{
+    id: string;
+    label: string;          // "Variant A", "Curiosity gap", "Bottom-right CTA", etc.
+    overlay: any;           // OverlayItem snapshot (kept loose to dodge circular type ref)
+  }>;
+  activeIndex: number;
+  createdAt: number;
+}
+
 type TimelineAction = {
   action: string;
   [key: string]: any;
@@ -298,6 +326,14 @@ const ChatcutAI = () => {
   const [captionSettings, setCaptionSettings] = useState<CaptionSettings>({ ...defaultCaptionSettings, enabled: false });
   const [musicTracks, setMusicTracks] = useState<MusicTrack[]>([]);
   const [overlays, setOverlays] = useState<OverlayItem[]>([]);
+  // ── Phase 4 state ───────────────────────────────────────────────────
+  // Target platform drives which UI safe-zones (TikTok username, Reels right-rail, etc.) are
+  // marked off-limits for overlay placement. Defaults to TikTok in reel mode, YouTube otherwise.
+  const [targetPlatform, setTargetPlatform] = useState<TargetPlatform>('tiktok');
+  // Toggleable dashed-rectangle overlay so the user can SEE which zones are blocked.
+  const [showSafeZones, setShowSafeZones] = useState(false);
+  // A/B variant sets — Marco can generate 3 hook/CTA variations and the user one-click-swaps which is live.
+  const [variantSets, setVariantSets] = useState<OverlayVariantSet[]>([]);
   const [bRollClips, setBRollClips] = useState<BRollClip[]>([]);
   // Phase 2: scene transitions Marco can place between cuts (fade, dip, zoom, speed-ramp, whip).
   const [transitions, setTransitions] = useState<Transition[]>([]);
@@ -1044,6 +1080,7 @@ const ChatcutAI = () => {
     setBRollClips([]);
     setTransitions([]);
     setSfxClips([]);
+    setVariantSets([]);
     setVizardClips([]);
     setCaptionSettings({ ...defaultCaptionSettings, enabled: false });
     setThumbnail(null);
@@ -1101,6 +1138,10 @@ const ChatcutAI = () => {
         sfxClips,
         duckEnabled,
         duckStrength,
+        // Phase 4
+        targetPlatform,
+        variantSets,
+        showSafeZones,
       };
       const payload: Record<string, unknown> = {
         user_id: user.id,
@@ -1122,7 +1163,7 @@ const ChatcutAI = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [user, draftId, draftName, videoUrl, transcript, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, messages, toast, transitions, sfxClips, duckEnabled, duckStrength]);
+  }, [user, draftId, draftName, videoUrl, transcript, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, messages, toast, transitions, sfxClips, duckEnabled, duckStrength, targetPlatform, variantSets, showSafeZones]);
 
   const loadDraft = useCallback(async (id: string) => {
     if (!user) return;
@@ -1147,6 +1188,9 @@ const ChatcutAI = () => {
       setSfxClips(Array.isArray(ts.sfxClips) ? ts.sfxClips : []);
       if (typeof ts.duckEnabled === 'boolean') setDuckEnabled(ts.duckEnabled);
       if (typeof ts.duckStrength === 'number') setDuckStrength(ts.duckStrength);
+      if (typeof ts.targetPlatform === 'string') setTargetPlatform(ts.targetPlatform);
+      if (Array.isArray(ts.variantSets)) setVariantSets(ts.variantSets);
+      if (typeof ts.showSafeZones === 'boolean') setShowSafeZones(ts.showSafeZones);
       if (ts.captionSettings) setCaptionSettings(ts.captionSettings);
       if (ts.thumbnail) setThumbnail(ts.thumbnail);
     }
@@ -2194,6 +2238,100 @@ const ChatcutAI = () => {
           toast({ title: 'SFX removed' });
           break;
         }
+        // ── Phase 4: Platform + safe-zone + A/B variant actions ───────
+        case 'set_platform': {
+          const valid: TargetPlatform[] = ['tiktok', 'reels', 'shorts', 'youtube', 'youtube-landscape'];
+          const next = valid.includes(act.platform) ? act.platform : 'tiktok';
+          setTargetPlatform(next as TargetPlatform);
+          if (next !== 'youtube' && next !== 'youtube-landscape' && !reelPreview) setReelPreview(true);
+          if ((next === 'youtube' || next === 'youtube-landscape') && reelPreview) setReelPreview(false);
+          toast({ title: `📱 Platform → ${next}`, description: `Safe zones updated for ${next} layout.` });
+          break;
+        }
+        case 'toggle_safe_zones': {
+          const next = typeof act.show === 'boolean' ? act.show : !showSafeZones;
+          setShowSafeZones(next);
+          toast({ title: next ? '🟥 Safe zones visible' : 'Safe zones hidden' });
+          break;
+        }
+        case 'add_ab_variant': {
+          // Marco passes either an existing overlayId (we wrap it) OR a fresh `baseOverlay` snapshot,
+          // plus a `variants[]` array of partial overrides (text/position/scale/style/treatment).
+          // We materialize each variant as a full overlay object, store the set, and render only activeIndex.
+          const kind = ['hook', 'cta', 'overlay_position', 'overlay_text'].includes(act.kind) ? act.kind : 'overlay_text';
+          const sourceOverlay = act.overlayId ? overlays.find(o => o.id === act.overlayId) : null;
+          const base = sourceOverlay || act.baseOverlay;
+          if (!base || !Array.isArray(act.variants) || act.variants.length === 0) {
+            toast({ title: 'Variant generation failed', description: 'Need a base overlay + variants[] array.', variant: 'destructive' });
+            break;
+          }
+          const items = act.variants.slice(0, 5).map((v: any, i: number) => ({
+            id: crypto.randomUUID(),
+            label: v.label || `Variant ${String.fromCharCode(65 + i)}`,
+            overlay: {
+              ...base,
+              id: crypto.randomUUID(),
+              text: v.text ?? base.text,
+              position: v.position ?? base.position,
+              scale: v.scale ?? base.scale,
+              style: v.style ?? base.style,
+              treatment: v.treatment ?? base.treatment,
+              start: v.start ?? base.start,
+              duration: v.duration ?? base.duration,
+            },
+          }));
+          const setId = crypto.randomUUID();
+          const newSet: OverlayVariantSet = {
+            id: setId,
+            kind: kind as OverlayVariantSet['kind'],
+            label: act.label,
+            items,
+            activeIndex: 0,
+            createdAt: Date.now(),
+          };
+          setVariantSets(prev => [...prev, newSet]);
+          // If we wrapped an existing overlay, swap it OUT and put the active variant IN its place.
+          if (sourceOverlay) {
+            setOverlays(prev => prev.map(o => o.id === sourceOverlay.id ? items[0].overlay : o));
+          } else {
+            // Otherwise just add the active variant fresh.
+            setOverlays(prev => [...prev, items[0].overlay]);
+          }
+          toast({ title: `🎲 ${items.length} ${kind} variants ready`, description: act.label || 'Click a variant chip to swap which is live.' });
+          break;
+        }
+        case 'set_active_variant': {
+          const setId = act.variantSetId || act.id;
+          const idx = typeof act.index === 'number' ? act.index : 0;
+          if (!setId) break;
+          setVariantSets(prev => prev.map(v => {
+            if (v.id !== setId) return v;
+            const safeIdx = Math.max(0, Math.min(v.items.length - 1, idx));
+            // Swap the on-canvas overlay for the new active variant
+            const oldActiveOverlayId = v.items[v.activeIndex]?.overlay?.id;
+            const newOverlay = v.items[safeIdx]?.overlay;
+            if (oldActiveOverlayId && newOverlay) {
+              setOverlays(ovs => ovs.map(o => o.id === oldActiveOverlayId ? newOverlay : o));
+            }
+            return { ...v, activeIndex: safeIdx };
+          }));
+          toast({ title: '🔄 Variant swapped' });
+          break;
+        }
+        case 'remove_variant_set': {
+          const setId = act.variantSetId || act.id;
+          if (!setId) break;
+          setVariantSets(prev => {
+            const target = prev.find(v => v.id === setId);
+            if (target) {
+              const activeOvId = target.items[target.activeIndex]?.overlay?.id;
+              if (activeOvId) setOverlays(ovs => ovs.filter(o => o.id !== activeOvId));
+            }
+            return prev.filter(v => v.id !== setId);
+          });
+          toast({ title: 'Variant set removed' });
+          break;
+        }
         case 'set_ducking': {
           if (typeof act.enabled === 'boolean') setDuckEnabled(act.enabled);
           if (typeof act.strength === 'number') setDuckStrength(Math.max(0, Math.min(1, act.strength)));
@@ -2589,14 +2727,10 @@ const ChatcutAI = () => {
               fontColor: captionSettings.fontColor,
               background: captionSettings.background,
             },
-            // ── SAFE ZONES (avoid placing overlays here) ───────────────────
-            // Coordinates are 0–100% (x, y, width, height) of the preview frame.
-            safeZones: [
-              // Caption strip — only blocked when captions are enabled
-              ...(captionSettings.enabled ? [{ name: 'caption_strip', x: 10, y: 78, width: 80, height: 18, reason: 'Karaoke captions render here' }] : []),
-              // Assumed face zone for talking-head footage (center, slightly upper)
-              { name: 'face_assumed', x: 30, y: 20, width: 40, height: 50, reason: 'Likely speaker face — keep text/graphics off it' },
-            ],
+            // ── PHASE 4: Per-platform UI safe zones ─────────────────────────
+            // Replaces the old hard-coded list. Pulled from PLATFORM_SAFE_ZONES based on
+            // `targetPlatform`. Marco MUST avoid placing overlays inside these rectangles.
+            safeZones: getActiveSafeZones(),
             // ── KPI / STRATEGIC AUDIT ──────────────────────────────────────
             kpis: (() => {
               const hookOverlays = overlays.filter(o => (o.start || 0) < 2);
@@ -2633,7 +2767,14 @@ const ChatcutAI = () => {
             recentAction: aiUndoSnapshot ? { label: aiUndoSnapshot.label } : null,
             // ── USER INTENT SIGNALS ────────────────────────────────────────
             creatorMode,
-            targetPlatform: reelPreview ? 'reels-shorts-tiktok' : 'youtube-landscape',
+            // PHASE 4: Now driven by user-selectable targetPlatform state, not just reelPreview.
+            targetPlatform,
+            // Number of A/B variant sets currently on the timeline (Marco can reference these by id).
+            variantSets: variantSets.map(v => ({
+              id: v.id, kind: v.kind, label: v.label || null,
+              activeIndex: v.activeIndex,
+              variants: v.items.map(it => ({ id: it.id, label: it.label, text: it.overlay?.text || '', position: it.overlay?.position || null })),
+            })),
             // ── VISION INTEL (Phase 1: Marco's eyes) ───────────────────────
             // Detected subjects (product/face/text/logo) per keyframe + computed
             // occlusions (which overlay covers which subject) + contrast flags.
@@ -2898,6 +3039,56 @@ const ChatcutAI = () => {
     if (o.renderMode === 'image' || (!!o.imageUrl && o.renderMode !== 'dom')) return 'image';
     return 'overlay';
   };
+
+  // ── Phase 4: Per-platform UI safe zones ────────────────────────────
+  // Each zone is a rectangle (in % of preview frame) where the platform's NATIVE UI
+  // (username, action bar, captions, subscribe button) covers the video. Marco MUST
+  // avoid placing overlays inside these rectangles or they'll be hidden in-app.
+  // Coordinates are calibrated to a 9:16 vertical canvas; YouTube uses 16:9.
+  const PLATFORM_SAFE_ZONES: Record<TargetPlatform, Array<{ name: string; x: number; y: number; width: number; height: number; reason: string }>> = {
+    tiktok: [
+      { name: 'tiktok_username',   x: 2,  y: 78, width: 60, height: 8,  reason: 'TikTok username + caption text overlays here in-feed' },
+      { name: 'tiktok_right_rail', x: 86, y: 35, width: 14, height: 55, reason: 'TikTok like/comment/share/bookmark icons stacked on right' },
+      { name: 'tiktok_bottom_nav', x: 0,  y: 92, width: 100, height: 8, reason: 'TikTok bottom navigation tabs' },
+      { name: 'tiktok_top_search', x: 0,  y: 0,  width: 100, height: 6, reason: 'TikTok top "For You / Following" tabs + search' },
+    ],
+    reels: [
+      { name: 'reels_username',    x: 2,  y: 80, width: 65, height: 6,  reason: 'Instagram Reels username + audio name' },
+      { name: 'reels_caption',     x: 2,  y: 86, width: 65, height: 6,  reason: 'Instagram Reels caption strip' },
+      { name: 'reels_right_rail',  x: 88, y: 30, width: 12, height: 60, reason: 'Reels like/comment/share/remix icons on right' },
+      { name: 'reels_top_bar',     x: 0,  y: 0,  width: 100, height: 5, reason: 'Reels top header' },
+    ],
+    shorts: [
+      { name: 'shorts_username',   x: 2,  y: 76, width: 70, height: 6,  reason: 'YouTube Shorts channel name + handle' },
+      { name: 'shorts_caption',    x: 2,  y: 82, width: 70, height: 6,  reason: 'YouTube Shorts video title' },
+      { name: 'shorts_right_rail', x: 88, y: 30, width: 12, height: 60, reason: 'Shorts like/dislike/comment/share/remix stack' },
+      { name: 'shorts_subscribe',  x: 35, y: 89, width: 30, height: 8,  reason: 'Shorts subscribe / channel avatar bottom-center' },
+      { name: 'shorts_progress',   x: 0,  y: 97, width: 100, height: 3, reason: 'Shorts progress bar' },
+    ],
+    youtube: [
+      { name: 'yt_player_controls', x: 0,  y: 88, width: 100, height: 12, reason: 'YouTube player chrome appears bottom 12% on hover' },
+      { name: 'yt_lower_third_zone',x: 60, y: 80, width: 40, height: 8,  reason: 'YouTube end-screen cards land here in last 20s' },
+    ],
+    'youtube-landscape': [
+      { name: 'yt_player_controls', x: 0,  y: 88, width: 100, height: 12, reason: 'YouTube player chrome appears bottom 12% on hover' },
+    ],
+  };
+
+  // Build the active safe-zone list = platform-specific zones + caption strip (if enabled)
+  // + an assumed face zone for talking-head footage. Marco reads this in `context.safeZones`.
+  const getActiveSafeZones = useCallback(() => {
+    const platform = PLATFORM_SAFE_ZONES[targetPlatform] || PLATFORM_SAFE_ZONES.tiktok;
+    const captionZone = captionSettings.enabled
+      ? [{ name: 'caption_strip', x: 10, y: 78, width: 80, height: 18, reason: 'Karaoke captions render here' }]
+      : [];
+    return [
+      ...platform,
+      ...captionZone,
+      { name: 'face_assumed', x: 30, y: 20, width: 40, height: 50, reason: 'Likely speaker face — keep text/graphics off it' },
+    ];
+    // PLATFORM_SAFE_ZONES is a stable const at module scope of the component.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetPlatform, captionSettings.enabled]);
 
   // ── Phase 2: Motion-zone classification + collision detection ──────
   // Buckets a position {x,y} (0–100%) into a named screen zone so we can detect
@@ -4073,6 +4264,29 @@ const ChatcutAI = () => {
                         return null;
                       })()}
 
+                      {/* ── Phase 4: Visual safe-zone overlay (toggleable). Renders dashed red rectangles
+                          on top of the preview showing where the platform's NATIVE UI (TikTok username,
+                          Reels right-rail, Shorts subscribe button, etc.) will COVER the video in-app. */}
+                      {showSafeZones && (
+                        <div className="absolute inset-0 z-[40] pointer-events-none">
+                          {getActiveSafeZones().filter(z => z.name !== 'face_assumed').map(zone => (
+                            <div
+                              key={zone.name}
+                              className="absolute border-2 border-dashed border-destructive/70 bg-destructive/10 flex items-start justify-start"
+                              style={{
+                                left: `${zone.x}%`, top: `${zone.y}%`,
+                                width: `${zone.width}%`, height: `${zone.height}%`,
+                              }}
+                              title={zone.reason}
+                            >
+                              <span className="text-[8px] font-semibold text-destructive bg-background/90 px-1 py-0.5 m-0.5 rounded uppercase tracking-wide">
+                                {zone.name.replace(/_/g, ' ')}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
                       {/* Live caption overlay – constrained to video bounds, always on top */}
                       {captionSettings.enabled && transcriptSegments.length > 0 && (() => {
                         const segs = transcriptSegments;
@@ -4185,6 +4399,23 @@ const ChatcutAI = () => {
                   <Button variant="ghost" size="icon" className="h-7 w-7" title={reelPreview ? 'Exit reel preview' : 'Preview as 9:16 reel'}
                     onClick={() => setReelPreview(v => !v)}>
                     <Smartphone className={cn("w-3.5 h-3.5", reelPreview && "text-pink-400")} />
+                  </Button>
+                  {/* ── Phase 4: Platform selector + safe-zone toggle ── */}
+                  <select
+                    value={targetPlatform}
+                    onChange={(e) => setTargetPlatform(e.target.value as TargetPlatform)}
+                    className="h-7 text-[10px] px-1.5 rounded border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    title="Target platform — Marco uses this to know which UI zones to avoid"
+                  >
+                    <option value="tiktok">TikTok</option>
+                    <option value="reels">Reels</option>
+                    <option value="shorts">Shorts</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="youtube-landscape">YT 16:9</option>
+                  </select>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" title={showSafeZones ? 'Hide platform safe zones' : 'Show platform UI safe zones'}
+                    onClick={() => setShowSafeZones(v => !v)}>
+                    <Square className={cn("w-3.5 h-3.5", showSafeZones && "text-destructive")} />
                   </Button>
                   {reelPreview && (
                     <>
