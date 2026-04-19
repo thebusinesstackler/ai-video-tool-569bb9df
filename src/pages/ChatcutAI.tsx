@@ -908,6 +908,7 @@ const ChatcutAI = () => {
         bRollClips,
         captionSettings,
         thumbnail,
+        transitions,
       };
       const payload: Record<string, unknown> = {
         user_id: user.id,
@@ -950,6 +951,7 @@ const ChatcutAI = () => {
       setMusicTracks(ts.musicTracks || []);
       setOverlays(ts.overlays || []);
       setBRollClips(ts.bRollClips || []);
+      setTransitions(Array.isArray(ts.transitions) ? ts.transitions : []);
       if (ts.captionSettings) setCaptionSettings(ts.captionSettings);
       if (ts.thumbnail) setThumbnail(ts.thumbnail);
     }
