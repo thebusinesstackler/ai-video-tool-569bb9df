@@ -312,7 +312,14 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
                               <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                                 {plan.map((p, idx) => (
                                   <div key={idx} className="text-[11px] p-2 rounded-md bg-background/60 border border-border/50">
-                                    <p className="font-medium text-foreground line-clamp-1">{idx + 1}. {p.topic}</p>
+                                    <div className="flex items-center justify-between gap-2">
+                                      <p className="font-medium text-foreground line-clamp-1 flex-1">{idx + 1}. {p.topic}</p>
+                                      {p.twinName && (
+                                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-primary/40 text-primary shrink-0">
+                                          🎭 {p.twinName}
+                                        </Badge>
+                                      )}
+                                    </div>
                                     {p.hook && <p className="text-muted-foreground line-clamp-1 mt-0.5">"{p.hook}"</p>}
                                   </div>
                                 ))}
