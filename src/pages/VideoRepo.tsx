@@ -2235,15 +2235,40 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
                                     />
                                   </div>
                                 </div>
-                                {msg.approvalCard.productImageUrl && (
-                                  <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-2 py-1.5">
+                                {msg.approvalCard.productImageUrl ? (
+                                  <div className={`flex items-start gap-2 rounded-lg px-2 py-1.5 ${
+                                    msg.approvalCard.productSwapStatus === 'applied'
+                                      ? 'bg-emerald-500/10 border border-emerald-500/30'
+                                      : msg.approvalCard.productSwapStatus === 'partial'
+                                        ? 'bg-amber-500/10 border border-amber-500/30'
+                                        : msg.approvalCard.productSwapStatus === 'failed'
+                                          ? 'bg-destructive/10 border border-destructive/30'
+                                          : 'bg-muted/50'
+                                  }`}>
                                     <img
                                       src={msg.approvalCard.productImageUrl}
                                       alt="Locked product"
-                                      className="w-8 h-8 rounded object-cover border border-border/60"
+                                      className="w-10 h-10 rounded object-cover border border-border/60 shrink-0"
                                     />
-                                    <div className="text-[11px] text-muted-foreground">
-                                      Locked to your product{msg.approvalCard.productName ? `: ${msg.approvalCard.productName}` : ''}
+                                    <div className="text-[11px] leading-snug">
+                                      <div className="font-medium">
+                                        {msg.approvalCard.productSwapStatus === 'applied' && '✓ Product Swap applied'}
+                                        {msg.approvalCard.productSwapStatus === 'partial' && '⚠️ Product Swap partial'}
+                                        {msg.approvalCard.productSwapStatus === 'failed' && '⚠️ Product Swap failed'}
+                                        {(!msg.approvalCard.productSwapStatus || msg.approvalCard.productSwapStatus === 'none') && 'Locked to your product'}
+                                        {msg.approvalCard.productName ? `: ${msg.approvalCard.productName}` : ''}
+                                      </div>
+                                      {msg.approvalCard.productSwapNote && (
+                                        <div className="text-muted-foreground mt-0.5">{msg.approvalCard.productSwapNote}</div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2 rounded-lg bg-amber-500/10 border border-amber-500/30 px-2 py-1.5">
+                                    <span className="text-base">⚠️</span>
+                                    <div className="text-[11px] leading-snug">
+                                      <div className="font-medium">No product picked</div>
+                                      <div className="text-muted-foreground">Marco is using a generic bottle. Pick a product from your library for brand-accurate output.</div>
                                     </div>
                                   </div>
                                 )}
