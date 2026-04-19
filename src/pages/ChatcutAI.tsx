@@ -4058,6 +4058,14 @@ const ChatcutAI = () => {
                           cutoutMode === 'white' && "mix-blend-multiply",
                           cutoutMode === 'dark' && "mix-blend-screen",
                         )}
+                        style={activePunchIn ? {
+                          transform: `scale(${activePunchIn.scale})`,
+                          transformOrigin: 'center 40%',
+                          transition: 'transform 0.6s cubic-bezier(.2,1,.36,1)',
+                        } : {
+                          transform: 'scale(1)',
+                          transition: 'transform 0.5s cubic-bezier(.2,1,.36,1)',
+                        }}
                         onClick={togglePlay}
                       />
 
