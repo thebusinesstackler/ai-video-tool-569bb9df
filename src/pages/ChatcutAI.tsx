@@ -3442,6 +3442,11 @@ const ChatcutAI = () => {
                       )}
                       style={{
                         lineHeight: 0,
+                        // CSS containment: SmartOverlay treatments use cqw units to scale
+                        // text against THIS container instead of the viewport. Without this,
+                        // big headlines (masked_typography, kinetic_headline) would compute
+                        // against the browser width and bleed outside the 9:16 / 16:9 frame.
+                        containerType: 'inline-size',
                         // In reel preview mode we letterbox the wrapper to 9:16 and
                         // shift the inner video horizontally with reelCropX so the user
                         // can see how a vertical crop would look (with optional AI-centered offset).
