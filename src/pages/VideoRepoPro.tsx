@@ -123,6 +123,7 @@ const VideoRepoPro = () => {
   const [historyPage, setHistoryPage] = useState(1);
   const HISTORY_PAGE_SIZE = 9;
   const [aspectRatio, setAspectRatio] = useState<'9:16' | '16:9'>('9:16');
+  const [singleDuration, setSingleDuration] = useState<10 | 15 | 20>(20);
   const [useSoraPro, setUseSoraPro] = useState(false);
   const [soraProResolution, setSoraProResolution] = useState<'720p' | '1080p'>('1080p');
 
@@ -162,11 +163,11 @@ const VideoRepoPro = () => {
   const statusLabel = isExtractingFrames
     ? 'Extracting key frames from your reference video...'
     : isAnalyzing
-      ? 'Researching the reference video and writing your multi-segment script...'
+      ? `Researching the reference video and writing your single-take ${singleDuration}s script...`
       : isStitching
-        ? 'Stitching segments into a seamless 30-second video...'
+        ? 'Finalizing your video...'
         : isGenerating
-          ? generationProgress || 'Generating video segments with Sora 2...'
+          ? generationProgress || `Generating your ${singleDuration}s clip with Sora 2...`
           : null;
 
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
@@ -539,23 +540,16 @@ Be specific, constructive, and actionable. Reference exact moments/frames when p
     }
   };
 
-  // Recreate with same ending — keeps segment 2, regenerates segment 1
+  // Recreate (single-take mode — re-analyzes from the original prompt to make a fresh ${singleDuration}s clip)
   const recreateWithSameEnding = async (project: VideoRepoProject) => {
-    if (!project.segment_urls?.length || project.segment_urls.length < 2) {
-      toast({ title: 'Cannot recreate', description: 'No individual segments found for this project. Generate a new video first.', variant: 'destructive' });
-      return;
-    }
     loadProjectAssets(project);
-    // Parse the video_prompt to get just segment 1's prompt
-    const originalPrompt = project.prompt?.replace(/^\[PRO\]\s*/, '') || 'Analyze reference and generate 30s ad';
-    const keepEndingNote = `\n\n**IMPORTANT — KEEP SAME ENDING**: The second segment (ending) from the previous version will be reused. Only regenerate Segment 1 (the hook/intro) with improvements. The ending segment URL is: ${project.segment_urls[1]}`;
-    
-    setPrompt(originalPrompt + keepEndingNote);
+    const originalPrompt = project.prompt?.replace(/^\[PRO\]\s*/, '') || `Analyze reference and generate ${singleDuration}s ad`;
+    setPrompt(originalPrompt);
     setSelectedProject(null);
     setMainTab('create');
     pendingAutoPromptRef.current = originalPrompt;
     setPendingAutoAnalysis(true);
-    toast({ title: 'Recreating with same ending', description: 'Only the first segment will be regenerated — the ending stays the same.' });
+    toast({ title: 'Recreating', description: `Re-analyzing and generating a fresh ${singleDuration}-second take.` });
   };
 
   useEffect(() => {
@@ -872,7 +866,7 @@ Be specific, constructive, and actionable. Reference exact moments/frames when p
 
   // Check if text contains video prompt blocks
   const hasVideoPrompts = (text: string) => {
-    return /```video-prompt-1\n/.test(text) && /```video-prompt-2\n/.test(text);
+    return /```video-prompt\b/.test(text);
   };
 
   const analyzeReference = async () => {
@@ -962,18 +956,18 @@ Be specific, constructive, and actionable. Reference exact moments/frames when p
       }
 
       const formatLabel = aspectRatio === '9:16' ? 'vertical reel (9:16)' : 'horizontal landscape (16:9)';
-      const systemPrompt = `You are an AI Script Director for UGC ad videos. You help filmmakers craft and refine scripts for FULL 30-SECOND videos in ${formatLabel} format. You split ads into exactly TWO segments that will be generated separately and stitched together seamlessly.
+      const wordTarget = Math.round(singleDuration * 2.5);
+      const systemPrompt = `You are an AI Script Director for UGC ad videos. You help filmmakers craft and refine scripts for a SINGLE-TAKE ${singleDuration}-SECOND video in ${formatLabel} format. The video is generated as ONE continuous Sora-2 clip — NO stitching, NO segmenting.
 
 Your personality: Warm, experienced, collaborative. You speak like a veteran ad creative director. You welcome feedback and iterate on scripts.
 
 CRITICAL RULES:
-- The total ad is 30 seconds, split into Segment 1 (~15s) and Segment 2 (~15s)
+- The total ad is exactly ${singleDuration} seconds — ONE continuous clip, no cuts to a second segment, no stitching
 - Format: ${formatLabel} — frame all shots accordingly
-- Segment 2 MUST visually continue from where Segment 1 ends — same character, same environment, continuous action
-- Each segment prompt must be 80-150 words with full cinematic detail
-- Include explicit transition instructions: Segment 1's final frame should set up Segment 2's opening frame
-- You MUST also provide a narration script that will be read as voiceover over the full 30-second video
-- ALWAYS include the video-prompt-1, video-prompt-2, and narration code blocks in your response so the user can generate when ready`;
+- Spoken script must be paced at ~2.5 words/second → target ~${wordTarget} words of voiceover (max ${wordTarget + 5})
+- The ad MUST end with a complete closing beat (resolved CTA / payoff frame) — NEVER mid-sentence, NEVER a fade before ${singleDuration}s, NEVER trail off on a preposition or article
+- The single video-prompt block must be 120-200 words with full cinematic detail covering the entire ${singleDuration}-second arc (hook → body → payoff/CTA)
+- ALWAYS include the video-prompt and narration code blocks in your response so the user can generate when ready`;
 
       const analysisInstruction = `User request: "${userMsg.content}"
 
@@ -982,34 +976,29 @@ ${productImageUrl ? 'Product image provided above — incorporate this product n
 
 Provide:
 1. **Reference Analysis**: What you observed in the reference frames — hook type, pacing, camera style, talent energy, visual effects
-2. **Estimated Transcript**: Based on the visual cues (lip movements, expressions, gestures, text overlays, captions), reconstruct what the person in the video is most likely saying throughout the ad. Present this as a timestamped script (e.g., "0-3s: ...", "3-8s: ..."). If you can see captions or text overlays, transcribe them exactly.
+2. **Estimated Transcript**: Based on visual cues (lip movements, expressions, gestures, text overlays, captions), reconstruct what the person is most likely saying. Present as timestamped script (e.g., "0-3s: ...", "3-8s: ..."). If you see captions or text overlays, transcribe them exactly.
 3. **Hook Strategy**: How the first 3 seconds will stop the scroll
-4. **Full 30-Second Script**: Scene-by-scene breakdown covering 0-30 seconds
-5. **Segment Breakdown**: How the 30s ad splits into two ~15s segments with seamless continuity
-6. **Product Integration**: How and when the product appears naturally
-7. **CTA Strategy**: Closing technique for maximum conversion
+4. **Full ${singleDuration}-Second Script**: Scene-by-scene breakdown covering 0-${singleDuration} seconds, with explicit timestamps that SUM to exactly ${singleDuration}s
+5. **Product Integration**: How and when the product appears naturally
+6. **CTA Strategy**: Closing technique for maximum conversion — must land cleanly inside the ${singleDuration}s window
 
-Then provide TWO video prompt blocks — one per segment:
+Then provide ONE single video prompt block:
 
-\`\`\`video-prompt-1
-[Segment 1: 0-15 seconds. Detailed video generation prompt — 80-150 words covering environment, character, action, camera, lighting, product placement, pacing. This segment covers the HOOK and PROBLEM/SETUP. End with a specific visual that Segment 2 will continue from.]
-\`\`\`
-
-\`\`\`video-prompt-2
-[Segment 2: 15-30 seconds. Detailed video generation prompt — 80-150 words. This segment starts EXACTLY where Segment 1 ends — same character, same environment, continuous motion. Covers the SOLUTION/PRODUCT SHOWCASE and CTA. Include the closing action and call-to-action.]
+\`\`\`video-prompt
+[ONE continuous ${singleDuration}-second video. 120-200 words covering environment, character, action choreography, camera movement, lighting, product placement, pacing, sound design, and the FINAL closing frame. The clip must end on a complete payoff/CTA frame — never mid-action, never a cut-off. Explicitly describe the closing 2 seconds so the model lands the ending.]
 \`\`\`
 
 And finally, provide the voiceover narration script:
 
 \`\`\`narration
-[The full voiceover script for the 30-second ad. 60-90 words. Conversational, punchy, direct. Should complement the visuals without describing them literally.]
+[The full voiceover script for the ${singleDuration}-second ad. ~${wordTarget} words (max ${wordTarget + 5}). Conversational, punchy, direct. The final sentence MUST be a complete, self-contained closing line — never trail off, never end on "and", "to", "the", or a comma.]
 \`\`\`
 
 After providing the script, let the user know they can give feedback to refine it, or hit "Generate Video" when they're happy with it.`;
 
       const styleSuffix = selectedStyle ? STYLE_OPTIONS.find(s => s.id === selectedStyle)?.promptSuffix : null;
       const fullInstruction = styleSuffix
-        ? `${analysisInstruction}\n\n🎬 STYLE LOCK: ${styleSuffix}\nApply this style consistently across both segments.`
+        ? `${analysisInstruction}\n\n🎬 STYLE LOCK: ${styleSuffix}\nApply this style consistently across the entire ${singleDuration}-second clip.`
         : analysisInstruction;
 
       contentParts.push({ type: 'text', text: fullInstruction });
@@ -1083,16 +1072,18 @@ After providing the script, let the user know they can give feedback to refine i
 
     try {
       const formatLabel = aspectRatio === '9:16' ? 'vertical reel (9:16)' : 'horizontal landscape (16:9)';
-      const systemPrompt = `You are an AI Script Director for UGC ad videos. You're in a collaborative session helping refine a 30-second ${formatLabel} ad script.
+      const wordTargetFollow = Math.round(singleDuration * 2.5);
+      const systemPrompt = `You are an AI Script Director for UGC ad videos. You're in a collaborative session helping refine a SINGLE-TAKE ${singleDuration}-second ${formatLabel} ad script.
 
 RULES:
 - Listen to user feedback and revise the script accordingly
-- ALWAYS include updated video-prompt-1, video-prompt-2, and narration code blocks when you make script changes
-- Keep segment timing at ~15s each (total 30s)
-- Maintain continuity between segments
+- ALWAYS include updated video-prompt and narration code blocks when you make script changes
+- The ad is ONE continuous ${singleDuration}s clip — NO segmenting, NO stitching
+- The closing line and final frame MUST land cleanly inside the ${singleDuration}s window — never mid-sentence, never trailing off
+- Narration target: ~${wordTargetFollow} words (max ${wordTargetFollow + 5})
 - Be collaborative, warm, and constructive
 - If the user asks questions about the script, answer helpfully
-- Each segment prompt must be 80-150 words with full cinematic detail`;
+- The single video-prompt block must be 120-200 words with full cinematic detail`;
 
       // Build conversation history for context
       const aiMessages: any[] = [
@@ -1145,72 +1136,61 @@ RULES:
       await supabase.from('video_repo_projects').update({ analysis_text: analysisText, status: 'generating' }).eq('id', projectId);
     }
 
-    // Extract TWO video prompts
-    const prompt1Match = analysisText.match(/```video-prompt-1\n([\s\S]*?)```/);
-    const prompt2Match = analysisText.match(/```video-prompt-2\n([\s\S]*?)```/);
+    // Extract ONE single video prompt (no segments)
+    const promptMatch = analysisText.match(/```video-prompt\s*\n([\s\S]*?)```/);
 
-    if (!prompt1Match || !prompt2Match) {
-      toast({ title: 'No video prompts found', description: 'Ask the AI to include video-prompt blocks.', variant: 'destructive' });
+    if (!promptMatch) {
+      toast({ title: 'No video prompt found', description: 'Ask the AI to include a single ```video-prompt``` block.', variant: 'destructive' });
       return;
     }
 
-    let videoPrompt1 = prompt1Match[1].trim();
-    let videoPrompt2 = prompt2Match[1].trim();
+    let videoPrompt = promptMatch[1].trim();
 
-    // --- AI Script Pacing Agent ---
+    // --- AI Script Pacing Agent (single-clip mode) ---
     try {
-      setGenerationProgress('AI Agent reviewing script pacing...');
+      setGenerationProgress('AI Agent reviewing script pacing & ending...');
       const narrationMatch = analysisText.match(/```narration\n([\s\S]*?)```/);
       const fullNarration = narrationMatch ? narrationMatch[1].trim() : '';
+      const wordTarget = Math.round(singleDuration * 2.5);
 
       const { data: pacingData, error: pacingError } = await supabase.functions.invoke('ai', {
         body: {
           messages: [
             {
               role: 'system',
-              content: `You are a script pacing QA agent. Your job is to ensure video generation prompts and narrations fit within Sora-2's timing constraints.
+              content: `You are a script pacing & ending QA agent for SINGLE-TAKE Sora-2 videos.
 
 RULES:
 - Speaking rate is ~2.5 words/second
-- Each segment is ~15 seconds (max 20s), so each segment narration should be 30-50 words MAX
-- Video prompts should be 80-150 words with full cinematic detail
-- Sentences must end cleanly — no trailing articles, prepositions, or mid-thought cutoffs
-- If a segment's narration is too long, trim or redistribute words between segments
-- If prompts reference actions that would take longer than 15-20s, simplify them
+- Target duration: ${singleDuration} seconds → narration target ~${wordTarget} words (max ${wordTarget + 5})
+- The video is ONE continuous clip — no segments, no stitching
+- Video prompt should be 120-200 words with full cinematic detail covering the ENTIRE ${singleDuration}s arc (hook → body → payoff/CTA)
+- The narration's FINAL sentence MUST be a complete, self-contained closing line — never end on "and", "to", "the", "for", "but", a comma, an ellipsis, or any preposition/article
+- The video prompt MUST explicitly describe the closing 1-2 seconds and final frame so the model lands the ending cleanly inside ${singleDuration}s
+- If the narration is too long for ${singleDuration}s at 2.5 wps, trim it. If the closing line is incomplete, rewrite it as a complete sentence.
 
 RESPOND IN EXACTLY THIS FORMAT (no extra text):
-\`\`\`video-prompt-1
-[corrected segment 1 prompt]
+\`\`\`video-prompt
+[corrected single video prompt — 120-200 words — must include explicit closing-frame description]
 \`\`\`
 
-\`\`\`video-prompt-2
-[corrected segment 2 prompt]
-\`\`\`
-
-\`\`\`narration-1
-[segment 1 narration — 30-50 words max]
-\`\`\`
-
-\`\`\`narration-2
-[segment 2 narration — 30-50 words max]
+\`\`\`narration
+[corrected narration — max ${wordTarget + 5} words — final sentence must be complete and self-contained]
 \`\`\`
 
 If everything is already fine, return them unchanged.`
             },
             {
               role: 'user',
-              content: `Review these for pacing issues:
+              content: `Review this for pacing + a clean ending inside ${singleDuration}s:
 
-VIDEO PROMPT 1:
-${videoPrompt1}
+VIDEO PROMPT:
+${videoPrompt}
 
-VIDEO PROMPT 2:
-${videoPrompt2}
-
-FULL NARRATION:
+NARRATION:
 ${fullNarration}
 
-Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per segment). Fix any issues.`
+Check word count vs ${singleDuration}s duration (~2.5 words/sec = ${wordTarget} words ideal). Verify the closing line is COMPLETE and the prompt explicitly describes the final frame. Fix any issues.`
             }
           ],
         },
@@ -1218,21 +1198,19 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
 
       if (!pacingError && pacingData?.response) {
         const reviewed = pacingData.response;
-        const rp1 = reviewed.match(/```video-prompt-1\n([\s\S]*?)```/);
-        const rp2 = reviewed.match(/```video-prompt-2\n([\s\S]*?)```/);
-        if (rp1 && rp2) {
-          videoPrompt1 = rp1[1].trim();
-          videoPrompt2 = rp2[1].trim();
-          console.log('[VideoRepoPro] AI Pacing Agent revised prompts');
+        const rp = reviewed.match(/```video-prompt\s*\n([\s\S]*?)```/);
+        if (rp) {
+          videoPrompt = rp[1].trim();
+          console.log('[VideoRepoPro] AI Pacing Agent revised single-clip prompt');
         }
       }
     } catch (pacingErr) {
-      console.warn('[VideoRepoPro] Pacing review failed, using original prompts:', pacingErr);
+      console.warn('[VideoRepoPro] Pacing review failed, using original prompt:', pacingErr);
     }
 
     if (projectId) {
       await supabase.from('video_repo_projects').update({
-        video_prompt: `SEGMENT 1:\n${videoPrompt1}\n\nSEGMENT 2:\n${videoPrompt2}`,
+        video_prompt: videoPrompt,
       }).eq('id', projectId);
     }
 
@@ -1241,74 +1219,49 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
     const generatingMsg: ChatMessage = {
       id: `assistant-gen-${Date.now()}`,
       role: 'assistant',
-      content: '🎬 Generating TWO video segments with Sora-2 in parallel... Each segment is up to 20 seconds. They will appear here individually so you can review each one.',
+      content: `🎬 Generating ONE continuous ${singleDuration}-second video with Sora-2... No stitching, no segments — a single clean take that ends on the closing frame.`,
     };
     setMessages((prev) => [...prev, generatingMsg]);
 
-    let segment1Url: string | null = null;
-    let segment2Url: string | null = null;
+    let videoUrl: string | null = null;
 
     try {
-      setGenerationProgress('Starting Segment 1 & 2 generation...');
+      setGenerationProgress(`Starting ${singleDuration}s generation...`);
 
       const proParams = useSoraPro ? { resolution: soraProResolution } : {};
       const segmentModel: 'sora-2' | 'sora-2-pro' = useSoraPro ? 'sora-2-pro' : 'sora-2';
 
-      const [taskId1, taskId2] = await Promise.all([
-        createWaveSpeedVideo({
-          prompt: videoPrompt1,
-          model: segmentModel,
-          aspectRatio,
-          duration: 20,
-          ...proParams,
-          userId: user?.id,
-          source: 'video-repo-pro',
-          ...(persistentImageUrl ? { imageUrls: [persistentImageUrl] } : {}),
-        }),
-        createWaveSpeedVideo({
-          prompt: videoPrompt2,
-          model: segmentModel,
-          aspectRatio,
-          duration: 20,
-          ...proParams,
-          userId: user?.id,
-          source: 'video-repo-pro',
-          ...(persistentImageUrl ? { imageUrls: [persistentImageUrl] } : {}),
-        }),
-      ]);
+      const taskId = await createWaveSpeedVideo({
+        prompt: videoPrompt,
+        model: segmentModel,
+        aspectRatio,
+        duration: singleDuration,
+        ...proParams,
+        userId: user?.id,
+        source: 'video-repo-pro',
+        ...(persistentImageUrl ? { imageUrls: [persistentImageUrl] } : {}),
+      });
 
       let attempts = 0;
       const maxAttempts = 150;
 
-      while (attempts < maxAttempts && (!segment1Url || !segment2Url)) {
+      while (attempts < maxAttempts && !videoUrl) {
         await new Promise((r) => setTimeout(r, 5000));
+        const job = await getWaveSpeedVideoJob(taskId);
 
-        const [job1, job2] = await Promise.all([
-          segment1Url ? Promise.resolve(null) : getWaveSpeedVideoJob(taskId1),
-          segment2Url ? Promise.resolve(null) : getWaveSpeedVideoJob(taskId2),
-        ]);
-
-        if (job1?.status === 'completed' && job1.videoUrl) {
-          segment1Url = job1.videoUrl;
-          setGenerationProgress(segment2Url ? 'Both segments ready!' : 'Segment 1 ready ✓ — waiting for Segment 2...');
+        if (job?.status === 'completed' && job.videoUrl) {
+          videoUrl = job.videoUrl;
+          setGenerationProgress('Video ready!');
+          break;
         }
-        if (job1?.status === 'failed') throw new Error(`Segment 1 failed: ${job1.error || 'Unknown error'}`);
+        if (job?.status === 'failed') throw new Error(`Generation failed: ${job.error || 'Unknown error'}`);
 
-        if (job2?.status === 'completed' && job2.videoUrl) {
-          segment2Url = job2.videoUrl;
-          setGenerationProgress(segment1Url ? 'Both segments ready!' : 'Segment 2 ready ✓ — waiting for Segment 1...');
-        }
-        if (job2?.status === 'failed') throw new Error(`Segment 2 failed: ${job2.error || 'Unknown error'}`);
-
-        if (!segment1Url && !segment2Url) {
-          setGenerationProgress(`Generating both segments... (${Math.round((attempts / maxAttempts) * 100)}%)`);
-        }
-
+        setGenerationProgress(`Generating ${singleDuration}s clip... (${Math.round((attempts / maxAttempts) * 100)}%)`);
         attempts++;
       }
 
-      if (!segment1Url || !segment2Url) {
-        throw new Error('Video generation timed out. One or both segments did not complete.');
+      if (!videoUrl) {
+        throw new Error(`Video generation timed out after ${attempts * 5}s.`);
       }
 
       setIsGenerating(false);
@@ -1316,17 +1269,17 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
 
       if (projectId) {
         await supabase.from('video_repo_projects').update({
-          generated_video_url: segment1Url,
+          generated_video_url: videoUrl,
           status: 'completed',
-          segment_urls: [segment1Url, segment2Url],
+          segment_urls: [videoUrl],
         } as any).eq('id', projectId);
       }
 
       if (user) {
         await supabase.from('generated_images').insert({
           user_id: user.id,
-          image_url: segment1Url,
-          prompt: `[PRO 30s] ${videoPrompt1.substring(0, 100)}...`,
+          image_url: videoUrl,
+          prompt: `[PRO ${singleDuration}s] ${videoPrompt.substring(0, 100)}...`,
           source: 'video-repo-pro',
           reference_image_url: persistentImageUrl,
         });
@@ -1335,39 +1288,24 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
       const resultMsg: ChatMessage = {
         id: `result-${Date.now()}`,
         role: 'assistant',
-        content: '✅ Both segments are ready! Review each one below. Want changes, or to add your product into a scene? Just tell me in the chat.\n\n💾 This project has been saved to your **History** tab.',
-        videoResults: [
-          { url: segment1Url, label: 'Segment 1' },
-          { url: segment2Url, label: 'Segment 2' },
-        ],
+        content: `✅ Your ${singleDuration}-second video is ready! One clean take — no stitching. Want changes? Just tell me in the chat.\n\n💾 This project has been saved to your **History** tab.`,
+        videoResults: [{ url: videoUrl, label: `${singleDuration}s clip` }],
       };
       setMessages((prev) => prev.filter((m) => m.id !== generatingMsg.id).concat(resultMsg));
       await fetchHistory();
       toast({
         title: '✅ Saved to History',
-        description: 'Both segments are saved. Click the History tab to view all your projects.',
+        description: 'Your single-take video is saved. Click the History tab to view all your projects.',
       });
     } catch (genErr: any) {
       if (projectId) {
         await supabase.from('video_repo_projects').update({ status: 'failed' }).eq('id', projectId);
       }
 
-      const readySegments: { url: string; label: string }[] = [];
-      if (segment1Url) readySegments.push({ url: segment1Url, label: 'Segment 1' });
-      if (segment2Url) readySegments.push({ url: segment2Url, label: 'Segment 2' });
-
-      let errorContent = `⚠️ Generation issue: ${genErr.message}\n\n`;
-      if (readySegments.length > 0) {
-        errorContent += `${readySegments.length === 1 ? 'One segment is' : 'These segments are'} ready below. You can chat with me to retry the missing one or request changes.`;
-      } else {
-        errorContent += 'You can retry, or copy the video prompts above and try again.';
-      }
-
       const errorMsg: ChatMessage = {
         id: `error-${Date.now()}`,
         role: 'assistant',
-        content: errorContent,
-        videoResults: readySegments.length > 0 ? readySegments : undefined,
+        content: `⚠️ Generation issue: ${genErr.message}\n\nYou can retry from the chat, or copy the video prompt above and try again.`,
         retryable: true,
       };
       setMessages((prev) => prev.filter((m) => m.id !== generatingMsg.id).concat(errorMsg));
@@ -1386,12 +1324,12 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
     }
     setIsEnhancing(true);
     try {
-      const directorBrief = `You are the AI Reel Director for a high-performance UGC ad platform (TheraNovex healthcare & Lifecykel wellness). Rewrite the user's prompt into a richly-detailed 30-second cinematic ad brief. Apply these rules:
+      const directorBrief = `You are the AI Reel Director for a high-performance UGC ad platform (TheraNovex healthcare & Lifecykel wellness). Rewrite the user's prompt into a richly-detailed ${singleDuration}-second cinematic ad brief for ONE continuous Sora-2 take (no stitching, no segments). Apply these rules:
 
 - Movement-First UGC aesthetic: bright natural daylight, unretouched, handheld energy, vibrant color.
-- Structure: Hook (6+ seconds, 15-25 words, psychological trigger) → Problem → Dropper Ritual / product reveal → 3 specific benefits → CTA.
-- Pacing: ~2.5 words/second. Total ~75 words of spoken script across two seamless segments.
-- Cinematography: specify shot type, camera motion, lens feel, lighting, location, wardrobe, and a clear match-cut transition between segment 1 and segment 2.
+- Structure: Hook (first 2-3s, psychological trigger) → Problem → Product reveal → 1-2 specific benefits → CTA — all inside ${singleDuration}s as ONE continuous take.
+- Pacing: ~2.5 words/second. Total ~${Math.round(singleDuration * 2.5)} words of spoken script (max ${Math.round(singleDuration * 2.5) + 5}).
+- Cinematography: specify shot type, camera motion, lens feel, lighting, location, wardrobe, and explicitly describe the FINAL closing frame so the model lands the ending cleanly inside ${singleDuration}s.
 - Keep the user's product, brand voice, and core idea intact — do NOT invent a different product.
 - Output ONLY the rewritten prompt as a single flowing brief (no headings, no bullet labels, no preamble like "Here is..."). Plain text, ready to paste back into the composer.`;
 
@@ -1845,7 +1783,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
             <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0 text-[10px] md:text-xs">PRO</Badge>
           </div>
           <p className="text-muted-foreground text-xs md:text-base max-w-2xl mx-auto">
-            Full 30s UGC ads — two segments stitched seamlessly.
+            One clean Sora-2 take ({singleDuration}s) — no stitching, no segments, lands on the closing frame.
           </p>
         </div>
 
@@ -1902,7 +1840,7 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                     )}
                     {referenceVideoUrl && videoFrames.length > 0 && !statusLabel && (
                       <p className="text-xs text-muted-foreground">
-                        We'll analyze {videoFrames.length} key frames to learn the hook, pacing, and style — then generate a full 30-second ad split into two seamless segments.
+                        We'll analyze {videoFrames.length} key frames to learn the hook, pacing, and style — then generate one continuous {singleDuration}-second clip that lands on a complete closing frame.
                       </p>
                     )}
                     {statusLabel && (
@@ -1965,6 +1903,16 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
                       <SelectContent>
                         <SelectItem value="9:16">📱 9:16</SelectItem>
                         <SelectItem value="16:9">🖥️ 16:9</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={String(singleDuration)} onValueChange={(v) => setSingleDuration(Number(v) as 10 | 15 | 20)}>
+                      <SelectTrigger className="h-8 w-[100px] text-xs rounded-full bg-background" title="Single-take duration (no stitching)">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="10">⏱ 10s</SelectItem>
+                        <SelectItem value="15">⏱ 15s</SelectItem>
+                        <SelectItem value="20">⏱ 20s</SelectItem>
                       </SelectContent>
                     </Select>
                     <Button
