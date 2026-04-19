@@ -1700,7 +1700,7 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
                           disabled={isAnalyzing || isGenerating || isExtractingFrames || !hasComposerInput}
                         >
                           {statusLabel ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4 h-4" />}
-                          Generate
+                          {inputMode === 't2v' ? 'Generate from Text' : 'Generate'}
                         </Button>
                       </div>
                     </div>
