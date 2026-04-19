@@ -1398,7 +1398,7 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                         <Button
                           className="w-full h-11 rounded-xl bg-gradient-to-r from-primary to-primary/80"
                           onClick={startBulkGeneration}
-                          disabled={isBulkRunning || !selectedTwin || bulkItems.filter(i => i.selected && i.status !== 'done').length === 0}
+                          disabled={isBulkRunning || twins.length === 0 || bulkItems.filter(i => i.selected && i.status !== 'done').length === 0}
                         >
                           {isBulkRunning ? (
                             <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Running queue...</>
