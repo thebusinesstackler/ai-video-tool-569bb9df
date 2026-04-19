@@ -20,6 +20,10 @@ const STYLE_PROMPTS: Record<string, string> = {
     "Edit this photo: keep the EXACT product/bottle pixel-perfect and completely unchanged — do NOT redraw, blur, or alter the bottle, label, text, colors, or shape in any way. Only change the background and surroundings. Place the product in a lush natural outdoor setting — on a mossy rock, a garden table, or among wildflowers. Golden hour lighting. No people. The product must remain crisp, sharp, and identical to the input image.",
   studio:
     "Edit this photo: keep the EXACT product/bottle pixel-perfect and completely unchanged — do NOT redraw, blur, or alter the bottle, label, text, colors, or shape in any way. Only change the background and surroundings. Add dramatic studio lighting with a dark moody background. Rim lighting, subtle color glow, luxury premium feel. No people. The product must remain crisp, sharp, and identical to the input image.",
+  transparent_bg:
+    "Edit this photo: keep the EXACT product/bottle pixel-perfect and completely unchanged — do NOT redraw, blur, or alter the bottle, label, text, colors, or shape in any way. Cleanly remove the entire background so only the product remains, isolated on a pure solid white background (which can be cut out later). Preserve natural product shadows directly under/beneath the product for realism. Edges must be razor-sharp with no halo, no fringe, no leftover background pixels. The product must remain crisp, sharp, and identical to the input image. High-resolution e-commerce cutout quality.",
+  hero_premium:
+    "Edit this photo: keep the EXACT product/bottle pixel-perfect and completely unchanged — do NOT redraw, blur, or alter the bottle, label, text, colors, or shape in any way. Remove all background distractions and place the product as a luxury hero shot — soft gradient background (warm cream to amber), cinematic three-point lighting, gentle rim light along the bottle edge, soft realistic ground shadow, ultra-high-resolution detail on the label and glass. Premium magazine-cover quality, no people, no props. The product must remain crisp, sharp, and identical to the input image.",
 };
 
 serve(async (req) => {

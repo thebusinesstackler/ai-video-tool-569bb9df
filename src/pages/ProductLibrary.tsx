@@ -54,6 +54,8 @@ interface GraphicImage {
 }
 
 const VARIATION_STYLES = [
+  { key: 'hero_premium', label: 'Hero Premium', icon: '✨', desc: 'Luxury magazine hero shot' },
+  { key: 'transparent_bg', label: 'Background Removed', icon: '🪄', desc: 'Clean cutout, sharp edges' },
   { key: 'lifestyle', label: 'Lifestyle Setting', icon: '🏡', desc: 'Warm home setting' },
   { key: 'white_bg', label: 'White Background', icon: '⬜', desc: 'Clean e-commerce shot' },
   { key: 'ugc', label: 'In-Hand UGC', icon: '🤳', desc: 'Authentic selfie style' },
@@ -435,14 +437,37 @@ export default function ProductLibrary() {
                       <Badge variant="secondary" className="text-[10px]">{gallery.length}</Badge>
                       <span className="text-[10px] text-muted-foreground font-normal">(reference)</span>
                     </CardTitle>
-                    <label className="cursor-pointer">
-                      <input type="file" accept="image/*" className="hidden" multiple onChange={(e) => {
-                        Array.from(e.target.files || []).forEach(uploadImage);
-                      }} />
-                      <Button variant="outline" size="sm" className="gap-1 text-xs pointer-events-none" asChild>
-                        <span>{isUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />} Upload</span>
-                      </Button>
-                    </label>
+                    <div className="flex gap-1.5">
+                      {gallery.find(g => g.is_primary) && (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="gap-1 text-xs"
+                          disabled={!!generatingVariation}
+                          onClick={() => {
+                            const primary = gallery.find(g => g.is_primary) || gallery[0];
+                            if (!primary) return;
+                            // Reuse generateVariation but pass a graphic-shaped object built from primary
+                            generateVariation(
+                              { id: primary.id, product_id: primary.product_id, image_url: primary.image_url, label: primary.label, source_style: null, is_original: true },
+                              VARIATION_STYLES.map(s => s.key)
+                            );
+                          }}
+                          title="Generate all 8 variations from your primary product photo"
+                        >
+                          {generatingVariation === 'all' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                          Auto-Generate All
+                        </Button>
+                      )}
+                      <label className="cursor-pointer">
+                        <input type="file" accept="image/*" className="hidden" multiple onChange={(e) => {
+                          Array.from(e.target.files || []).forEach(uploadImage);
+                        }} />
+                        <Button variant="outline" size="sm" className="gap-1 text-xs pointer-events-none" asChild>
+                          <span>{isUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />} Upload</span>
+                        </Button>
+                      </label>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
