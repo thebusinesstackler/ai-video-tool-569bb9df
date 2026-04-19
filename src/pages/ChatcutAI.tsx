@@ -223,6 +223,23 @@ interface Transition {
   label?: string;
 }
 
+/**
+ * Phase 3: Sound effects placed on the timeline. Synthesized via Web Audio API
+ * (no external network calls) so they fire instantly and stay in sync with the
+ * playhead. Triggered when `currentTime` crosses `at` during playback.
+ */
+type SfxKind = 'whoosh' | 'ding' | 'pop' | 'swoosh' | 'thud' | 'click';
+interface SfxClip {
+  id: string;
+  kind: SfxKind;
+  at: number;
+  /** 0–1, default 0.6 */
+  volume?: number;
+  /** Optional human label / paired overlay id so the user knows what fired */
+  label?: string;
+  pairedOverlayId?: string;
+}
+
 type TimelineAction = {
   action: string;
   [key: string]: any;
@@ -284,6 +301,10 @@ const ChatcutAI = () => {
   const [bRollClips, setBRollClips] = useState<BRollClip[]>([]);
   // Phase 2: scene transitions Marco can place between cuts (fade, dip, zoom, speed-ramp, whip).
   const [transitions, setTransitions] = useState<Transition[]>([]);
+  // Phase 3: sound effects + speech-aware music ducking strength (0=off, 1=full mute under speech).
+  const [sfxClips, setSfxClips] = useState<SfxClip[]>([]);
+  const [duckStrength, setDuckStrength] = useState<number>(0.65);
+  const [duckEnabled, setDuckEnabled] = useState<boolean>(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isGeneratingMusic, setIsGeneratingMusic] = useState(false);
   const [trackMuted, setTrackMuted] = useState({ v1: false, v2: false, a1: false });
@@ -334,6 +355,10 @@ const ChatcutAI = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const musicAudioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
+  // Phase 3: shared AudioContext for synthesized SFX + tracking which sfx ids have already
+  // fired in the current playback pass (reset on seek/pause so they re-trigger on rewind).
+  const sfxAudioCtxRef = useRef<AudioContext | null>(null);
+  const sfxFiredRef = useRef<Set<string>>(new Set());
 
   // Snapshot of timeline state captured RIGHT BEFORE Marco's last action ran.
   // Lets the user undo whatever Marco just did (B-roll, overlay, music, captions, cuts, thumbnail).
@@ -507,13 +532,78 @@ const ChatcutAI = () => {
     });
   }, [musicTracks]);
 
+  // ── Phase 3: Transcript / word-list / speech-active derivation (declared early so the
+  // music-sync effect below can read isSpeechActive for ducking).
+  const transcriptSegments = useMemo(() => {
+    if (!transcript) return [];
+    if (Array.isArray(transcript)) return transcript;
+    if (Array.isArray(transcript.segments)) return transcript.segments;
+    if (Array.isArray(transcript.words)) return transcript.words;
+    if (typeof transcript.text === 'string' && transcript.text.trim()) {
+      return [{ start: 0, end: duration || undefined, text: transcript.text }];
+    }
+    return [];
+  }, [transcript, duration]);
+
+  // Flatten transcript.segments[].words[] into a single sorted list `[{word, start, end}]`.
+  // Marco can ask "align the stat card to the word 'fifty' (occurrence 1)" and we'll snap
+  // the overlay's `start` to that word's `start` time.
+  const wordList = useMemo<Array<{ word: string; start: number; end: number; norm: string }>>(() => {
+    const out: Array<{ word: string; start: number; end: number; norm: string }> = [];
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+    for (const seg of transcriptSegments as any[]) {
+      if (Array.isArray(seg?.words)) {
+        for (const w of seg.words) {
+          const text = (w.word || w.text || '').trim();
+          if (!text) continue;
+          out.push({ word: text, start: Number(w.start) || 0, end: Number(w.end) || Number(w.start) || 0, norm: norm(text) });
+        }
+      } else if (typeof seg?.text === 'string' && typeof seg?.start === 'number') {
+        // Coarse fallback: distribute words evenly across the segment window.
+        const tokens = seg.text.split(/\s+/).filter(Boolean);
+        const segDur = (Number(seg.end) || (seg.start + 1)) - seg.start;
+        const per = tokens.length > 0 ? segDur / tokens.length : 0;
+        tokens.forEach((t: string, i: number) => out.push({
+          word: t, start: seg.start + i * per, end: seg.start + (i + 1) * per, norm: norm(t),
+        }));
+      }
+    }
+    return out.sort((a, b) => a.start - b.start);
+  }, [transcriptSegments]);
+
+  // Find the Nth occurrence of a word (case + punctuation insensitive). 1-based occurrence.
+  const findWordTime = useCallback((word: string, occurrence: number = 1): { start: number; end: number; matchedWord: string } | null => {
+    const target = word.toLowerCase().replace(/[^a-z0-9]+/g, '');
+    if (!target) return null;
+    let count = 0;
+    for (const w of wordList) {
+      if (w.norm === target || w.norm.includes(target) || target.includes(w.norm)) {
+        count++;
+        if (count === occurrence) return { start: w.start, end: w.end, matchedWord: w.word };
+      }
+    }
+    return null;
+  }, [wordList]);
+
+  // Is the speaker actively talking RIGHT NOW? Used for ducking music under speech.
+  const isSpeechActive = useMemo(() => {
+    if (!duckEnabled || wordList.length === 0) return false;
+    for (const w of wordList) {
+      if (w.start - 0.05 <= currentTime && currentTime <= w.end + 0.15) return true;
+      if (w.start > currentTime + 0.2) break;
+    }
+    return false;
+  }, [wordList, currentTime, duckEnabled]);
+
   // Sync music audio with video playback (only play/pause/seek/volume)
   useEffect(() => {
     musicTracks.forEach(track => {
       if (!track.audioUrl) return;
       const audioEl = musicAudioRefs.current.get(track.id);
       if (!audioEl) return;
-      audioEl.volume = trackMuted.a1 ? 0 : track.volume;
+      // Phase 3: Audio ducking — drop music volume while speech is active.
+      const duckMultiplier = (duckEnabled && isSpeechActive) ? Math.max(0.05, 1 - duckStrength) : 1;
+      audioEl.volume = trackMuted.a1 ? 0 : track.volume * duckMultiplier;
 
       const inRange = currentTime >= track.startAt && currentTime < track.startAt + track.duration;
       if (isPlaying && inRange && hasInteracted) {
@@ -528,7 +618,114 @@ const ChatcutAI = () => {
         if (!audioEl.paused) audioEl.pause();
       }
     });
-  }, [isPlaying, currentTime, musicTracks, trackMuted.a1, hasInteracted]);
+  }, [isPlaying, currentTime, musicTracks, trackMuted.a1, hasInteracted, isSpeechActive, duckEnabled, duckStrength]);
+
+  // ── Phase 3: SFX engine — synthesizes whoosh / ding / pop / swoosh / thud / click via Web Audio ──
+  // Cheap, instant, no network. Re-uses one AudioContext and builds per-trigger oscillator+filter chains.
+  const playSfx = useCallback((kind: SfxKind, volume = 0.6) => {
+    try {
+      if (!sfxAudioCtxRef.current) {
+        const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+        sfxAudioCtxRef.current = new Ctx();
+      }
+      const ctx = sfxAudioCtxRef.current!;
+      if (ctx.state === 'suspended') ctx.resume();
+      const now = ctx.currentTime;
+      const masterGain = ctx.createGain();
+      masterGain.gain.value = Math.max(0, Math.min(1, volume));
+      masterGain.connect(ctx.destination);
+
+      if (kind === 'whoosh' || kind === 'swoosh') {
+        const dur = kind === 'whoosh' ? 0.45 : 0.7;
+        const bufferSize = Math.floor(ctx.sampleRate * dur);
+        const noiseBuf = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = noiseBuf.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+        const noise = ctx.createBufferSource();
+        noise.buffer = noiseBuf;
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(kind === 'whoosh' ? 800 : 600, now);
+        filter.frequency.exponentialRampToValueAtTime(kind === 'whoosh' ? 4000 : 2200, now + dur * 0.6);
+        filter.frequency.exponentialRampToValueAtTime(300, now + dur);
+        filter.Q.value = kind === 'whoosh' ? 4 : 2;
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.9, now + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+        noise.connect(filter); filter.connect(gain); gain.connect(masterGain);
+        noise.start(now); noise.stop(now + dur);
+      } else if (kind === 'ding') {
+        const dur = 0.7;
+        const osc1 = ctx.createOscillator(); osc1.type = 'sine'; osc1.frequency.value = 1320;
+        const osc2 = ctx.createOscillator(); osc2.type = 'sine'; osc2.frequency.value = 1976;
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.7, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+        osc1.connect(gain); osc2.connect(gain); gain.connect(masterGain);
+        osc1.start(now); osc2.start(now); osc1.stop(now + dur); osc2.stop(now + dur);
+      } else if (kind === 'pop') {
+        const dur = 0.18;
+        const osc = ctx.createOscillator(); osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.exponentialRampToValueAtTime(220, now + dur);
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.8, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+        osc.connect(gain); gain.connect(masterGain);
+        osc.start(now); osc.stop(now + dur);
+      } else if (kind === 'thud') {
+        const dur = 0.35;
+        const osc = ctx.createOscillator(); osc.type = 'sine';
+        osc.frequency.setValueAtTime(140, now);
+        osc.frequency.exponentialRampToValueAtTime(40, now + dur);
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.95, now + 0.005);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+        osc.connect(gain); gain.connect(masterGain);
+        osc.start(now); osc.stop(now + dur);
+      } else { // click
+        const dur = 0.06;
+        const osc = ctx.createOscillator(); osc.type = 'square';
+        osc.frequency.value = 1800;
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.5, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+        osc.connect(gain); gain.connect(masterGain);
+        osc.start(now); osc.stop(now + dur);
+      }
+    } catch (err) {
+      console.warn('[SFX] Failed to play', kind, err);
+    }
+  }, []);
+
+  // Trigger SFX clips when the playhead crosses their `at` during playback.
+  // Reset the fired set on pause / backward seek so they re-trigger on rewind.
+  const lastSfxTimeRef = useRef<number>(0);
+  useEffect(() => {
+    if (!isPlaying || !hasInteracted) {
+      lastSfxTimeRef.current = currentTime;
+      return;
+    }
+    if (currentTime < lastSfxTimeRef.current - 0.25) {
+      sfxFiredRef.current.clear();
+    }
+    for (const sfx of sfxClips) {
+      if (sfxFiredRef.current.has(sfx.id)) continue;
+      if (currentTime >= sfx.at && currentTime <= sfx.at + 0.4) {
+        playSfx(sfx.kind, sfx.volume ?? 0.6);
+        sfxFiredRef.current.add(sfx.id);
+      }
+    }
+    lastSfxTimeRef.current = currentTime;
+  }, [currentTime, isPlaying, hasInteracted, sfxClips, playSfx]);
+
+  useEffect(() => {
+    if (!isPlaying) sfxFiredRef.current.clear();
+  }, [isPlaying]);
 
   // Cleanup music audio on unmount
   useEffect(() => {
@@ -537,17 +734,6 @@ const ChatcutAI = () => {
       musicAudioRefs.current.clear();
     };
   }, []);
-
-  const transcriptSegments = useMemo(() => {
-    if (!transcript) return [];
-    if (Array.isArray(transcript)) return transcript;
-    if (Array.isArray(transcript.segments)) return transcript.segments;
-    if (Array.isArray(transcript.words)) return transcript.words;
-    if (typeof transcript.text === 'string' && transcript.text.trim()) {
-      return [{ start: 0, end: duration || undefined, text: transcript.text }];
-    }
-    return [];
-  }, [transcript, duration]);
 
   const sortedVizardClips = useMemo(
     () => [...vizardClips].sort((a, b) => b.score - a.score),
@@ -856,6 +1042,8 @@ const ChatcutAI = () => {
     setMusicTracks([]);
     setOverlays([]);
     setBRollClips([]);
+    setTransitions([]);
+    setSfxClips([]);
     setVizardClips([]);
     setCaptionSettings({ ...defaultCaptionSettings, enabled: false });
     setThumbnail(null);
@@ -909,6 +1097,10 @@ const ChatcutAI = () => {
         captionSettings,
         thumbnail,
         transitions,
+        // Phase 3
+        sfxClips,
+        duckEnabled,
+        duckStrength,
       };
       const payload: Record<string, unknown> = {
         user_id: user.id,
@@ -930,7 +1122,7 @@ const ChatcutAI = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [user, draftId, draftName, videoUrl, transcript, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, messages, toast]);
+  }, [user, draftId, draftName, videoUrl, transcript, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, messages, toast, transitions, sfxClips, duckEnabled, duckStrength]);
 
   const loadDraft = useCallback(async (id: string) => {
     if (!user) return;
@@ -952,6 +1144,9 @@ const ChatcutAI = () => {
       setOverlays(ts.overlays || []);
       setBRollClips(ts.bRollClips || []);
       setTransitions(Array.isArray(ts.transitions) ? ts.transitions : []);
+      setSfxClips(Array.isArray(ts.sfxClips) ? ts.sfxClips : []);
+      if (typeof ts.duckEnabled === 'boolean') setDuckEnabled(ts.duckEnabled);
+      if (typeof ts.duckStrength === 'number') setDuckStrength(ts.duckStrength);
       if (ts.captionSettings) setCaptionSettings(ts.captionSettings);
       if (ts.thumbnail) setThumbnail(ts.thumbnail);
     }
@@ -1971,6 +2166,59 @@ const ChatcutAI = () => {
           toast({ title: 'Transition removed' });
           break;
         }
+        // ── Phase 3: SFX actions ──────────────────────────────────────
+        case 'add_sfx': {
+          const validKinds: SfxKind[] = ['whoosh', 'ding', 'pop', 'swoosh', 'thud', 'click'];
+          const kind = (validKinds.includes(act.kind) ? act.kind : 'whoosh') as SfxKind;
+          let at = typeof act.at === 'number' ? act.at : currentTime;
+          if (typeof act.at !== 'number' && act.pairedOverlayId) {
+            const ov = overlays.find(o => o.id === act.pairedOverlayId);
+            if (ov) at = ov.start;
+          }
+          const sfx: SfxClip = {
+            id: crypto.randomUUID(),
+            kind, at,
+            volume: typeof act.volume === 'number' ? Math.max(0, Math.min(1, act.volume)) : 0.6,
+            label: act.label,
+            pairedOverlayId: act.pairedOverlayId,
+          };
+          setSfxClips(prev => [...prev, sfx].sort((a, b) => a.at - b.at));
+          if (hasInteracted) playSfx(kind, sfx.volume);
+          toast({ title: `🔊 ${kind} added`, description: `@ ${at.toFixed(1)}s${act.label ? ` · ${act.label}` : ''}` });
+          break;
+        }
+        case 'remove_sfx': {
+          const id = act.id || act.sfxId;
+          if (!id) break;
+          setSfxClips(prev => prev.filter(s => s.id !== id));
+          toast({ title: 'SFX removed' });
+          break;
+        }
+        case 'set_ducking': {
+          if (typeof act.enabled === 'boolean') setDuckEnabled(act.enabled);
+          if (typeof act.strength === 'number') setDuckStrength(Math.max(0, Math.min(1, act.strength)));
+          toast({
+            title: act.enabled === false ? '🔇 Ducking off' : '🎚️ Ducking updated',
+            description: typeof act.strength === 'number' ? `Strength ${(act.strength * 100).toFixed(0)}%` : undefined,
+          });
+          break;
+        }
+        // ── Phase 3: Word-level overlay alignment ─────────────────────
+        case 'align_overlay_to_word': {
+          const id = act.id || act.overlayId;
+          const word = act.word;
+          if (!id || !word) break;
+          const occurrence = typeof act.occurrence === 'number' ? act.occurrence : 1;
+          const lead = typeof act.lead === 'number' ? act.lead : 0;
+          const hit = findWordTime(String(word), occurrence);
+          if (!hit) {
+            toast({ title: 'Word not found in transcript', description: `"${word}" (occurrence ${occurrence})`, variant: 'destructive' });
+            break;
+          }
+          setOverlays(prev => prev.map(o => o.id === id ? { ...o, start: Math.max(0, hit.start + lead) } : o));
+          toast({ title: '🎯 Overlay synced to word', description: `"${hit.matchedWord}" → ${hit.start.toFixed(2)}s` });
+          break;
+        }
         case 'hide_overlay': {
           const ids: string[] = Array.isArray(act.ids) ? act.ids : (act.id ? [act.id] : (act.overlayId ? [act.overlayId] : []));
           if (ids.length) {
@@ -2271,6 +2519,17 @@ const ChatcutAI = () => {
               at: +t.at.toFixed(2), duration: +t.duration.toFixed(2),
               rate: t.rate, label: t.label || null,
             })),
+            // ── PHASE 3: SFX clips on the timeline ──
+            sfx: sfxClips.map(s => ({
+              id: s.id, kind: s.kind, at: +s.at.toFixed(2),
+              volume: s.volume, label: s.label || null,
+              pairedOverlayId: s.pairedOverlayId || null,
+            })),
+            // ── PHASE 3: Speech-aware audio ducking config ──
+            ducking: { enabled: duckEnabled, strength: +duckStrength.toFixed(2), speechActiveNow: isSpeechActive },
+            // ── PHASE 3: Word-level timing index (sampled — first 200 words to keep payload small) ──
+            wordTimings: wordList.slice(0, 200).map(w => ({ word: w.word, start: +w.start.toFixed(2), end: +w.end.toFixed(2) })),
+            wordTimingsAvailable: wordList.length > 0,
             currentThumbnail: thumbnail
               ? { url: thumbnail.url, headline: thumbnail.headline, duration: thumbnail.duration }
               : null,
@@ -4091,6 +4350,42 @@ const ChatcutAI = () => {
                                     className="hidden group-hover/tx:flex absolute -top-1.5 -right-1.5 w-3 h-3 items-center justify-center rounded-full bg-destructive text-white text-[8px] z-10"
                                     onClick={(e) => { e.stopPropagation(); setTransitions(prev => prev.filter(x => x.id !== t.id)); }}
                                     title="Remove transition"
+                                  >×</button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="w-10 flex-shrink-0" />
+                        </div>
+                      )}
+
+                      {/* ── Phase 3: SFX marker row ─────────────────── */}
+                      {sfxClips.length > 0 && (
+                        <div className="flex items-center h-7 border-b border-border/50 group hover:bg-muted/20">
+                          <div className="w-[100px] flex-shrink-0 flex items-center gap-1 px-2" title="Sound effects (whoosh, ding, pop, swoosh, thud, click)">
+                            <span className="text-[9px] font-semibold text-cyan-400 truncate">SFX</span>
+                            {duckEnabled && (
+                              <span className="text-[8px] px-1 rounded bg-cyan-500/20 text-cyan-300" title={`Music ducks ${(duckStrength * 100).toFixed(0)}% under speech`}>
+                                Duck {Math.round(duckStrength * 100)}%
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex-1 relative h-5 mx-1 bg-muted/10 rounded">
+                            {sfxClips.map(s => {
+                              const left = duration > 0 ? (s.at / duration) * 100 : 0;
+                              return (
+                                <div
+                                  key={s.id}
+                                  className="absolute top-0 bottom-0 w-1.5 rounded bg-cyan-500/60 hover:bg-cyan-500 cursor-pointer flex items-center justify-center group/sfx"
+                                  style={{ left: `${left}%`, minWidth: '12px' }}
+                                  onClick={() => { seekTo(s.at); playSfx(s.kind, s.volume ?? 0.6); }}
+                                  title={`${s.kind} @ ${s.at.toFixed(2)}s${s.label ? ` · ${s.label}` : ''} — click to preview`}
+                                >
+                                  <span className="text-[7px] font-bold text-cyan-100 truncate px-0.5">{s.kind[0].toUpperCase()}</span>
+                                  <button
+                                    className="hidden group-hover/sfx:flex absolute -top-1.5 -right-1.5 w-3 h-3 items-center justify-center rounded-full bg-destructive text-white text-[8px] z-10"
+                                    onClick={(e) => { e.stopPropagation(); setSfxClips(prev => prev.filter(x => x.id !== s.id)); }}
+                                    title="Remove SFX"
                                   >×</button>
                                 </div>
                               );

@@ -842,6 +842,19 @@ When the user says "direct this", "commercial polish", "make it look like an ad"
       lines.push(`    \`\`\``);
       lines.push(`    Kinds: \`fade\` (quick black flash, 0.3-0.5s, scene-to-scene), \`dip_to_black\` (longer hold, 0.8-1.2s, ACT break), \`zoom\` (punch on a stat / hero, 0.4-0.6s), \`speed_ramp\` (rate 0.4-0.6 = slow-mo for CTA / hero reveal; rate 1.5-2 = sprint through filler), \`whip\` (fast lateral motion blur, 0.25-0.4s, between adjacent benefits).`);
       lines.push(`    Place transitions at: act breaks (problem→solution, intro→benefits, last benefit→CTA), big stat punches, before the CTA. ONE transition per beat — don't stack. Use \`update_transition\` and \`remove_transition\` to revise. Existing transitions are listed in \`context.transitions[]\`.`);
+      lines.push(`11. **SFX (Phase 3 capability):** Pair sound effects to overlays for sensory polish. Available kinds: \`whoosh\` (overlay enter, motion graphic flying in), \`ding\` (stat reveal, KPI number, positive beat), \`pop\` (text bubble, small overlay), \`swoosh\` (b-roll/scene change, longer than whoosh), \`thud\` (logo lockup, hard cut, CTA punch), \`click\` (subtle UI tick).`);
+      lines.push(`    \`\`\`actions`);
+      lines.push(`    [{"action":"add_sfx","kind":"whoosh","pairedOverlayId":"<overlay-id>","label":"stat card enter"}]`);
+      lines.push(`    [{"action":"add_sfx","kind":"ding","at":4.2,"label":"$50/mo reveal"}]`);
+      lines.push(`    [{"action":"add_sfx","kind":"thud","pairedOverlayId":"<cta-id>","volume":0.8}]`);
+      lines.push(`    \`\`\``);
+      lines.push(`    Default volume 0.6. When pairing to an overlay, OMIT \`at\` and pass \`pairedOverlayId\` — we'll snap to that overlay's start automatically. Use \`remove_sfx\` to delete. Existing SFX are in \`context.sfx[]\`. Don't spam — at most 1 SFX per overlay enter, plus 1 ding per stat, plus 1 thud on the CTA.`);
+      lines.push(`12. **AUDIO DUCKING (always on):** \`context.ducking\` shows current state. Music auto-drops to (1 − strength) when speech is active. If user complains music is too loud under voice, emit \`{"action":"set_ducking","strength":0.85}\`. To disable: \`{"action":"set_ducking","enabled":false}\`. Default strength is 0.65 (music drops to 35% under speech).`);
+      lines.push(`13. **WORD-LEVEL OVERLAY SYNC:** When \`context.wordTimingsAvailable === true\`, you can snap any overlay's start time to the exact moment a word is spoken. Use this to make stat cards / CTAs / reveals land on the keyword.`);
+      lines.push(`    \`\`\`actions`);
+      lines.push(`    [{"action":"align_overlay_to_word","overlayId":"<id>","word":"fifty","occurrence":1,"lead":-0.1}]`);
+      lines.push(`    \`\`\``);
+      lines.push(`    \`occurrence\` is 1-based (which time the word is spoken). \`lead\` is seconds offset (negative = appear slightly before the word for impact, typical −0.1 to −0.2). Reference \`context.wordTimings[]\` to find exact words. After aligning, ALSO add a \`ding\` SFX at the same moment for max punch.`);
 
       allMessages.push({ role: "system", content: lines.join('\n') });
     }
