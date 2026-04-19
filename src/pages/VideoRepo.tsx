@@ -1722,9 +1722,19 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
                         </div>
 
                         <Button
+                          variant="outline"
+                          className="w-full rounded-xl gap-1.5 border-primary/40 hover:bg-primary/5"
+                          onClick={() => autoGenerateMotionVideo()}
+                          disabled={isMotionGenerating || isAutoMotion}
+                        >
+                          {isAutoMotion ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-primary" />}
+                          {isAutoMotion ? (autoMotionStatus || 'Auto-generating...') : '✨ Auto-Generate Motion Video'}
+                        </Button>
+
+                        <Button
                           className="w-full rounded-xl gap-1.5"
-                          onClick={generateMotionVideo}
-                          disabled={isMotionGenerating || !motionStartFrame}
+                          onClick={() => generateMotionVideo()}
+                          disabled={isMotionGenerating || isAutoMotion || !motionStartFrame}
                         >
                           {isMotionGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
                           Generate Motion Video
