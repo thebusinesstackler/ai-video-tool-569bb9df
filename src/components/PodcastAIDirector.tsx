@@ -22,6 +22,13 @@ export interface VideoPlan {
   narration: string;
   audience?: string;
   duration?: number;
+  twinName?: string;
+}
+
+export interface DirectorAvailableTwin {
+  name: string;
+  gender?: string;
+  description?: string;
 }
 
 const QUICK_PROMPTS = [
