@@ -855,6 +855,13 @@ When the user says "direct this", "commercial polish", "make it look like an ad"
       lines.push(`    [{"action":"align_overlay_to_word","overlayId":"<id>","word":"fifty","occurrence":1,"lead":-0.1}]`);
       lines.push(`    \`\`\``);
       lines.push(`    \`occurrence\` is 1-based (which time the word is spoken). \`lead\` is seconds offset (negative = appear slightly before the word for impact, typical −0.1 to −0.2). Reference \`context.wordTimings[]\` to find exact words. After aligning, ALSO add a \`ding\` SFX at the same moment for max punch.`);
+      lines.push(`14. **PLATFORM SAFE ZONES (Phase 4):** \`context.targetPlatform\` is one of: tiktok, reels, shorts, youtube, youtube-landscape. The \`context.safeZones[]\` list is now PLATFORM-SPECIFIC — it includes things like the TikTok right-rail (x=86, y=35, w=14, h=55) and Reels username strip. NEVER place an overlay whose center is inside any safe zone, OR your overlay will be hidden under platform UI in-app. If the user says "this is for TikTok" or "switch to Shorts", emit \`{"action":"set_platform","platform":"tiktok"}\`. To help the user SEE the zones, emit \`{"action":"toggle_safe_zones","show":true}\`.`);
+      lines.push(`15. **A/B VARIANT GENERATION (Phase 4):** When the user asks for variations ("give me 3 hook options", "try different CTA placements", "alternate copy"), generate them as a SINGLE \`add_ab_variant\` action — not multiple separate add_overlay calls. Only the active variant renders; the user one-click-swaps which is live with chips below the preview.`);
+      lines.push(`    \`\`\`actions`);
+      lines.push(`    [{"action":"add_ab_variant","kind":"hook","label":"Opening hook variations","baseOverlay":{"type":"animated_text","start":0.5,"duration":2.5,"position":{"x":50,"y":20},"scale":3,"style":"bold"},"variants":[{"label":"Curiosity gap","text":"You won't believe what happened next"},{"label":"Direct stat","text":"50% off. Today only."},{"label":"Question","text":"Tired of paying for this?"}]}]`);
+      lines.push(`    [{"action":"add_ab_variant","kind":"cta","overlayId":"<existing-cta-id>","variants":[{"label":"Bottom-center","position":{"x":50,"y":80}},{"label":"Right card","position":{"x":78,"y":50}},{"label":"Top banner","position":{"x":50,"y":15}}]}]`);
+      lines.push(`    \`\`\``);
+      lines.push(`    Use \`set_active_variant\` ({variantSetId, index}) to swap, \`remove_variant_set\` to delete the whole set. ALWAYS produce 3 variants by default (max 5). Each variant only needs the FIELDS THAT DIFFER from the base.`);
 
       allMessages.push({ role: "system", content: lines.join('\n') });
     }

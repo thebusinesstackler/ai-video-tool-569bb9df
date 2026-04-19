@@ -4263,6 +4263,29 @@ const ChatcutAI = () => {
                         return null;
                       })()}
 
+                      {/* ── Phase 4: Visual safe-zone overlay (toggleable). Renders dashed red rectangles
+                          on top of the preview showing where the platform's NATIVE UI (TikTok username,
+                          Reels right-rail, Shorts subscribe button, etc.) will COVER the video in-app. */}
+                      {showSafeZones && (
+                        <div className="absolute inset-0 z-[40] pointer-events-none">
+                          {getActiveSafeZones().filter(z => z.name !== 'face_assumed').map(zone => (
+                            <div
+                              key={zone.name}
+                              className="absolute border-2 border-dashed border-destructive/70 bg-destructive/10 flex items-start justify-start"
+                              style={{
+                                left: `${zone.x}%`, top: `${zone.y}%`,
+                                width: `${zone.width}%`, height: `${zone.height}%`,
+                              }}
+                              title={zone.reason}
+                            >
+                              <span className="text-[8px] font-semibold text-destructive bg-background/90 px-1 py-0.5 m-0.5 rounded uppercase tracking-wide">
+                                {zone.name.replace(/_/g, ' ')}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
                       {/* Live caption overlay – constrained to video bounds, always on top */}
                       {captionSettings.enabled && transcriptSegments.length > 0 && (() => {
                         const segs = transcriptSegments;
