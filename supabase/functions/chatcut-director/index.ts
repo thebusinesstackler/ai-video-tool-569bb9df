@@ -141,26 +141,24 @@ Motion graphics live on a SEPARATE timeline track from text overlays. NEVER stac
 **Manual fine-tuning:** for unusual beats, you can pass an explicit \`position\`:{x,y} (0–100% of canvas) — this OVERRIDES placement.
 Examples: top-left card { x: 22, y: 16 } · top-right ticker { x: 78, y: 14 } · diagonal cluster { x: 32, y: 42 }.
 
-**TIGHT COPY RULES — non-negotiable:**
-- hook headlines: 4–7 words MAX. No paragraphs.
-- stat: number first, 2–3 word label after. Example: "97% Absorption" (NOT "Up to ninety-seven percent absorption rate").
-- benefit / side note items: 3–5 words EACH. Max 5 items.
-- subtext: optional, max 6 words.
-- cta_lockup: 2–4 word button text + optional URL in subtext.
+**COPY GUIDELINES (soft — use your judgment):**
+- Prefer punchy copy when it serves the beat, but you have FULL FREEDOM to write longer headlines, multi-line quotes, or detailed lists when the moment calls for it.
+- Stats land best as "number first, label after" but you can break the rule.
+- Lists can have as many items as the beat needs — the SmartOverlay engine sizes them with container queries.
+- subtext, cta text, item length — all up to you. The frame clamps and ellipsises automatically.
 
-**FRAME-SAFETY RULES — non-negotiable (the preview is a small 9:16 / 16:9 box, NOT a giant viewport):**
-- \`masked_typography\` is ONLY for SHORT words ≤ 6 characters (e.g. "FOCUS", "CALM", "POWER", "GO", brand name). NEVER use it for words longer than 6 characters or multi-word phrases — they overflow the frame even with container-query sizing. Use \`kinetic_headline\` instead.
-- \`add_motion_graphic\` MUST always include \`placement\`. Never omit it.
-- AT MOST 1 motion graphic in the \`center_takeover\` / \`behind_subject\` zone at any single moment of the timeline.
-- Keep text TIGHT — frame-safety depends on TIGHT COPY RULES above. A 12-word "headline" will clip even with safe-zone clamping.
+**FRAME-SAFETY (soft — the engine handles it):**
+- The SmartOverlay system uses container-query sizing (cqw units), per-treatment width caps, and automatic position clamping. ANY treatment, ANY length, ANY placement will be auto-fitted inside the frame. You are FREE to experiment.
+- Use \`masked_typography\` whenever you want a giant typographic moment — it auto-scales. (Short words still look best, but it's your call.)
+- \`placement\` is OPTIONAL — if you omit it, the engine picks a smart default based on intent. Pass it when you want explicit control.
+- Stack as many graphics as you want at any moment — the engine staggers them.
 
-**PLATFORM-AWARE PLACEMENT — read context.targetPlatform & context.safeZones EVERY time:**
-- TikTok / Reels / Shorts vertical: NEVER place anything in \`top_banner\` (covered by the For You / search tabs) or in the bottom 22% of the frame (covered by username, caption, like/share rail). For CTAs on these platforms, default to \`placement:"center_takeover"\` with treatment:"cta_lockup" OR \`position:{x:50,y:42}\` — keep the CTA in the safe upper-middle band (y: 25–55).
-- For TikTok specifically, the right rail (x ≥ 86) is also dead — don't put right_panel cards too far right; the SmartOverlay engine clamps them but copy still gets truncated. Prefer \`right_panel\` content to be SHORT (3–4 words per line max).
-- YouTube landscape: top_banner and lower_third are both safe. Use them freely.
-- If the user complains "the CTA is unreadable / cut off / behind the username" → emit \`update_motion_graphic\` to move the CTA to \`center_takeover\` and SHORTEN the text to 2–3 words + URL in subtext (e.g. text:"Shop Cordyceps+", subtext:"lifecykel.com"). The CTA pill clamps to a single line — long text gets ellipsised.
+**PLATFORM-AWARE PLACEMENT (advisory — read context.targetPlatform & context.safeZones):**
+- TikTok / Reels / Shorts: the engine already shifts overlays away from the username/caption/right-rail safe zones. You can place anywhere; clamping will keep them visible.
+- YouTube landscape: top_banner and lower_third are both safe and look great.
+- If the user complains about readability → emit \`update_motion_graphic\` / \`update_overlay\` to reposition, resize (\`scale\`), change \`treatment\`, or rewrite \`text\` / \`items\`. You have full edit power on every graphic already on the timeline.
 
-If the user complains "all stuck at bottom" or "design is bad" or "outside the frame" or "text overflows" — IMMEDIATELY audit currentMotionGraphics in the payload and emit \`update_motion_graphic\` actions to redistribute them across top_banner / left_panel / right_panel / center based on intent, AND shorten any long text. Don't add new ones — REPOSITION + REWRITE existing ones.
+If the user complains "all stuck at bottom" or "design is bad" or "outside the frame" or "text overflows" — audit currentMotionGraphics in the payload and emit \`update_motion_graphic\` actions to redistribute, resize, retreat, or rewrite. You can also \`remove_motion_graphic\` and \`add_motion_graphic\` fresh if a redesign is cleaner.
 
 ALL graphics auto-use the user's brand primaryColor + textColor + font from brandSettings — DO NOT specify them in the action.
 
