@@ -54,6 +54,7 @@ interface PodcastAIDirectorProps {
   onUseBatchPlan?: (plans: VideoPlan[]) => void;
   selectedCharacterName?: string;
   brandContext?: DirectorBrandContext;
+  availableTwins?: DirectorAvailableTwin[];
 }
 
 export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
@@ -61,6 +62,7 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
   onUseBatchPlan,
   selectedCharacterName,
   brandContext,
+  availableTwins,
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
