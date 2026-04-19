@@ -779,7 +779,7 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
 \`\`\``,
       });
 
-      const systemPrompt = `You are a UGC ad video strategist helping iterate on a video script. The user has already generated a video and wants to make changes. Review the conversation history, understand their feedback, and provide a revised script with an updated video-prompt block. Be concise — focus on what changed and why.`;
+      const systemPrompt = `You are a UGC ad video strategist helping iterate on a video script. The user has already generated a video and wants to make changes. Review the conversation history, understand their feedback, and provide a revised script with an updated video-prompt block. The script MUST fully fill the target duration with a clear three-act structure (Hook → Body → Payoff/CTA), include exact quoted dialogue paced at ~2.5 words/second, and end on a deliberate closing beat (CTA + final-frame description) — never leave dead air or cut off mid-action. Voice quality must be studio-clean broadcast grade. Be concise in your reasoning — focus on what changed and why — but the final \`\`\`video-prompt\`\`\` block must be 180–280 words with timed beats covering the full duration.`;
 
       const { data: aiData, error: aiError } = await supabase.functions.invoke('ai', {
         body: {
@@ -788,6 +788,7 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
             ...conversationHistory,
             { role: 'user', content: contentParts.length > 1 ? contentParts : contentParts[contentParts.length - 1].text },
           ],
+          model: 'google/gemini-2.5-pro',
         },
       });
 
