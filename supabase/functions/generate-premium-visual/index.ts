@@ -332,8 +332,8 @@ serve(async (req) => {
     // Step 2: Quality review
     const reviewedPrompt = await qualityReviewPrompt(designedPrompt, type);
 
-    // Step 3: Generate with gpt-image-1
-    const imageUrl = await generateWithOpenAI(reviewedPrompt, size);
+    // Step 3: Generate (Gateway primary, OpenAI fallback)
+    const imageUrl = await generateImage(reviewedPrompt, size);
 
     console.log(`Premium ${type} generated successfully`);
 
