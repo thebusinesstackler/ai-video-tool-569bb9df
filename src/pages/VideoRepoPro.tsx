@@ -1143,72 +1143,61 @@ RULES:
       await supabase.from('video_repo_projects').update({ analysis_text: analysisText, status: 'generating' }).eq('id', projectId);
     }
 
-    // Extract TWO video prompts
-    const prompt1Match = analysisText.match(/```video-prompt-1\n([\s\S]*?)```/);
-    const prompt2Match = analysisText.match(/```video-prompt-2\n([\s\S]*?)```/);
+    // Extract ONE single video prompt (no segments)
+    const promptMatch = analysisText.match(/```video-prompt\s*\n([\s\S]*?)```/);
 
-    if (!prompt1Match || !prompt2Match) {
-      toast({ title: 'No video prompts found', description: 'Ask the AI to include video-prompt blocks.', variant: 'destructive' });
+    if (!promptMatch) {
+      toast({ title: 'No video prompt found', description: 'Ask the AI to include a single ```video-prompt``` block.', variant: 'destructive' });
       return;
     }
 
-    let videoPrompt1 = prompt1Match[1].trim();
-    let videoPrompt2 = prompt2Match[1].trim();
+    let videoPrompt = promptMatch[1].trim();
 
-    // --- AI Script Pacing Agent ---
+    // --- AI Script Pacing Agent (single-clip mode) ---
     try {
-      setGenerationProgress('AI Agent reviewing script pacing...');
+      setGenerationProgress('AI Agent reviewing script pacing & ending...');
       const narrationMatch = analysisText.match(/```narration\n([\s\S]*?)```/);
       const fullNarration = narrationMatch ? narrationMatch[1].trim() : '';
+      const wordTarget = Math.round(singleDuration * 2.5);
 
       const { data: pacingData, error: pacingError } = await supabase.functions.invoke('ai', {
         body: {
           messages: [
             {
               role: 'system',
-              content: `You are a script pacing QA agent. Your job is to ensure video generation prompts and narrations fit within Sora-2's timing constraints.
+              content: `You are a script pacing & ending QA agent for SINGLE-TAKE Sora-2 videos.
 
 RULES:
 - Speaking rate is ~2.5 words/second
-- Each segment is ~15 seconds (max 20s), so each segment narration should be 30-50 words MAX
-- Video prompts should be 80-150 words with full cinematic detail
-- Sentences must end cleanly — no trailing articles, prepositions, or mid-thought cutoffs
-- If a segment's narration is too long, trim or redistribute words between segments
-- If prompts reference actions that would take longer than 15-20s, simplify them
+- Target duration: ${singleDuration} seconds → narration target ~${wordTarget} words (max ${wordTarget + 5})
+- The video is ONE continuous clip — no segments, no stitching
+- Video prompt should be 120-200 words with full cinematic detail covering the ENTIRE ${singleDuration}s arc (hook → body → payoff/CTA)
+- The narration's FINAL sentence MUST be a complete, self-contained closing line — never end on "and", "to", "the", "for", "but", a comma, an ellipsis, or any preposition/article
+- The video prompt MUST explicitly describe the closing 1-2 seconds and final frame so the model lands the ending cleanly inside ${singleDuration}s
+- If the narration is too long for ${singleDuration}s at 2.5 wps, trim it. If the closing line is incomplete, rewrite it as a complete sentence.
 
 RESPOND IN EXACTLY THIS FORMAT (no extra text):
-\`\`\`video-prompt-1
-[corrected segment 1 prompt]
+\`\`\`video-prompt
+[corrected single video prompt — 120-200 words — must include explicit closing-frame description]
 \`\`\`
 
-\`\`\`video-prompt-2
-[corrected segment 2 prompt]
-\`\`\`
-
-\`\`\`narration-1
-[segment 1 narration — 30-50 words max]
-\`\`\`
-
-\`\`\`narration-2
-[segment 2 narration — 30-50 words max]
+\`\`\`narration
+[corrected narration — max ${wordTarget + 5} words — final sentence must be complete and self-contained]
 \`\`\`
 
 If everything is already fine, return them unchanged.`
             },
             {
               role: 'user',
-              content: `Review these for pacing issues:
+              content: `Review this for pacing + a clean ending inside ${singleDuration}s:
 
-VIDEO PROMPT 1:
-${videoPrompt1}
+VIDEO PROMPT:
+${videoPrompt}
 
-VIDEO PROMPT 2:
-${videoPrompt2}
-
-FULL NARRATION:
+NARRATION:
 ${fullNarration}
 
-Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per segment). Fix any issues.`
+Check word count vs ${singleDuration}s duration (~2.5 words/sec = ${wordTarget} words ideal). Verify the closing line is COMPLETE and the prompt explicitly describes the final frame. Fix any issues.`
             }
           ],
         },
@@ -1216,21 +1205,19 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
 
       if (!pacingError && pacingData?.response) {
         const reviewed = pacingData.response;
-        const rp1 = reviewed.match(/```video-prompt-1\n([\s\S]*?)```/);
-        const rp2 = reviewed.match(/```video-prompt-2\n([\s\S]*?)```/);
-        if (rp1 && rp2) {
-          videoPrompt1 = rp1[1].trim();
-          videoPrompt2 = rp2[1].trim();
-          console.log('[VideoRepoPro] AI Pacing Agent revised prompts');
+        const rp = reviewed.match(/```video-prompt\s*\n([\s\S]*?)```/);
+        if (rp) {
+          videoPrompt = rp[1].trim();
+          console.log('[VideoRepoPro] AI Pacing Agent revised single-clip prompt');
         }
       }
     } catch (pacingErr) {
-      console.warn('[VideoRepoPro] Pacing review failed, using original prompts:', pacingErr);
+      console.warn('[VideoRepoPro] Pacing review failed, using original prompt:', pacingErr);
     }
 
     if (projectId) {
       await supabase.from('video_repo_projects').update({
-        video_prompt: `SEGMENT 1:\n${videoPrompt1}\n\nSEGMENT 2:\n${videoPrompt2}`,
+        video_prompt: videoPrompt,
       }).eq('id', projectId);
     }
 
@@ -1239,74 +1226,49 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
     const generatingMsg: ChatMessage = {
       id: `assistant-gen-${Date.now()}`,
       role: 'assistant',
-      content: '🎬 Generating TWO video segments with Sora-2 in parallel... Each segment is up to 20 seconds. They will appear here individually so you can review each one.',
+      content: `🎬 Generating ONE continuous ${singleDuration}-second video with Sora-2... No stitching, no segments — a single clean take that ends on the closing frame.`,
     };
     setMessages((prev) => [...prev, generatingMsg]);
 
-    let segment1Url: string | null = null;
-    let segment2Url: string | null = null;
+    let videoUrl: string | null = null;
 
     try {
-      setGenerationProgress('Starting Segment 1 & 2 generation...');
+      setGenerationProgress(`Starting ${singleDuration}s generation...`);
 
       const proParams = useSoraPro ? { resolution: soraProResolution } : {};
       const segmentModel: 'sora-2' | 'sora-2-pro' = useSoraPro ? 'sora-2-pro' : 'sora-2';
 
-      const [taskId1, taskId2] = await Promise.all([
-        createWaveSpeedVideo({
-          prompt: videoPrompt1,
-          model: segmentModel,
-          aspectRatio,
-          duration: 20,
-          ...proParams,
-          userId: user?.id,
-          source: 'video-repo-pro',
-          ...(persistentImageUrl ? { imageUrls: [persistentImageUrl] } : {}),
-        }),
-        createWaveSpeedVideo({
-          prompt: videoPrompt2,
-          model: segmentModel,
-          aspectRatio,
-          duration: 20,
-          ...proParams,
-          userId: user?.id,
-          source: 'video-repo-pro',
-          ...(persistentImageUrl ? { imageUrls: [persistentImageUrl] } : {}),
-        }),
-      ]);
+      const taskId = await createWaveSpeedVideo({
+        prompt: videoPrompt,
+        model: segmentModel,
+        aspectRatio,
+        duration: singleDuration,
+        ...proParams,
+        userId: user?.id,
+        source: 'video-repo-pro',
+        ...(persistentImageUrl ? { imageUrls: [persistentImageUrl] } : {}),
+      });
 
       let attempts = 0;
       const maxAttempts = 150;
 
-      while (attempts < maxAttempts && (!segment1Url || !segment2Url)) {
+      while (attempts < maxAttempts && !videoUrl) {
         await new Promise((r) => setTimeout(r, 5000));
+        const job = await getWaveSpeedVideoJob(taskId);
 
-        const [job1, job2] = await Promise.all([
-          segment1Url ? Promise.resolve(null) : getWaveSpeedVideoJob(taskId1),
-          segment2Url ? Promise.resolve(null) : getWaveSpeedVideoJob(taskId2),
-        ]);
-
-        if (job1?.status === 'completed' && job1.videoUrl) {
-          segment1Url = job1.videoUrl;
-          setGenerationProgress(segment2Url ? 'Both segments ready!' : 'Segment 1 ready ✓ — waiting for Segment 2...');
+        if (job?.status === 'completed' && job.videoUrl) {
+          videoUrl = job.videoUrl;
+          setGenerationProgress('Video ready!');
+          break;
         }
-        if (job1?.status === 'failed') throw new Error(`Segment 1 failed: ${job1.error || 'Unknown error'}`);
+        if (job?.status === 'failed') throw new Error(`Generation failed: ${job.error || 'Unknown error'}`);
 
-        if (job2?.status === 'completed' && job2.videoUrl) {
-          segment2Url = job2.videoUrl;
-          setGenerationProgress(segment1Url ? 'Both segments ready!' : 'Segment 2 ready ✓ — waiting for Segment 1...');
-        }
-        if (job2?.status === 'failed') throw new Error(`Segment 2 failed: ${job2.error || 'Unknown error'}`);
-
-        if (!segment1Url && !segment2Url) {
-          setGenerationProgress(`Generating both segments... (${Math.round((attempts / maxAttempts) * 100)}%)`);
-        }
-
+        setGenerationProgress(`Generating ${singleDuration}s clip... (${Math.round((attempts / maxAttempts) * 100)}%)`);
         attempts++;
       }
 
-      if (!segment1Url || !segment2Url) {
-        throw new Error('Video generation timed out. One or both segments did not complete.');
+      if (!videoUrl) {
+        throw new Error(`Video generation timed out after ${attempts * 5}s.`);
       }
 
       setIsGenerating(false);
@@ -1314,17 +1276,17 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
 
       if (projectId) {
         await supabase.from('video_repo_projects').update({
-          generated_video_url: segment1Url,
+          generated_video_url: videoUrl,
           status: 'completed',
-          segment_urls: [segment1Url, segment2Url],
+          segment_urls: [videoUrl],
         } as any).eq('id', projectId);
       }
 
       if (user) {
         await supabase.from('generated_images').insert({
           user_id: user.id,
-          image_url: segment1Url,
-          prompt: `[PRO 30s] ${videoPrompt1.substring(0, 100)}...`,
+          image_url: videoUrl,
+          prompt: `[PRO ${singleDuration}s] ${videoPrompt.substring(0, 100)}...`,
           source: 'video-repo-pro',
           reference_image_url: persistentImageUrl,
         });
@@ -1333,39 +1295,24 @@ Check word counts vs 15s segment duration (~2.5 words/sec = 37 words ideal per s
       const resultMsg: ChatMessage = {
         id: `result-${Date.now()}`,
         role: 'assistant',
-        content: '✅ Both segments are ready! Review each one below. Want changes, or to add your product into a scene? Just tell me in the chat.\n\n💾 This project has been saved to your **History** tab.',
-        videoResults: [
-          { url: segment1Url, label: 'Segment 1' },
-          { url: segment2Url, label: 'Segment 2' },
-        ],
+        content: `✅ Your ${singleDuration}-second video is ready! One clean take — no stitching. Want changes? Just tell me in the chat.\n\n💾 This project has been saved to your **History** tab.`,
+        videoResults: [{ url: videoUrl, label: `${singleDuration}s clip` }],
       };
       setMessages((prev) => prev.filter((m) => m.id !== generatingMsg.id).concat(resultMsg));
       await fetchHistory();
       toast({
         title: '✅ Saved to History',
-        description: 'Both segments are saved. Click the History tab to view all your projects.',
+        description: 'Your single-take video is saved. Click the History tab to view all your projects.',
       });
     } catch (genErr: any) {
       if (projectId) {
         await supabase.from('video_repo_projects').update({ status: 'failed' }).eq('id', projectId);
       }
 
-      const readySegments: { url: string; label: string }[] = [];
-      if (segment1Url) readySegments.push({ url: segment1Url, label: 'Segment 1' });
-      if (segment2Url) readySegments.push({ url: segment2Url, label: 'Segment 2' });
-
-      let errorContent = `⚠️ Generation issue: ${genErr.message}\n\n`;
-      if (readySegments.length > 0) {
-        errorContent += `${readySegments.length === 1 ? 'One segment is' : 'These segments are'} ready below. You can chat with me to retry the missing one or request changes.`;
-      } else {
-        errorContent += 'You can retry, or copy the video prompts above and try again.';
-      }
-
       const errorMsg: ChatMessage = {
         id: `error-${Date.now()}`,
         role: 'assistant',
-        content: errorContent,
-        videoResults: readySegments.length > 0 ? readySegments : undefined,
+        content: `⚠️ Generation issue: ${genErr.message}\n\nYou can retry from the chat, or copy the video prompt above and try again.`,
         retryable: true,
       };
       setMessages((prev) => prev.filter((m) => m.id !== generatingMsg.id).concat(errorMsg));
