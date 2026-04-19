@@ -102,7 +102,7 @@ Genres: wellness, upbeat, corporate, cinematic, lofi, energetic, ambient
 [{"action":"add_overlay","type":"motion_graphic","text":"Lion's Mane Mushroom","renderMode":"image","start":8,"duration":3,"style":"glass"}]
 \`\`\`
 
-5. **add_animated_graphic** — PREMIUM animated motion graphic via VEO 3.1. Use SPARINGLY (1-2 per video max) for HERO moments only. Pipeline: Nano Banana 2 generates start + end frames, VEO 3.1 animates the reveal. Takes ~30-60s to render but produces broadcast-quality motion. Examples: a hero stat dropping in with cinematic motion, an animated product reveal, a dramatic "before vs after" full-coverage transition, a logo sting at the outro. NEVER use for routine text cards (use add_text_card instead — it's instant + crisper). Optional \`animationPrompt\` describes the motion (e.g. "text scales up with golden glow, gradient sweeps left to right"). Optional \`fullCoverage:true\` for take-over moments. Optional \`aspectRatio:"9:16"\` (default matches reel preview).
+5. **add_animated_graphic** — ⭐ DEFAULT for HERO beats. PREMIUM animated motion graphic via VEO 3.1. Pipeline: Nano Banana 2 generates start + end frames, VEO 3.1 animates the reveal. Takes ~30-60s to render but produces broadcast-quality motion that looks like a real ad. Budget: **5–8 hero animations per 30s reel** (hooks, big stats, product reveals, before/after, CTA). Examples: a hero stat dropping in with cinematic motion, an animated product reveal, a dramatic "before vs after" full-coverage transition, a logo sting at the outro, the closing CTA. Use `add_motion_graphic` (DOM) only for stacked side-cards, lower thirds, and low-priority bullets. Optional `animationPrompt` describes the motion (e.g. "text scales up with golden glow, gradient sweeps left to right"). Optional `fullCoverage:true` for take-over moments. Aspect ratio is auto-derived from `context.targetPlatform` — do NOT hardcode it.
 
 \`\`\`actions
 [{"action":"add_animated_graphic","type":"stat_callout","text":"97% Absorption","animationPrompt":"Number scales up dramatically with golden glow sweep, percentage symbol pops in last","start":4.2,"duration":5,"style":"bold"}]
@@ -111,7 +111,7 @@ Genres: wellness, upbeat, corporate, cinematic, lofi, energetic, ambient
 \`\`\`actions
 [{"action":"add_animated_graphic","type":"title_card","text":"Lion's Mane","subtext":"Focus & Memory","animationPrompt":"Brand colour gradient sweeps in from left, headline scales up with subtle glow","fullCoverage":true,"start":18,"duration":4,"style":"bold"}]
 \`\`\`
-(↑ only use renderMode:"image" when an illustrated graphic is genuinely needed — e.g. icon next to text, product chip with image. Default behaviour is DOM rendering.)
+(↑ only use renderMode:"image" when an illustrated graphic is genuinely needed — e.g. icon next to text, product chip with image. Default behaviour for hero beats is ANIMATED via add_animated_graphic.)
 
 ### Style options (auto-pairs with brand colours, you don't need to specify hex):
 - "glass"     → translucent brand-tinted card, soft blur. Default for lifestyle/wellness.
@@ -635,16 +635,16 @@ EXAMPLES — copy these patterns:
 [{"action":"add_motion_graphic","intent":"cta","treatment":"cta_lockup","placement":"center_takeover","subjectAction":"shrink_for_text","text":"Shop Now","subtext":"lifecykel.com","start":27,"duration":3,"style":"bold"}]
 \`\`\`
 
-NOTE: The legacy add_text_card / add_full_coverage / add_overlay actions still work and map to sensible defaults — but PREFER add_motion_graphic when you're consciously directing a moment, because the paired subject treatment (push-in, shift, shrink, mask) is what makes it look like a real commercial editor cut it.
+NOTE: The legacy add_text_card / add_full_coverage / add_overlay actions still work and map to sensible defaults. PREFER add_motion_graphic for stacked side-cards / lower thirds. PREFER add_animated_graphic (VEO 3.1) for HERO beats — hooks, big stats, proof points, CTAs. The renderer auto-promotes add_motion_graphic with intent of hook/stat/cta/proof to animated, but you should call add_animated_graphic explicitly so the chat trail reflects the directorial intent.
 
 ### "Direct this scene" / full commercial pass
 When the user says "direct this", "commercial polish", "make it look like an ad", "motion-graphics pass", or "polish it like a Lululemon ad":
 1. Read the transcript word-by-word and identify EVERY beat: hook, problem, benefit(s), proof points, objections, CTA.
-2. For each beat, emit ONE add_motion_graphic action with the right intent/treatment/placement/subjectAction.
-3. Spread them — never stack two within 1.5s. Aim for one directed moment every 4–7 seconds.
+2. For each HERO beat → emit add_animated_graphic (VEO 3.1). For supporting / stacked beats → emit add_motion_graphic with intent/treatment/placement/subjectAction.
+3. Spread them — never stack two within 1.5s. Aim for one directed moment every 3–5 seconds.
 4. Pair with add_premium_broll_auto if the script has visual cutaways the speaker isn't on screen for.
-5. End with a CTA lockup in the final 3s.
-6. In chat, summarize the **beats you directed** ("Hook → kinetic headline at 0:00, your 97% stat as a side card at 0:04, masked 'FOCUS' at 0:18, CTA lockup at 0:27").
+5. End with a CTA lockup in the final 3s — use add_animated_graphic with treatment-aligned animationPrompt for maximum impact.
+6. In chat, summarize the **beats you directed** and explicitly mark which were animated ("Hook → kinetic headline at 0:00 [animated], your 97% stat as a side card at 0:04 [animated], masked 'FOCUS' at 0:18 [DOM side-card], CTA lockup at 0:27 [animated]").
 `;
 
     const allMessages: { role: string; content: any }[] = [

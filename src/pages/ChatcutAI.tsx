@@ -1304,15 +1304,17 @@ const ChatcutAI = () => {
   // Generate B-roll image via generate-scene-image, then animate to video.
   // Auto-retries ONCE with a stripped-down prompt if the image step fails,
   // and surfaces a clear error + Retry button in chat if it still fails.
-  const generateBRollImage = useCallback(async (clipId: string, prompt: string) => {
-    setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, imageStatus: 'generating' } : b));
+  const generateBRollImage = useCallback(async (clipId: string, prompt: string, opts: { aspectRatio?: '16:9' | '9:16' } = {}) => {
+    const platformAspect: '16:9' | '9:16' = targetPlatform === 'youtube-landscape' ? '16:9' : '9:16';
+    const aspect = opts.aspectRatio || platformAspect;
+    setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, imageStatus: 'generating', videoStatus: 'generating', imageUrl: undefined, videoUrl: undefined } : b));
     try {
       const { data, error } = await supabase.functions.invoke('generate-scene-image', {
-        body: { prompt },
+        body: { prompt, aspectRatio: aspect },
       });
       if (error || !data?.imageUrl) throw new Error(error?.message || 'No image generated');
       setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, imageUrl: data.imageUrl, imageStatus: 'ready', videoStatus: 'generating' } : b));
-      toast({ title: 'B-Roll image ready', description: 'Now animating into video clip...' });
+      toast({ title: 'B-Roll image ready', description: `Animating ${aspect} clip…` });
 
       // Chain: animate the still image into a 3s 720p video via Wan 2.5 i2v
       try {
@@ -1324,7 +1326,7 @@ const ChatcutAI = () => {
             prompt, // use the director's tone-matched prompt verbatim (no forced "cinematic slow motion")
             duration: 3,
             resolution: '720p',
-            aspectRatio: '16:9',
+            aspectRatio: aspect,
           },
         });
         if (vidError || !vidData?.taskId) {
@@ -1351,7 +1353,7 @@ const ChatcutAI = () => {
           .slice(0, 220);
         const safePrompt = stripped || `Natural close-up shot, soft daylight, casual handheld phone footage`;
         toast({ title: 'Retrying B-Roll…', description: 'First attempt failed — trying a simpler prompt' });
-        setTimeout(() => generateBRollImage(clipId, safePrompt), 800);
+        setTimeout(() => generateBRollImage(clipId, safePrompt, opts), 800);
         return;
       }
 
@@ -1363,7 +1365,7 @@ const ChatcutAI = () => {
         content: `⚠️ I couldn't generate that B-roll after 2 tries — **${errMsg}**\n\nClick the **Retry B-Roll** button on the failed clip in the timeline, or just tell me to try a different prompt.`,
       }]);
     }
-  }, [toast, pollBRollVideo]);
+  }, [toast, pollBRollVideo, targetPlatform]);
 
   // Public retry helper — re-runs generation for a B-roll clip with its current prompt
   const retryBRoll = useCallback((clipId: string) => {
@@ -1394,6 +1396,7 @@ const ChatcutAI = () => {
     toast({ title: 'B-Roll added', description: `"${label}" — animating into 3s clip...` });
     (async () => {
       try {
+        const platformAspect: '16:9' | '9:16' = targetPlatform === 'youtube-landscape' ? '16:9' : '9:16';
         const { data: vidData, error: vidError } = await supabase.functions.invoke('wavespeed-video', {
           body: {
             action: 'create',
@@ -1402,7 +1405,7 @@ const ChatcutAI = () => {
             prompt: broll.prompt,
             duration: 3,
             resolution: '720p',
-            aspectRatio: '16:9',
+            aspectRatio: platformAspect,
           },
         });
         if (vidError || !vidData?.taskId) {
@@ -1415,7 +1418,7 @@ const ChatcutAI = () => {
         setBRollClips(prev => prev.map(b => b.id === brollId ? { ...b, videoStatus: 'failed' } : b));
       }
     })();
-  }, [currentTime, toast, pollBRollVideo]);
+  }, [currentTime, toast, pollBRollVideo, targetPlatform]);
 
   // Add B-roll from an EXISTING video clip (e.g., extracted source clip) — uses it directly, no Wan animation.
   // Auto-snaps the start time forward to avoid overlapping any existing b-roll on the track.
@@ -1593,6 +1596,8 @@ const ChatcutAI = () => {
   ) => {
     setOverlays(prev => prev.map(o => o.id === overlayId ? { ...o, videoStatus: 'generating', imageStatus: 'generating' } : o));
     try {
+      // Aspect derives from targetPlatform (single source of truth) — falls back to reelPreview.
+      const platformAspect: '16:9' | '9:16' = targetPlatform === 'youtube-landscape' ? '16:9' : '9:16';
       const { data, error } = await supabase.functions.invoke('generate-animated-graphic', {
         body: {
           text,
@@ -1601,7 +1606,7 @@ const ChatcutAI = () => {
           brandPrimaryColor: brandSettings.primaryColor,
           brandTextColor: brandSettings.textColor,
           brandFont: brandSettings.font,
-          aspectRatio: opts.aspectRatio || (reelPreview ? '9:16' : '16:9'),
+          aspectRatio: opts.aspectRatio || platformAspect,
           duration: opts.duration || 5,
           fullCoverage: !!opts.fullCoverage,
         },
@@ -1625,7 +1630,7 @@ const ChatcutAI = () => {
         content: `⚠️ The animated graphic for **"${text}"** didn't render. Want me to retry or fall back to a static brand card? 🔄`,
       }]);
     }
-  }, [toast, brandSettings, reelPreview]);
+  }, [toast, brandSettings, reelPreview, targetPlatform]);
 
   // Generate or regenerate the opening TikTok-style cover via Nano Banana
   const generateThumbnail = useCallback(async (opts: {
@@ -1830,10 +1835,16 @@ const ChatcutAI = () => {
           if (act.action === 'add_animated_graphic' || act.renderMode === 'video') renderMode = 'video';
           else if (act.renderMode === 'image') renderMode = 'image';
 
-          // For Commercial Director (`add_motion_graphic`), the treatment+placement carry the visual
-          // intent — force DOM render so SmartOverlay can apply the new layered treatments.
+          // 🎬 AUTO-PROMOTE hero motion graphics (hook/stat/cta/proof) to ANIMATED.
+          // The user explicitly chose "Always animated" — Marco's add_motion_graphic
+          // for any hero beat now becomes a real VEO 3.1 reveal instead of a flat
+          // DOM card. Low-priority intents (educational/multi_point/emotional/
+          // benefit) stay DOM so we don't blow render budget on side cards.
           const isMotionGraphic = act.action === 'add_motion_graphic';
-          const finalRenderMode = isMotionGraphic ? 'dom' : renderMode;
+          const heroIntents = new Set(['hook', 'stat', 'cta', 'proof']);
+          const shouldPromoteToAnimated = isMotionGraphic && act.intent && heroIntents.has(act.intent);
+          let finalRenderMode: 'dom' | 'image' | 'video' = isMotionGraphic ? 'dom' : renderMode;
+          if (shouldPromoteToAnimated) finalRenderMode = 'video';
           // Anti-stacking: snap the new overlay to the next free slot on its own sub-track,
           // so Marco's add_overlay calls never land on top of an existing one.
           const isOnGraphicsTrack = overlayType === 'motion_graphic' || overlayType === 'animated_text';
@@ -1869,13 +1880,15 @@ const ChatcutAI = () => {
             subjectAction: act.subjectAction,
           };
           setOverlays(prev => [...prev, newOverlay]);
-          if (renderMode === 'dom') {
+          if (finalRenderMode === 'dom') {
             toast({ title: '✨ Graphic added', description: `"${act.text}" — rendered with your brand colors` });
-          } else if (renderMode === 'video') {
-            toast({ title: '🎬 Animating graphic', description: `"${act.text}" — VEO 3.1 is rendering (~30-60s)...` });
+          } else if (finalRenderMode === 'video') {
+            const promotedNote = shouldPromoteToAnimated ? ' (auto-promoted to VEO 3.1)' : '';
+            toast({ title: '🎬 Animating graphic', description: `"${act.text}"${promotedNote} — VEO 3.1 is rendering (~30-60s)...` });
+            const platformAspect: '16:9' | '9:16' = targetPlatform === 'youtube-landscape' ? '16:9' : '9:16';
             generateAnimatedGraphic(overlayId, act.text || '', overlayType, {
               animationPrompt: act.animationPrompt,
-              aspectRatio: act.aspectRatio || (reelPreview ? '9:16' : '16:9'),
+              aspectRatio: act.aspectRatio || platformAspect,
               duration: act.duration || 5,
               fullCoverage: isFullCoverage,
             });
@@ -2243,9 +2256,16 @@ const ChatcutAI = () => {
           const valid: TargetPlatform[] = ['tiktok', 'reels', 'shorts', 'youtube', 'youtube-landscape'];
           const next = valid.includes(act.platform) ? act.platform : 'tiktok';
           setTargetPlatform(next as TargetPlatform);
-          if (next !== 'youtube' && next !== 'youtube-landscape' && !reelPreview) setReelPreview(true);
-          if ((next === 'youtube' || next === 'youtube-landscape') && reelPreview) setReelPreview(false);
-          toast({ title: `📱 Platform → ${next}`, description: `Safe zones updated for ${next} layout.` });
+          // Always link reel preview to platform: vertical platforms force 9:16 preview.
+          if (next === 'youtube-landscape') setReelPreview(false);
+          else setReelPreview(true);
+          const hasMismatchedBroll = bRollClips.length > 0;
+          toast({
+            title: `📱 Platform → ${next}`,
+            description: hasMismatchedBroll
+              ? `Aspect ratio + safe zones updated. Existing B-roll will letterbox — use "Regenerate B-roll for platform" if you want native ${next === 'youtube-landscape' ? '16:9' : '9:16'} clips.`
+              : `Aspect ratio + safe zones updated for ${next}.`,
+          });
           break;
         }
         case 'toggle_safe_zones': {
@@ -4199,8 +4219,8 @@ const ChatcutAI = () => {
                                   playsInline
                                   className="object-contain rounded-lg pointer-events-none"
                                   style={isFull
-                                    ? { width: '100%', height: '100%', objectFit: 'cover', borderRadius: 0 }
-                                    : { maxWidth: `${Math.min(scale * 22, 92)}vw`, maxHeight: `${Math.min(scale * 14, 82)}vh` }
+                                    ? { width: '100%', height: '100%', objectFit: 'contain', borderRadius: 0, background: 'rgba(0,0,0,0.4)' }
+                                    : { maxWidth: `${Math.min(scale * 22, 92)}vw`, maxHeight: `${Math.min(scale * 14, 82)}vh`, objectFit: 'contain' }
                                   }
                                 />
                               ) : useDOM ? (
@@ -4464,9 +4484,21 @@ const ChatcutAI = () => {
                   {/* ── Phase 4: Platform selector + safe-zone toggle ── */}
                   <select
                     value={targetPlatform}
-                    onChange={(e) => setTargetPlatform(e.target.value as TargetPlatform)}
+                    onChange={(e) => {
+                      const next = e.target.value as TargetPlatform;
+                      setTargetPlatform(next);
+                      // Auto-link aspect ratio: vertical platforms force 9:16 preview.
+                      setReelPreview(next !== 'youtube-landscape');
+                      const hasMismatch = bRollClips.length > 0;
+                      toast({
+                        title: `📱 Platform → ${next}`,
+                        description: hasMismatch
+                          ? `Switched to ${next === 'youtube-landscape' ? '16:9' : '9:16'}. Existing B-roll will letterbox — click "Regen B-roll" to remake clips for this aspect.`
+                          : `Aspect + safe zones updated for ${next}.`,
+                      });
+                    }}
                     className="h-7 text-[10px] px-1.5 rounded border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                    title="Target platform — Marco uses this to know which UI zones to avoid"
+                    title="Target platform — drives aspect ratio AND safe zones"
                   >
                     <option value="tiktok">TikTok</option>
                     <option value="reels">Reels</option>
@@ -4478,6 +4510,30 @@ const ChatcutAI = () => {
                     onClick={() => setShowSafeZones(v => !v)}>
                     <Square className={cn("w-3.5 h-3.5", showSafeZones && "text-destructive")} />
                   </Button>
+                  {bRollClips.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-[10px] gap-1"
+                      title={`Regenerate every B-roll clip natively at ${targetPlatform === 'youtube-landscape' ? '16:9' : '9:16'} for ${targetPlatform}`}
+                      onClick={() => {
+                        const platformAspect: '16:9' | '9:16' = targetPlatform === 'youtube-landscape' ? '16:9' : '9:16';
+                        let n = 0;
+                        for (const b of bRollClips) {
+                          if (!b.prompt) continue;
+                          // Re-fire image+video pipeline with current platform aspect
+                          generateBRollImage(b.id, b.prompt, { aspectRatio: platformAspect });
+                          n++;
+                        }
+                        toast({
+                          title: `🔄 Regenerating ${n} B-roll clip${n === 1 ? '' : 's'}`,
+                          description: `Native ${platformAspect} for ${targetPlatform} — keep editing while they render.`,
+                        });
+                      }}
+                    >
+                      <Sparkles className="w-3 h-3" /> Regen B-roll
+                    </Button>
+                  )}
                   {reelPreview && (
                     <>
                       <div className="flex items-center gap-1.5 ml-1">

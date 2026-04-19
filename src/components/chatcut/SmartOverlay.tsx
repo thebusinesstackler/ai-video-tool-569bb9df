@@ -339,56 +339,78 @@ const QuotePop: React.FC<{
 );
 
 const CtaLockup: React.FC<{
-  text: string; subtext?: string; brandColor: string; onBrand: string; family: string;
-}> = ({ text, subtext, brandColor, onBrand, family }) => (
-  <div
-    className="flex flex-col items-center"
-    style={{ fontFamily: family, animation: 'smartOvCta 0.6s cubic-bezier(.2,1,.36,1)', gap: 10, maxWidth: '100%' }}
-  >
+  text: string; subtext?: string; brandColor: string; onBrand: string; family: string; fullCoverage?: boolean;
+}> = ({ text, subtext, brandColor, onBrand, family, fullCoverage }) => (
+  <>
+    {/* Soft full-frame dim ONLY for end-frame CTAs so the underlying video doesn't compete */}
+    {fullCoverage && (
+      <div
+        style={{
+          position: 'absolute', inset: 0,
+          background: 'rgba(0,0,0,0.45)',
+          backdropFilter: 'blur(2px)',
+          pointerEvents: 'none',
+          zIndex: -1,
+        }}
+      />
+    )}
     <div
-      className="rounded-full"
+      className="flex flex-col items-center"
       style={{
-        background: `linear-gradient(135deg, ${brandColor}, ${hexA(brandColor, 0.85)})`,
-        color: onBrand,
-        padding: '14px 28px',
-        maxWidth: '100%',
-        fontSize: 'clamp(18px, 4.6cqw, 38px)',
-        fontWeight: 900,
-        letterSpacing: '0.01em',
-        lineHeight: 1.05,
-        textAlign: 'center',
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        boxShadow: `0 18px 50px ${hexA(brandColor, 0.55)}, 0 1px 0 rgba(255,255,255,0.22) inset, 0 0 0 1.5px ${hexA('#ffffff', 0.18)}`,
-        textShadow: '0 1px 0 rgba(0,0,0,0.18)',
+        fontFamily: family,
+        animation: 'smartOvCta 0.6s cubic-bezier(.2,1,.36,1)',
+        gap: 14,
+        maxWidth: '92%',
+        position: 'relative',
       }}
     >
-      {text}
-    </div>
-    {subtext && (
       <div
-        className="rounded-md"
+        className="rounded-2xl"
         style={{
-          color: '#fff',
-          background: hexA('#000000', 0.55),
-          padding: '4px 12px',
-          fontSize: 'clamp(13px, 2.6cqw, 20px)',
-          fontWeight: 800,
-          opacity: 0.98,
-          letterSpacing: '0.04em',
-          textShadow: '0 2px 8px rgba(0,0,0,0.6)',
-          whiteSpace: 'nowrap',
+          // Solid black backing so headline pops on any background
+          background: 'rgba(0,0,0,0.82)',
+          color: '#ffffff',
+          padding: '18px 28px',
           maxWidth: '100%',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
+          fontSize: 'clamp(22px, 6cqw, 56px)',
+          fontWeight: 900,
+          letterSpacing: '0.005em',
+          lineHeight: 1.08,
+          textAlign: 'center',
+          whiteSpace: 'normal',           // wrap, never clip
+          wordBreak: 'break-word',
+          // Brand-colour border + glow for personality
+          border: `2.5px solid ${brandColor}`,
+          boxShadow: `0 0 0 1.5px ${hexA('#ffffff', 0.06)} inset, 0 24px 60px ${hexA(brandColor, 0.55)}, 0 0 40px ${hexA(brandColor, 0.35)}`,
+          textShadow: '0 2px 12px rgba(0,0,0,0.6)',
         }}
       >
-        {subtext}
+        {text}
       </div>
-    )}
-    <style>{`@keyframes smartOvCta { from { opacity: 0; transform: translateY(20px) scale(0.94); } to { opacity: 1; transform: translateY(0) scale(1); } }`}</style>
-  </div>
+      {subtext && (
+        <div
+          className="rounded-lg"
+          style={{
+            color: onBrand,
+            background: brandColor,
+            padding: '8px 18px',
+            fontSize: 'clamp(14px, 3cqw, 22px)',
+            fontWeight: 800,
+            letterSpacing: '0.04em',
+            textShadow: '0 1px 0 rgba(0,0,0,0.18)',
+            whiteSpace: 'normal',
+            wordBreak: 'break-word',
+            maxWidth: '100%',
+            textAlign: 'center',
+            boxShadow: `0 8px 24px ${hexA(brandColor, 0.4)}`,
+          }}
+        >
+          {subtext}
+        </div>
+      )}
+      <style>{`@keyframes smartOvCta { from { opacity: 0; transform: translateY(20px) scale(0.94); } to { opacity: 1; transform: translateY(0) scale(1); } }`}</style>
+    </div>
+  </>
 );
 
 const LowerThirdPro: React.FC<{
@@ -524,7 +546,7 @@ export const SmartOverlay: React.FC<SmartOverlayProps> = ({
         body = <QuotePop text={text} subtext={subtext} brandColor={brandColor} family={family} />;
         break;
       case 'cta_lockup':
-        body = <CtaLockup text={text} subtext={subtext} brandColor={brandColor} onBrand={onBrand} family={family} />;
+        body = <CtaLockup text={text} subtext={subtext} brandColor={brandColor} onBrand={onBrand} family={family} fullCoverage={fullCoverage || placement === 'center_takeover'} />;
         break;
       case 'lower_third_pro':
         body = <LowerThirdPro text={text} subtext={subtext} brandColor={brandColor} family={family} />;
