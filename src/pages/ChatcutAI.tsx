@@ -4399,6 +4399,23 @@ const ChatcutAI = () => {
                     onClick={() => setReelPreview(v => !v)}>
                     <Smartphone className={cn("w-3.5 h-3.5", reelPreview && "text-pink-400")} />
                   </Button>
+                  {/* ── Phase 4: Platform selector + safe-zone toggle ── */}
+                  <select
+                    value={targetPlatform}
+                    onChange={(e) => setTargetPlatform(e.target.value as TargetPlatform)}
+                    className="h-7 text-[10px] px-1.5 rounded border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    title="Target platform — Marco uses this to know which UI zones to avoid"
+                  >
+                    <option value="tiktok">TikTok</option>
+                    <option value="reels">Reels</option>
+                    <option value="shorts">Shorts</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="youtube-landscape">YT 16:9</option>
+                  </select>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" title={showSafeZones ? 'Hide platform safe zones' : 'Show platform UI safe zones'}
+                    onClick={() => setShowSafeZones(v => !v)}>
+                    <Square className={cn("w-3.5 h-3.5", showSafeZones && "text-destructive")} />
+                  </Button>
                   {reelPreview && (
                     <>
                       <div className="flex items-center gap-1.5 ml-1">
