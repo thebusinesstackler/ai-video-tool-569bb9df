@@ -3468,6 +3468,13 @@ const ChatcutAI = () => {
     ) || null;
   }, [currentTime, transitions]);
 
+  // Active director punch-in (CSS scale on main video — no extra render cost)
+  const activePunchIn = useMemo(() => {
+    return punchIns.find(p =>
+      currentTime >= p.start && currentTime < p.start + p.duration
+    ) || null;
+  }, [currentTime, punchIns]);
+
   return (
     <Layout>
       <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden">
