@@ -1136,6 +1136,10 @@ const ChatcutAI = () => {
         sfxClips,
         duckEnabled,
         duckStrength,
+        // Phase 4
+        targetPlatform,
+        variantSets,
+        showSafeZones,
       };
       const payload: Record<string, unknown> = {
         user_id: user.id,
@@ -2227,6 +2231,100 @@ const ChatcutAI = () => {
           if (!id) break;
           setSfxClips(prev => prev.filter(s => s.id !== id));
           toast({ title: 'SFX removed' });
+          break;
+        }
+        // ── Phase 4: Platform + safe-zone + A/B variant actions ───────
+        case 'set_platform': {
+          const valid: TargetPlatform[] = ['tiktok', 'reels', 'shorts', 'youtube', 'youtube-landscape'];
+          const next = valid.includes(act.platform) ? act.platform : 'tiktok';
+          setTargetPlatform(next as TargetPlatform);
+          if (next !== 'youtube' && next !== 'youtube-landscape' && !reelPreview) setReelPreview(true);
+          if ((next === 'youtube' || next === 'youtube-landscape') && reelPreview) setReelPreview(false);
+          toast({ title: `📱 Platform → ${next}`, description: `Safe zones updated for ${next} layout.` });
+          break;
+        }
+        case 'toggle_safe_zones': {
+          const next = typeof act.show === 'boolean' ? act.show : !showSafeZones;
+          setShowSafeZones(next);
+          toast({ title: next ? '🟥 Safe zones visible' : 'Safe zones hidden' });
+          break;
+        }
+        case 'add_ab_variant': {
+          // Marco passes either an existing overlayId (we wrap it) OR a fresh `baseOverlay` snapshot,
+          // plus a `variants[]` array of partial overrides (text/position/scale/style/treatment).
+          // We materialize each variant as a full overlay object, store the set, and render only activeIndex.
+          const kind = ['hook', 'cta', 'overlay_position', 'overlay_text'].includes(act.kind) ? act.kind : 'overlay_text';
+          const sourceOverlay = act.overlayId ? overlays.find(o => o.id === act.overlayId) : null;
+          const base = sourceOverlay || act.baseOverlay;
+          if (!base || !Array.isArray(act.variants) || act.variants.length === 0) {
+            toast({ title: 'Variant generation failed', description: 'Need a base overlay + variants[] array.', variant: 'destructive' });
+            break;
+          }
+          const items = act.variants.slice(0, 5).map((v: any, i: number) => ({
+            id: crypto.randomUUID(),
+            label: v.label || `Variant ${String.fromCharCode(65 + i)}`,
+            overlay: {
+              ...base,
+              id: crypto.randomUUID(),
+              text: v.text ?? base.text,
+              position: v.position ?? base.position,
+              scale: v.scale ?? base.scale,
+              style: v.style ?? base.style,
+              treatment: v.treatment ?? base.treatment,
+              start: v.start ?? base.start,
+              duration: v.duration ?? base.duration,
+            },
+          }));
+          const setId = crypto.randomUUID();
+          const newSet: OverlayVariantSet = {
+            id: setId,
+            kind: kind as OverlayVariantSet['kind'],
+            label: act.label,
+            items,
+            activeIndex: 0,
+            createdAt: Date.now(),
+          };
+          setVariantSets(prev => [...prev, newSet]);
+          // If we wrapped an existing overlay, swap it OUT and put the active variant IN its place.
+          if (sourceOverlay) {
+            setOverlays(prev => prev.map(o => o.id === sourceOverlay.id ? items[0].overlay : o));
+          } else {
+            // Otherwise just add the active variant fresh.
+            setOverlays(prev => [...prev, items[0].overlay]);
+          }
+          toast({ title: `🎲 ${items.length} ${kind} variants ready`, description: act.label || 'Click a variant chip to swap which is live.' });
+          break;
+        }
+        case 'set_active_variant': {
+          const setId = act.variantSetId || act.id;
+          const idx = typeof act.index === 'number' ? act.index : 0;
+          if (!setId) break;
+          setVariantSets(prev => prev.map(v => {
+            if (v.id !== setId) return v;
+            const safeIdx = Math.max(0, Math.min(v.items.length - 1, idx));
+            // Swap the on-canvas overlay for the new active variant
+            const oldActiveOverlayId = v.items[v.activeIndex]?.overlay?.id;
+            const newOverlay = v.items[safeIdx]?.overlay;
+            if (oldActiveOverlayId && newOverlay) {
+              setOverlays(ovs => ovs.map(o => o.id === oldActiveOverlayId ? newOverlay : o));
+            }
+            return { ...v, activeIndex: safeIdx };
+          }));
+          toast({ title: '🔄 Variant swapped' });
+          break;
+        }
+        case 'remove_variant_set': {
+          const setId = act.variantSetId || act.id;
+          if (!setId) break;
+          setVariantSets(prev => {
+            const target = prev.find(v => v.id === setId);
+            if (target) {
+              const activeOvId = target.items[target.activeIndex]?.overlay?.id;
+              if (activeOvId) setOverlays(ovs => ovs.filter(o => o.id !== activeOvId));
+            }
+            return prev.filter(v => v.id !== setId);
+          });
+          toast({ title: 'Variant set removed' });
           break;
         }
         case 'set_ducking': {
