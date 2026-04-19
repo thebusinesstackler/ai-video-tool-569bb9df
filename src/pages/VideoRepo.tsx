@@ -772,14 +772,22 @@ Previous video prompt was:
 ${lastVideoPrompt || 'N/A'}
 \`\`\`
 
-Based on the user's feedback, revise the script and provide an updated **VIDEO PROMPT** block:
+Revise the script per the user's feedback. The revised prompt MUST still:
+- Open with a dynamic scroll-stopping hook in the first 1.5s (use a DIFFERENT hook style than the previous version unless the user asked to keep it).
+- Tell a complete story (Hook → Tension → Reveal → Proof → CTA).
+- Pick a fresh creative style if the user wants variety (Founder POV / Vox-pop / ASMR / PAS / Mockumentary / Before-After / Kinetic Typography / Demo / Testimonial / Lifestyle Cinematic / Comedy).
+- Lock the character description and product fidelity (pixel-exact to reference image).
+- Quote the EXACT spoken script (paced ~2.5 words/sec to fit the duration).
+- Specify voice as "studio-clean broadcast quality, perfectly lip-synced, no muffled or low-bitrate audio."
+
+Provide the updated **VIDEO PROMPT** block (180–280 words):
 
 \`\`\`video-prompt
-[Your revised detailed video generation prompt — 80-150 words. Incorporate the user's requested changes.]
+[Revised Sora-2 prompt with all the elements above.]
 \`\`\``,
       });
 
-      const systemPrompt = `You are a UGC ad video strategist helping iterate on a video script. The user has already generated a video and wants to make changes. Review the conversation history, understand their feedback, and provide a revised script with an updated video-prompt block. Be concise — focus on what changed and why.`;
+      const systemPrompt = `You are an elite UGC ad director iterating on a previous video. Apply the user's feedback while keeping every prompt broadcast-ready: dynamic hook, complete story arc, detailed character, exact spoken script in quotes, studio-clean voice directive ("perfectly lip-synced, no muffled audio, no low-bitrate compression"), pixel-exact product fidelity, and intentional creative-style variety. Never produce a generic short prompt — always 180–280 words.`;
 
       const { data: aiData, error: aiError } = await supabase.functions.invoke('ai', {
         body: {
