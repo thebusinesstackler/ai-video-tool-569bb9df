@@ -538,7 +538,9 @@ const ChatcutAI = () => {
       if (!track.audioUrl) return;
       const audioEl = musicAudioRefs.current.get(track.id);
       if (!audioEl) return;
-      audioEl.volume = trackMuted.a1 ? 0 : track.volume;
+      // Phase 3: Audio ducking — drop music volume while speech is active.
+      const duckMultiplier = (duckEnabled && isSpeechActive) ? Math.max(0.05, 1 - duckStrength) : 1;
+      audioEl.volume = trackMuted.a1 ? 0 : track.volume * duckMultiplier;
 
       const inRange = currentTime >= track.startAt && currentTime < track.startAt + track.duration;
       if (isPlaying && inRange && hasInteracted) {
@@ -573,6 +575,60 @@ const ChatcutAI = () => {
     }
     return [];
   }, [transcript, duration]);
+
+  // ── Phase 3: Word-level timing index ────────────────────────────────
+  // Flatten transcript.segments[].words[] into a single sorted list `[{word, start, end}]`.
+  // Marco can ask "align the stat card to the word 'fifty' (occurrence 1)" and we'll snap
+  // the overlay's `start` to that word's `start` time.
+  const wordList = useMemo<Array<{ word: string; start: number; end: number; norm: string }>>(() => {
+    const out: Array<{ word: string; start: number; end: number; norm: string }> = [];
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+    for (const seg of transcriptSegments as any[]) {
+      if (Array.isArray(seg?.words)) {
+        for (const w of seg.words) {
+          const text = (w.word || w.text || '').trim();
+          if (!text) continue;
+          out.push({ word: text, start: Number(w.start) || 0, end: Number(w.end) || Number(w.start) || 0, norm: norm(text) });
+        }
+      } else if (typeof seg?.text === 'string' && typeof seg?.start === 'number') {
+        // Coarse fallback: distribute words evenly across the segment window.
+        const tokens = seg.text.split(/\s+/).filter(Boolean);
+        const segDur = (Number(seg.end) || (seg.start + 1)) - seg.start;
+        const per = tokens.length > 0 ? segDur / tokens.length : 0;
+        tokens.forEach((t: string, i: number) => out.push({
+          word: t, start: seg.start + i * per, end: seg.start + (i + 1) * per, norm: norm(t),
+        }));
+      }
+    }
+    return out.sort((a, b) => a.start - b.start);
+  }, [transcriptSegments]);
+
+  // Lookup helper: find the Nth occurrence of a word (case + punctuation insensitive).
+  // Returns { start, end } or null. `occurrence` is 1-based; defaults to 1.
+  const findWordTime = useCallback((word: string, occurrence: number = 1): { start: number; end: number; matchedWord: string } | null => {
+    const target = word.toLowerCase().replace(/[^a-z0-9]+/g, '');
+    if (!target) return null;
+    let count = 0;
+    for (const w of wordList) {
+      if (w.norm === target || w.norm.includes(target) || target.includes(w.norm)) {
+        count++;
+        if (count === occurrence) return { start: w.start, end: w.end, matchedWord: w.word };
+      }
+    }
+    return null;
+  }, [wordList]);
+
+  // Is the speaker actively talking RIGHT NOW? Used for ducking music under speech.
+  // We treat any word whose [start, end] window contains currentTime as "active speech".
+  const isSpeechActive = useMemo(() => {
+    if (!duckEnabled || wordList.length === 0) return false;
+    // Quick scan — wordList is sorted; binary search would be overkill for typical sizes.
+    for (const w of wordList) {
+      if (w.start - 0.05 <= currentTime && currentTime <= w.end + 0.15) return true;
+      if (w.start > currentTime + 0.2) break;
+    }
+    return false;
+  }, [wordList, currentTime, duckEnabled]);
 
   const sortedVizardClips = useMemo(
     () => [...vizardClips].sort((a, b) => b.score - a.score),
