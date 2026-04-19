@@ -228,13 +228,24 @@ const AISpokesperson = () => {
   // Build TTS body matching the twin's configured voice engine
   const buildTtsBody = (text: string, twin: AITwin) => {
     const body: Record<string, any> = { text, speakingRate: 0.92 };
+    // Always pass gender so any fallback path picks the right voice family
+    body.gender = twin.gender || 'male';
+
+    // Route the cloning key to the correct provider field based on voice_engine
     if (twin.voice_cloning_key) {
-      body.voiceCloningKey = twin.voice_cloning_key;
+      const engine = (twin.voice_engine || 'speechify').toLowerCase();
+      if (engine === 'speechify') {
+        body.speechifyVoiceId = twin.voice_cloning_key;
+      } else {
+        // google-cloud / wavespeed legacy clones
+        body.voiceCloningKey = twin.voice_cloning_key;
+      }
       return body;
     }
+
+    // No clone — pick a gender-appropriate default OpenAI voice
     const isFemale = twin.gender?.toLowerCase() === 'female';
-    body.voice = isFemale ? 'English_compelling_lady1' : 'English_magnetic_voiced_man';
-    body.gender = twin.gender || 'male';
+    body.voice = isFemale ? 'nova' : 'onyx';
     return body;
   };
 
