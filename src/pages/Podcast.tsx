@@ -943,6 +943,11 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
               websiteSummary: brandContext.websiteSummary,
               userEmail: user?.email,
             }}
+            availableTwins={twins.map(t => ({
+              name: t.name,
+              gender: t.gender,
+              description: t.face_description || t.description,
+            }))}
           />
         </div>
 
