@@ -339,7 +339,7 @@ Supported params (all optional, mix and match):
 - \`position\`: { x: 0–100, y: 0–100 } — exact on-video position in % of preview width/height (50,50 = center, 50,82 = lower third, 78,50 = right panel)
 - \`placement\`: "top_banner" | "lower_third" | "left_panel" | "right_panel" | "center_takeover" | "behind_subject" | "floating_note" — semantic anchor that auto-maps to a position. If you pass BOTH \`placement\` and \`position\`, \`position\` wins.
 - \`scale\`: 0.5–5 — size multiplier (5 = full-screen)
-- \`treatment\`: kinetic_headline | masked_typography | stat_card | side_notes | bullet_stack | quote_pop | cta_lockup | lower_third_pro | floating_note — change visual style without recreating
+- \`treatment\`: kinetic_headline | masked_typography | bold_outline | stat_card | side_notes | bullet_stack | quote_pop | cta_lockup | lower_third_pro | floating_note — change visual style without recreating
 - \`text\`, \`subtext\`, \`items\` — edit copy
 - \`hidden\`: boolean — toggle preview visibility
 
@@ -720,7 +720,7 @@ This is the upgrade over add_text_card. It carries the full director intent so t
 \`\`\`actions
 [{"action":"add_motion_graphic",
   "intent":"hook",                 // hook | stat | benefit | proof | cta | educational | emotional | multi_point
-  "treatment":"kinetic_headline",  // kinetic_headline | masked_typography | stat_card | side_notes | bullet_stack | quote_pop | cta_lockup | lower_third_pro | floating_note
+  "treatment":"bold_outline",      // bold_outline (DEFAULT for hook/headline — heavy white-on-black-stroke, MrBeast/TikTok style, word-stacked) | kinetic_headline | masked_typography | stat_card | side_notes | bullet_stack | quote_pop | cta_lockup | lower_third_pro | floating_note
   "placement":"center_takeover",   // behind_subject | left_panel | right_panel | lower_third | center_takeover | top_banner | floating_note
   "subjectAction":"push_in",       // none | push_in | shift_left | shift_right | shrink_for_text | cutout_mask
   "text":"Sleep like never before",
