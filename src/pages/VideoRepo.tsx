@@ -626,15 +626,22 @@ Then provide a final **VIDEO PROMPT** block:
 
         const isT2V = inputMode === 't2v' || !persistentImageUrl;
         const useProductLock = lockProduct && !!persistentImageUrl && !isT2V;
-        // T2V always routes to sora-2-pro (sora-2 requires an image)
+        // Auto-upgrade to Sora 2 Pro whenever a product image is attached (broadcast-grade audio + better fidelity).
+        // T2V also forces Pro since standard sora-2 requires an image input.
+        const autoProForImage = !!persistentImageUrl && !useProductLock;
         const generationModel = useProductLock
           ? 'wan-2.5-i2v'
-          : (isT2V ? 'sora-2-pro' : (useSoraPro ? 'sora-2-pro' : 'sora-2'));
+          : (isT2V || useSoraPro || autoProForImage ? 'sora-2-pro' : 'sora-2');
         if (useProductLock) {
-          setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: '🎬 Generating with Wan 2.5 i2v (product-locked) for pixel-accurate product fidelity...' } : m));
+          setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `🔒 Locking product to attached reference image. 🎬 Generating with Wan 2.5 i2v (product-locked) for pixel-accurate product fidelity...` } : m));
+        } else if (autoProForImage && !useSoraPro) {
+          setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `🔒 Locking product to attached reference image.\n⭐ Auto-upgraded to Sora 2 PRO (${soraProResolution}) for broadcast-grade audio + product fidelity. Passing image directly to Sora as visual reference...` } : m));
         } else if (useSoraPro) {
           setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `⭐ Generating with Sora 2 PRO (${soraProResolution}, premium tier) — physics-aware, synchronized audio, broadcast quality...` } : m));
+        } else if (isT2V) {
+          setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `📝 Text → Video: Generating with Sora 2 PRO (${soraProResolution})...` } : m));
         }
+        console.log('[VideoRepo] Generation routing:', { generationModel, hasImage: !!persistentImageUrl, persistentImageUrl, useProductLock, isT2V, autoProForImage });
         try {
           const taskId = await createWaveSpeedVideo({
             prompt: videoPrompt,
