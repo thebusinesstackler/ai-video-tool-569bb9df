@@ -1534,9 +1534,29 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
                   <>
                     {/* Ad Video Composer */}
                     <div className="px-3 py-3 border-b border-border/50 bg-background/70">
-                      <div className="mb-1.5 text-xs font-medium text-muted-foreground uppercase tracking-[0.18em]">Prompt</div>
+                      <div className="flex items-center gap-1 mb-2 p-0.5 rounded-lg bg-muted/60 w-fit">
+                        <button
+                          type="button"
+                          onClick={() => setInputMode('i2v')}
+                          className={`px-2.5 py-1 text-xs rounded-md transition-colors ${inputMode === 'i2v' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                          🖼 Image → Video
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setInputMode('t2v')}
+                          className={`px-2.5 py-1 text-xs rounded-md transition-colors ${inputMode === 't2v' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                          📝 Text → Video
+                        </button>
+                      </div>
+                      <div className="mb-1.5 text-xs font-medium text-muted-foreground uppercase tracking-[0.18em]">
+                        {inputMode === 't2v' ? 'Describe your video' : 'Prompt'}
+                      </div>
                       <Textarea
-                        placeholder="Upload your product image or reference video and describe your idea"
+                        placeholder={inputMode === 't2v'
+                          ? 'Describe your ad concept — setting, character, action, mood. Marco will turn it into a cinematic Sora-2 Pro directive.'
+                          : 'Upload your product image or reference video and describe your idea'}
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
                         onKeyDown={handleKeyDown}
