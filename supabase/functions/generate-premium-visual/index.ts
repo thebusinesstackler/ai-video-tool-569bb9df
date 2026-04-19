@@ -212,9 +212,17 @@ OUTPUT: The improved prompt ONLY. No explanation.`
 }
 
 // Step 3a: Generate via Lovable AI Gateway (Gemini image preview) — primary, no billing limits
-async function generateWithGateway(prompt: string): Promise<string> {
+// Optional referenceImageUrl puts the model in EDIT mode so output preserves the actual product.
+async function generateWithGateway(prompt: string, referenceImageUrl?: string): Promise<string> {
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
+
+  const userContent = referenceImageUrl
+    ? [
+        { type: 'text', text: prompt },
+        { type: 'image_url', image_url: { url: referenceImageUrl } },
+      ]
+    : prompt;
 
   const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
@@ -224,7 +232,7 @@ async function generateWithGateway(prompt: string): Promise<string> {
     },
     body: JSON.stringify({
       model: 'google/gemini-2.5-flash-image-preview',
-      messages: [{ role: 'user', content: prompt }],
+      messages: [{ role: 'user', content: userContent }],
       modalities: ['image', 'text'],
     }),
   });
@@ -278,11 +286,12 @@ async function generateWithOpenAI(prompt: string, size: string = '1024x1536'): P
 }
 
 // Unified: try Gateway first, fall back to OpenAI
-async function generateImage(prompt: string, size: string): Promise<string> {
+async function generateImage(prompt: string, size: string, referenceImageUrl?: string): Promise<string> {
   try {
-    return await generateWithGateway(prompt);
+    return await generateWithGateway(prompt, referenceImageUrl);
   } catch (gwErr) {
     console.warn('Gateway image gen failed, trying OpenAI:', (gwErr as Error).message);
+    // OpenAI gpt-image-1 fallback doesn't accept reference image here — fall back to text-only.
     return await generateWithOpenAI(prompt, size);
   }
 }
@@ -313,6 +322,7 @@ serve(async (req) => {
       logoUrl,
       brandColors,
       size = '1024x1536',
+      referenceImageUrl, // NEW: lock output to user's actual product
     } = body;
 
     if (!topic && type === 'thumbnail') {
@@ -332,8 +342,9 @@ serve(async (req) => {
     // Step 2: Quality review
     const reviewedPrompt = await qualityReviewPrompt(designedPrompt, type);
 
-    // Step 3: Generate (Gateway primary, OpenAI fallback)
-    const imageUrl = await generateImage(reviewedPrompt, size);
+    // Step 3: Generate (Gateway primary, OpenAI fallback). When a reference image is provided
+    // we run Gemini in EDIT mode so the output preserves the user's actual product.
+    const imageUrl = await generateImage(reviewedPrompt, size, referenceImageUrl);
 
     console.log(`Premium ${type} generated successfully`);
 
