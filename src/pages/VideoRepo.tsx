@@ -616,8 +616,15 @@ ${disableCTA ? '' : `${disableHookBank ? '8' : '9'}. **CTA / Closing**: Final 2-
 Then provide a final **VIDEO PROMPT** block:
 
 \`\`\`video-prompt
-[180–280 word cinematic directive that EXECUTES the ARCHETYPE LOCK above. Cover: environment, character, action choreography (literal counts from ACTION MANIFEST — non-negotiable), camera movement (per archetype), lighting, product placement (pixel-identical to reference if attached), pacing, sound design, performance direction (per archetype), final-frame description. Explicitly state "Follow the ACTION MANIFEST literally — counts are non-negotiable." End with the closing shot description so the ${soraDuration}s video ends on a complete payoff, not a cut-off.]
-\`\`\``;
+[180–280 word cinematic directive that EXECUTES the ARCHETYPE LOCK above. Cover: environment, character, action choreography (literal counts from ACTION MANIFEST — non-negotiable), camera movement (per archetype), lighting, product placement (pixel-identical to reference if attached), pacing, performance direction (per archetype), final-frame description.
+
+🔊 **AUDIO IS MANDATORY — Sora-2 only renders sound when explicitly written in this prompt.** You MUST include an "AUDIO:" section near the end with:
+${noDialogue
+  ? `  • Detailed diegetic sound design — every sound, in order, with texture words (clink, squeeze, plip, pour, whoosh, ambient room tone). NO music unless specified. NO speech.`
+  : `  • The full spoken voiceover written as literal quoted dialogue, e.g.: \`The woman speaks directly to camera in a warm, conversational tone: "I tried this for 11 days. By day 4, the brain fog was just… gone."\` — include EVERY word she says, in quotes, with delivery direction (warm/dry/excited/whispered). Sora-2 will NOT generate speech without quoted lines in this prompt.\n  • Plus diegetic ambient sound (room tone, dropper squeeze, glass clink, etc.).\n  • Voice gender + age + tone descriptor (e.g. "female, late 20s, warm and grounded").`}
+
+Explicitly state "Follow the ACTION MANIFEST literally — counts are non-negotiable." End with the closing shot description so the ${soraDuration}s video ends on a complete payoff, not a cut-off.]
+\`\`\``
 
       contentParts.push({ type: 'text', text: analysisInstruction });
 
