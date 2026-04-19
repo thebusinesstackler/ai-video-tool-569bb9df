@@ -120,9 +120,9 @@ function placementStyle(p?: CommercialPlacement): React.CSSProperties {
     case 'behind_subject':
       return { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6%' };
     case 'left_panel':
-      return { position: 'absolute', left: '6%', top: '50%', transform: 'translateY(-50%)', maxWidth: '40cqw' };
+      return { position: 'absolute', left: '4%', top: '50%', transform: 'translateY(-50%)', maxWidth: '38cqw' };
     case 'right_panel':
-      return { position: 'absolute', right: '6%', top: '50%', transform: 'translateY(-50%)', maxWidth: '40cqw' };
+      return { position: 'absolute', right: '4%', top: '50%', transform: 'translateY(-50%)', maxWidth: '38cqw' };
     case 'lower_third':
       return { position: 'absolute', left: '50%', bottom: '8%', transform: 'translateX(-50%)', maxWidth: '88cqw' };
     case 'center_takeover':
@@ -130,7 +130,7 @@ function placementStyle(p?: CommercialPlacement): React.CSSProperties {
     case 'top_banner':
       return { position: 'absolute', left: '50%', top: '8%', transform: 'translateX(-50%)', maxWidth: '88cqw' };
     case 'floating_note':
-      return { position: 'absolute', right: '6%', top: '14%', transform: 'rotate(-2deg)', maxWidth: '36cqw' };
+      return { position: 'absolute', right: '4%', top: '14%', transform: 'rotate(-2deg)', maxWidth: '34cqw' };
     default:
       return {};
   }
