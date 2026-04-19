@@ -1,56 +1,50 @@
 
-## Plan — 6 upgrades to Chatcut AI
+## Plan — Content Archetype Engine for Video Repo Pro
 
-### 1. Hold-to-delete on the timeline (safer destructive actions)
-- New `HoldToDelete` button component: standard trash icon, but requires a 700ms press-and-hold to fire. Visual progress ring fills around the icon during hold; releasing early cancels.
-- Replace every timeline delete button (clip, scene, overlay, motion graphic, B-roll, transition, punch-in, audio track) with this component in `ChatcutAI.tsx` and the chip strips.
-- Tooltip: "Hold to delete".
-- Files: `src/components/ui/hold-to-delete.tsx` (new), `src/pages/ChatcutAI.tsx` (replace inline trash buttons).
+The user wants to stop generating "ads" and start generating **7 distinct content archetypes**, each with its own pacing, camera, acting style, script structure, and product integration. This is a Style Selector System layered on top of the existing performance-grade scripting upgrades.
 
-### 2. Smart aspect system — true reframing, not blind crop
-- Extend the existing `targetPlatform` ↔ `aspectRatio` ↔ `reelPreview` link:
-  - Add `square` (1:1) to the platform list with safe zones.
-  - When the source video aspect doesn't match the platform aspect, Marco automatically suggests one of three reframe modes per scene: **A) PiP actor on bottom + visual on top**, **B) blurred letterbox**, **C) auto-pan tracking the speaker's detected face center**.
-- Files: `src/pages/ChatcutAI.tsx` (extend `PLATFORM_SAFE_ZONES`, add `square` to dropdown), `supabase/functions/chatcut-director/index.ts` (Marco directive: when source aspect ≠ target, choose reframe mode per scene).
+### File to edit
+- `src/pages/VideoRepo.tsx` — add archetype state, picker UI, and archetype-aware prompt assembly inside `analysisInstruction`.
 
-### 3. TikTok-native PiP layout — Marco picks per scene
-- New action `set_scene_layout`: `{ start, duration, layout: 'pip_actor_bottom_circle' | 'pip_actor_bottom_strip' | 'pip_actor_floating_card' | 'fullscreen_actor' | 'fullscreen_broll', actorScale?, actorPosition? }`.
-- Renderer: a new layer in `ChatcutAI.tsx` reads the active layout for the current timestamp and applies CSS transforms to the main `<video>` (scale + translate to bottom band) while a B-roll/visual layer fills the top region.
-- Marco prompt update: he chooses layout per beat (reaction → bottom circle, demo → bottom strip, screenshot moment → floating card, hook → fullscreen actor).
-- Files: `src/pages/ChatcutAI.tsx` (state `sceneLayouts`, derived `activeSceneLayout` via useMemo, render layer over video), `supabase/functions/chatcut-director/index.ts` (new action + directive).
+### What to build
 
-### 4. Graphic fallbacks — clarity over forced motion design
-- In `ChatcutAI.tsx`: when an animated graphic generation FAILS (timeout, empty url, error), automatically downgrade to a clean DOM `cta_lockup` or `full_card` treatment instead of leaving the timeline with a broken visual.
-- Marco directive: if you considered a motion graphic but the line lacks emphasis-worthy phrasing, default to `treatment: 'full_card' | 'clean_caption' | 'screenshot_callout'` instead.
-- Files: `supabase/functions/chatcut-director/index.ts`, `src/pages/ChatcutAI.tsx` (animated-graphic failure handler).
+**1. New state + UI: Content Archetype Picker**
+- Add `contentStyle: 'auto' | 'documentary' | 'ugc' | 'cinematic' | 'educational' | 'story' | 'asmr' | 'contrarian'` state.
+- Render a horizontal pill picker at the top of the composer (above the prompt textarea), styled like the existing StylePicker pattern. Default = `auto` (Marco picks the best fit based on product + intent).
+- Each pill shows: icon + label + 1-line vibe (e.g. "ASMR — sensory, no talking").
 
-### 5. Brand-from-URL analyzer (in Settings, runs once)
-- New edge function `analyze-brand-website` powered by Firecrawl `scrape` with `formats: ['markdown', 'branding', { type: 'json', prompt: 'Extract: tone, voice, audience, offer, recurring phrases, premium/playful/clinical/direct-response feel, key benefits, CTA style, trust signals' }]`.
-- Stores result on existing `profiles.brand_description` + new `profiles.brand_url` and `profiles.brand_analysis` (jsonb) — needs migration.
-- UI: in `src/pages/Settings.tsx`, an "Analyze my website" input + button. On success → toast + show extracted summary chips (tone, audience, palette, fonts).
-- Already auto-injected into Chatcut via the existing brand-context pipeline — no Chatcut-side wiring needed.
-- Requires Firecrawl connector to be enabled.
-- Files: `supabase/functions/analyze-brand-website/index.ts` (new), migration to add `brand_url` + `brand_analysis` columns, `src/pages/Settings.tsx` (UI).
+**2. Archetype Prompt Library (new constant in VideoRepo.tsx)**
+A `CONTENT_ARCHETYPES` object where each archetype defines 6 dimensions injected into the system prompt:
+- `scriptStructure` (e.g. Documentary = "no hook, start mid-thought, soft/no CTA")
+- `voiceRules` (Documentary = pauses, breaths, imperfections; UGC = interruptions, jump-cut energy; Cinematic = minimal/voiceover-only; ASMR = no dialogue)
+- `cameraDirection` (Cinematic = sliders + push-ins + slow-mo; UGC = handheld chaotic; Documentary = locked-off natural; ASMR = macro shots)
+- `actingDirection` (Contrarian = intense eye contact, high confidence; Documentary = eyes drift, soft; UGC = casual, slightly messy)
+- `productIntegration` (Cinematic = product is felt not shown; Educational = product as tool; Story = product as turning point; ASMR = product is the hero visual)
+- `bannedPatterns` (e.g. Documentary BANS: hooks, CTAs, ad language, "this changed my life")
 
-### 6. Marco vision — keyframes + on-edit (Medium tier)
-- On video load: extract 6 keyframes (already done by `extractKeyframesFromElement`), send to a new edge function `analyze-frame-vision` (Gemini 2.5 Flash multimodal) → returns per-frame: subject position (left/center/right), face bbox %, dominant negative-space side, busy/calm rating, dominant colors. Cache in `chatcut_drafts.timeline_state.visionAnalysis`.
-- Per Marco edit: extract 1 frame at the current playhead, send to the same function, append result to Marco's context as `currentFrameVision`.
-- Marco prompt update: NEW pre-flight rule — "before placing any graphic, READ `context.currentFrameVision` (subject position, negative space side, busy/calm) and choose `placement` accordingly. If subject is left → text right. If frame is busy → use `full_card` instead of overlay."
-- Files: `supabase/functions/analyze-frame-vision/index.ts` (new), `src/pages/ChatcutAI.tsx` (auto-analyze on load + per-edit; pass into director payload), `supabase/functions/chatcut-director/index.ts` (consume vision).
+**3. Archetype-aware system prompt assembly**
+When generating, inject the chosen archetype's 6 dimensions BEFORE the existing PRODUCT FIDELITY / ACTION MANIFEST / Performance Direction blocks. Add an explicit override:
 
-### Files I'll create
-- `src/components/ui/hold-to-delete.tsx`
-- `supabase/functions/analyze-brand-website/index.ts`
-- `supabase/functions/analyze-frame-vision/index.ts`
-- migration: `profiles.brand_url text`, `profiles.brand_analysis jsonb`
-- `.lovable/memory/features/ai-tools/chatcut-vision-pip-and-safety.md`
+> "ARCHETYPE LOCK: This is a [X] piece, NOT an ad. Follow the [X] rules above. If they conflict with the default ad-structure instincts, the archetype wins."
 
-### Files I'll edit
-- `src/pages/ChatcutAI.tsx` — replace deletes, add `square`, add `sceneLayouts` + renderer, vision wiring, animated-graphic failure fallback.
-- `supabase/functions/chatcut-director/index.ts` — `set_scene_layout` action + directive, vision-aware pre-flight, motion-graphic fallback rule, square platform.
-- `src/pages/Settings.tsx` — brand URL analyzer UI.
+**4. Archetype-specific overrides to existing blocks**
+- **ASMR / Story / Cinematic** → skip the spoken-script Voice rules, replace with sound-design + visual-texture directives.
+- **Documentary** → disable the Distinctive Hook Bank (no hook allowed) and disable the CTA quality bar (no CTA).
+- **Contrarian** → force opening line to be a contrarian statement; ban gentle/empathetic openers.
+- **Educational** → require ONE teachable fact in the body; product appears only in last third.
+- **Story** → force 3-scene structure (struggle → discovery → transformation), allow zero talking-head.
+
+**5. Auto mode logic**
+When `contentStyle = 'auto'`, prepend an instruction telling Gemini 2.5 Pro to first pick the best archetype for the product/intent, name it in the response, then write to that archetype's rules. This keeps current behavior usable without forcing a choice.
+
+**6. UI feedback**
+- Selected archetype shows a small badge in the chat status during generation: "🎬 Generating as: Documentary (no CTA, real-story mode)".
+- Tooltip on each pill explains the use case (e.g. "Cinematic — brand authority, Apple/Nike feel").
 
 ### Out of scope
-- True person-segmentation matting for PiP (we use a soft circular CSS mask + drop-shadow).
-- Auto-cropping the actor pixel-by-pixel (CSS transform repositions the whole frame).
-- Live AI face-tracking during playback (vision runs at edit time, not every frame).
+- New edge functions, new models, DB changes.
+- Multi-archetype generation in one render.
+- Automatic archetype A/B testing (could be a follow-up).
+
+### Why this works
+The existing prompt always biases toward "ad" because the structure (problem → product → benefit → CTA) is hardcoded. By making archetype the **top-level lock** and letting it override the ad structure, the same generator can produce a silent ASMR macro reel, a contrarian talking-head, or a 3-scene mini-story from the same product input.
