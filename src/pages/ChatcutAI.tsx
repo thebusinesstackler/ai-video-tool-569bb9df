@@ -2210,6 +2210,7 @@ const ChatcutAI = () => {
           toast({ title: '🎯 Overlay synced to word', description: `"${hit.matchedWord}" → ${hit.start.toFixed(2)}s` });
           break;
         }
+        case 'hide_overlay': {
           const ids: string[] = Array.isArray(act.ids) ? act.ids : (act.id ? [act.id] : (act.overlayId ? [act.overlayId] : []));
           if (ids.length) {
             setOverlays(prev => prev.map(o => ids.includes(o.id) ? { ...o, hidden: true } : o));
