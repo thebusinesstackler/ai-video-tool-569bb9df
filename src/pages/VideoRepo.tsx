@@ -1161,7 +1161,7 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
       const productBenefits = selectedProductCtx?.benefits?.length ? selectedProductCtx.benefits.join(', ') : null;
 
       const productHint = hasProductRef
-        ? `**LOCKED PRODUCT** — the user has provided a real product image (${productName || 'see reference'}). Both keyframes MUST feature THIS exact bottle/label/shape. Do NOT invent a new product, do NOT swap label colors, do NOT change the dropper style. The hero subject is THIS product.${productBenefits ? ` Key benefits to evoke visually: ${productBenefits}.` : ''}`
+        ? `**LOCKED PRODUCT** — the user has provided a real product image (${productName || 'see reference'}). Both keyframes MUST feature THIS exact bottle/label/shape. Do NOT invent a new product, do NOT swap label colors, do NOT change the dropper style. The hero product is THIS exact product.${productBenefits ? ` Key benefits to evoke visually: ${productBenefits}.` : ''}`
         : `Subject: a premium dropper bottle of mushroom extract on a clean styled surface.`;
 
       const strategyPrompt = `You are a cinematic motion-video director. Pick ONE high-performing strategy from this list and design a 5-second hero motion clip:
@@ -1175,18 +1175,20 @@ ${brandLine}
 ${productHint}
 
 ⚠️ CRITICAL CONTINUITY RULES (a video reviewer will reject the clip if violated):
-1. The START frame and END frame must share the SAME hero subject in the SAME setting. Same surface, same lighting direction, same camera distance family.
-2. If a HUMAN appears in EITHER frame (e.g. a hand holding the dropper), that human MUST appear in BOTH frames in the same wardrobe / same hand / same skin tone. Never have a human in one frame and a "floating" prop in the other — that is a story break.
-3. If NO human is shown in the start frame, do NOT add one in the end frame. Keep it product-only on both sides.
-4. The END frame must be the natural visual conclusion of the motion described — e.g. if the motion is "droplet falls into glass", the start frame shows the dropper poised over the glass and the end frame shows the ripple in the glass with the SAME hand still holding the dropper above it.
-5. If the locked product is provided, the bottle in BOTH frames must visually match that real product (label, shape, color).
+1. The START frame and END frame must feature the SAME hero character and the SAME locked product, but they must be TWO DISTINCT SCENES or shot setups. Different background, composition, and action are required.
+2. The character identity must remain exact across both frames: same face, same age, same hair, same wardrobe, same hand dominance, same skin tone, same makeup level. This is the same person in scene one and scene two.
+3. If a HUMAN appears in either frame, that human MUST appear in both frames actively interacting with the product. Never show a floating dropper, floating bottle, or a disconnected hand. Props must be physically grounded.
+4. Prefer "person-and-product" or "hands-and-product" for this brand. Only use "product-only" if there is a compelling reason and the story still feels premium.
+5. The END frame must be a story progression from the START frame — not a duplicate. Think scene one → scene two, while still feeling like one premium ad concept.
+6. If the locked product is provided, the bottle in BOTH frames must visually match that real product exactly (label, shape, color, cap/dropper, proportions).
 
 Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly:
 {
   "strategy": "Macro Pour" | "Hero Push-In" | "Day-to-Night Mood Shift" | "Ingredient Burst" | "Product Reveal",
   "subjectMode": "product-only" | "hands-and-product" | "person-and-product",
-  "startFramePrompt": "detailed photoreal prompt for the FIRST frame — describe subject, composition, lighting, lens, mood. 16:9. If subjectMode includes hands/person, describe them explicitly so the end frame can match.",
-  "endFramePrompt": "detailed photoreal prompt for the LAST frame — SAME subjectMode, SAME hands/person if present, SAME wardrobe, SAME surface, SAME lighting, just in the final motion state. 16:9.",
+  "identityAnchor": "one sentence that explicitly locks the person identity and styling to repeat across both frames",
+  "startFramePrompt": "detailed photoreal prompt for the FIRST frame — scene one. Describe subject, composition, lighting, lens, mood, and exactly how the character is interacting with the product. 16:9. No text overlay.",
+  "endFramePrompt": "detailed photoreal prompt for the LAST frame — scene two. A clearly different setting or shot from the first frame, but with the SAME character identity, SAME wardrobe, and SAME product. 16:9. No text overlay.",
   "motionPrompt": "describe the camera motion + subject motion that interpolates between the two frames in 5 seconds, cinematic, smooth, no cuts"
 }`;
 
@@ -1231,27 +1233,36 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
         console.warn('[Auto Motion] AI strategy unavailable, using fallback Macro Pour template');
         plan = {
           strategy: 'Macro Pour',
-          subjectMode: 'hands-and-product',
-          startFramePrompt: `Cinematic 16:9 macro shot — a feminine hand with neutral nails holds a premium amber glass dropper bottle of mushroom extract above an empty crystal water glass on clean white marble. Soft morning daylight from the left, shallow depth of field, dropper poised mid-air, photoreal editorial wellness aesthetic. ${brandLine}`,
-          endFramePrompt: `Cinematic 16:9 macro shot — the SAME feminine hand with the SAME neutral nails STILL HOLDS the SAME amber dropper bottle above the SAME crystal water glass on the SAME marble surface. A single golden droplet has just hit the water creating a soft ripple. Soft morning daylight from the left, shallow depth of field, photoreal continuity with the first frame. ${brandLine}`,
-          motionPrompt: 'Slow 5-second macro push-in toward the dropper. The hand stays steady, a single golden droplet falls from the dropper into the crystal glass and creates a soft, slow-motion ripple. Smooth cinematic camera, natural daylight, no cuts.',
+          subjectMode: 'person-and-product',
+          identityAnchor: 'The same premium wellness creator appears in both frames: late-20s woman, warm brunette hair, clean natural makeup, cream knit top, refined feminine styling, calm confident expression.',
+          startFramePrompt: `Scene one, cinematic 16:9 medium close-up — the wellness creator stands at a bright kitchen counter holding the exact mushroom extract dropper bottle above a clear glass of water, preparing to add it to her ritual. Morning daylight, premium editorial realism, shallow depth of field, physically grounded hand-to-product interaction. ${brandLine}`,
+          endFramePrompt: `Scene two, cinematic 16:9 medium portrait — the SAME wellness creator in the SAME cream knit top now stands by a sunlit desk nook holding the SAME exact mushroom extract bottle beside the freshly mixed glass, looking satisfied after the ritual. Different background and composition from scene one, same person and same product, premium editorial realism. ${brandLine}`,
+          motionPrompt: 'Single continuous 5-second cinematic move that begins on the creator preparing the dropper ritual at the kitchen counter, then glides with her into a second sunlit nook as she finishes the moment holding the same bottle and glass. Smooth premium camera, grounded hand movement, no cuts, no floating props.',
         };
       }
 
       setAutoMotionStatus(`Strategy: ${plan.strategy}. Rendering keyframes...`);
 
-      const renderFrame = async (visualPrompt: string) => {
+      const identityAnchor = typeof plan.identityAnchor === 'string' ? plan.identityAnchor.trim() : '';
+
+      const renderFrame = async ({
+        visualPrompt,
+        referenceUrl,
+        characterInstructions,
+      }: {
+        visualPrompt: string;
+        referenceUrl?: string;
+        characterInstructions: string;
+      }) => {
         const { data, error } = await supabase.functions.invoke('generate-premium-visual', {
           body: {
-            type: 'thumbnail',
+            type: 'keyframe',
             topic: visualPrompt,
-            style: 'cinematic-product',
+            style: 'cinematic-motion-keyframe',
             sceneDescriptions: visualPrompt,
-            characterDescription: hasProductRef
-              ? `Use the provided REAL product image as the hero subject. Match its label, shape, color, and dropper style EXACTLY. Do not invent a new bottle.`
-              : undefined,
+            characterDescription: characterInstructions,
             size: '1536x1024',
-            referenceImageUrl: hasProductRef ? productImageUrl : undefined,
+            referenceImageUrl: referenceUrl,
           },
         });
         if (error) throw new Error(error.message || 'Frame generation failed');
@@ -1260,10 +1271,32 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
         return url as string;
       };
 
-      const [startUrl, endUrl] = await Promise.all([
-        renderFrame(plan.startFramePrompt),
-        renderFrame(plan.endFramePrompt),
-      ]);
+      const startUrl = await renderFrame({
+        visualPrompt: [
+          identityAnchor && `IDENTITY ANCHOR: ${identityAnchor}`,
+          'FRAME ROLE: START FRAME. Scene one of a two-scene premium ad story.',
+          plan.startFramePrompt,
+          hasProductRef ? 'Use the attached real product as the exact bottle reference. Match label, proportions, color, and dropper details exactly.' : 'Show a premium wellness product interaction with physically believable hand placement.',
+          'No text, captions, logos, or thumbnail typography. Cinematic 16:9 still frame only.',
+        ].filter(Boolean).join('\n'),
+        referenceUrl: hasProductRef ? productImageUrl ?? undefined : undefined,
+        characterInstructions: hasProductRef
+          ? 'Use the attached REAL product image as the product lock. If a person appears, make them a premium wellness creator naturally holding or using that exact product. No floating props.'
+          : 'Create a premium wellness creator or grounded hand interaction that looks physically believable and photoreal.',
+      });
+
+      const endUrl = await renderFrame({
+        visualPrompt: [
+          identityAnchor && `IDENTITY ANCHOR: ${identityAnchor}`,
+          'FRAME ROLE: END FRAME. Scene two of the same premium ad story.',
+          plan.endFramePrompt,
+          'This must be a clearly different scene or composition from the start frame while preserving the same person identity and the same product.',
+          hasProductRef ? 'The product must still match the user\'s real bottle exactly.' : 'Maintain the same hero subject identity established in the reference frame.',
+          'No text, captions, logos, or thumbnail typography. Cinematic 16:9 still frame only.',
+        ].filter(Boolean).join('\n'),
+        referenceUrl: startUrl,
+        characterInstructions: 'Use the attached reference frame as an identity anchor. Keep the exact same character face, hair, wardrobe, hand identity, and the same product, but restage them into a clearly different second scene. No floating props, no disconnected droppers, no duplicate frame.',
+      });
 
       // Reflect into the left panel so the user sees what we picked
       setMotionStartFramePreview(startUrl);
