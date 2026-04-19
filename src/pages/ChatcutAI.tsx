@@ -1564,8 +1564,22 @@ const ChatcutAI = () => {
           const isMotionGraphicAct = act.action === 'add_motion_graphic';
           const placementPos = act.placement && placementToPos[act.placement];
           const intentPos = isMotionGraphicAct && act.intent && intentToPos[act.intent];
-          const finalPos = act.position
+          let finalPos = act.position
             || (isCTA ? { x: 50, y: 80 } : (placementPos || intentPos || def.pos));
+
+          // ── Phase 2: Zone-collision avoidance for motion graphics ──────
+          // If this is a motion graphic and the chosen zone is already occupied during the same
+          // window, snap it to the next free zone instead of stacking on top.
+          if (isMotionGraphicAct && !isFullCoverage) {
+            const proposedDurForZone = act.duration || 5;
+            const proposedEnd = (act.start || 0) + proposedDurForZone;
+            const desiredZone = zoneOfPosition(finalPos);
+            const freeZone = findFreeMotionZone(desiredZone, act.start || 0, proposedEnd);
+            if (freeZone !== desiredZone) {
+              finalPos = zoneToPosition(freeZone);
+              toast({ title: '🧭 Auto-spaced', description: `Moved "${(act.text || '').slice(0, 24)}" from ${desiredZone} → ${freeZone} so it doesn't stack.` });
+            }
+          }
 
           // ── RENDER-MODE DECISION ────────────────────────────────────────
           // 'video' → animated VEO 3.1 graphic (premium hero reveals).
@@ -1915,6 +1929,44 @@ const ChatcutAI = () => {
             setOverlays(prev => prev.filter(o => o.id !== id));
             toast({ title: 'Overlay removed', description: target ? `"${target.text}" at ${target.start.toFixed(1)}s` : undefined });
           }
+          break;
+        }
+        // ── Phase 2: Transition actions ───────────────────────────────
+        case 'add_transition': {
+          const kind = (['fade', 'dip_to_black', 'zoom', 'speed_ramp', 'whip'].includes(act.kind) ? act.kind : 'fade') as Transition['kind'];
+          const at = typeof act.at === 'number' ? act.at : (typeof act.start === 'number' ? act.start : currentTime);
+          const dur = typeof act.duration === 'number' ? Math.max(0.15, Math.min(act.duration, 3)) : (kind === 'dip_to_black' ? 1 : kind === 'speed_ramp' ? 1.5 : 0.4);
+          const t: Transition = {
+            id: crypto.randomUUID(),
+            kind, at, duration: dur,
+            rate: typeof act.rate === 'number' ? act.rate : (kind === 'speed_ramp' ? 0.5 : undefined),
+            label: act.label,
+          };
+          setTransitions(prev => [...prev, t].sort((x, y) => x.at - y.at));
+          toast({ title: '🎞️ Transition added', description: `${kind.replace('_', ' ')} @ ${at.toFixed(1)}s (${dur.toFixed(1)}s)` });
+          break;
+        }
+        case 'update_transition': {
+          const id = act.id || act.transitionId;
+          if (!id) break;
+          setTransitions(prev => prev.map(t => {
+            if (t.id !== id) return t;
+            const next = { ...t };
+            if (typeof act.at === 'number') next.at = Math.max(0, act.at);
+            if (typeof act.duration === 'number') next.duration = Math.max(0.15, Math.min(act.duration, 3));
+            if (typeof act.rate === 'number') next.rate = act.rate;
+            if (act.kind && ['fade', 'dip_to_black', 'zoom', 'speed_ramp', 'whip'].includes(act.kind)) next.kind = act.kind;
+            if (typeof act.label === 'string') next.label = act.label;
+            return next;
+          }));
+          toast({ title: 'Transition updated' });
+          break;
+        }
+        case 'remove_transition': {
+          const id = act.id || act.transitionId;
+          if (!id) break;
+          setTransitions(prev => prev.filter(t => t.id !== id));
+          toast({ title: 'Transition removed' });
           break;
         }
         case 'hide_overlay': {
