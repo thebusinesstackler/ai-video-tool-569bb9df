@@ -245,7 +245,24 @@ interface SfxClip {
  * Phase 4: Target platform identifier — drives safe-zone selection so Marco
  * never places overlays under the TikTok username strip, Reels right-rail, etc.
  */
-type TargetPlatform = 'tiktok' | 'reels' | 'shorts' | 'youtube' | 'youtube-landscape';
+type TargetPlatform = 'tiktok' | 'reels' | 'shorts' | 'youtube' | 'youtube-landscape' | 'square';
+
+// PiP scene layout (Marco picks per scene). Drives a CSS transform on the main video.
+type SceneLayoutKind =
+  | 'pip_actor_bottom_circle'
+  | 'pip_actor_bottom_strip'
+  | 'pip_actor_floating_card'
+  | 'fullscreen_actor'
+  | 'fullscreen_broll';
+
+interface SceneLayout {
+  id: string;
+  start: number;
+  duration: number;
+  layout: SceneLayoutKind;
+  actorScale?: number;
+  actorPosition?: { x: number; y: number }; // 0–100 %
+}
 
 /**
  * Phase 4: An A/B variant set — multiple alternative versions of an overlay
@@ -2275,7 +2292,7 @@ const ChatcutAI = () => {
         }
         // ── Phase 4: Platform + safe-zone + A/B variant actions ───────
         case 'set_platform': {
-          const valid: TargetPlatform[] = ['tiktok', 'reels', 'shorts', 'youtube', 'youtube-landscape'];
+          const valid: TargetPlatform[] = ['tiktok', 'reels', 'shorts', 'youtube', 'youtube-landscape', 'square'];
           const next = valid.includes(act.platform) ? act.platform : 'tiktok';
           setTargetPlatform(next as TargetPlatform);
           // Always link reel preview to platform: vertical platforms force 9:16 preview.
