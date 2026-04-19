@@ -2046,6 +2046,39 @@ const ChatcutAI = () => {
           toast({ title: 'Punch-in removed' });
           break;
         }
+        case 'set_scene_layout': {
+          // Marco picks a per-scene PiP layout. Renderer applies CSS transforms on the main video
+          // so the speaker shrinks to a circle/strip/floating card while B-roll fills the top region.
+          const validLayouts: SceneLayoutKind[] = [
+            'pip_actor_bottom_circle',
+            'pip_actor_bottom_strip',
+            'pip_actor_floating_card',
+            'fullscreen_actor',
+            'fullscreen_broll',
+          ];
+          const layout = validLayouts.includes(act.layout) ? act.layout as SceneLayoutKind : 'fullscreen_actor';
+          const start = typeof act.start === 'number' ? act.start : currentTime;
+          const dur = Math.max(0.5, typeof act.duration === 'number' ? act.duration : 4);
+          const id = crypto.randomUUID();
+          const actorScale = typeof act.actorScale === 'number' ? Math.max(0.2, Math.min(1, act.actorScale)) : undefined;
+          const actorPosition = act.actorPosition && typeof act.actorPosition.x === 'number'
+            ? { x: Math.max(0, Math.min(100, act.actorPosition.x)), y: Math.max(0, Math.min(100, act.actorPosition.y)) }
+            : undefined;
+          setSceneLayouts(prev => [...prev, { id, start, duration: dur, layout, actorScale, actorPosition }].sort((a, b) => a.start - b.start));
+          toast({ title: '🎬 Scene layout set', description: `${layout.replace(/_/g, ' ')} @ ${start.toFixed(1)}s for ${dur.toFixed(1)}s` });
+          break;
+        }
+        case 'remove_scene_layout': {
+          const id = act.id as string | undefined;
+          const at = typeof act.at === 'number' ? act.at : null;
+          setSceneLayouts(prev => prev.filter(l => {
+            if (id && l.id === id) return false;
+            if (at != null && at >= l.start && at < l.start + l.duration) return false;
+            return true;
+          }));
+          toast({ title: 'Scene layout cleared' });
+          break;
+        }
         case 'trim_tail': {
           // Cut off a long ending. Marco passes how many seconds of tail to remove,
           // or an explicit start time. We add a "cut" so playback skips the tail.
