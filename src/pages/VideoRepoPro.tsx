@@ -123,6 +123,7 @@ const VideoRepoPro = () => {
   const [historyPage, setHistoryPage] = useState(1);
   const HISTORY_PAGE_SIZE = 9;
   const [aspectRatio, setAspectRatio] = useState<'9:16' | '16:9'>('9:16');
+  const [singleDuration, setSingleDuration] = useState<10 | 15 | 20>(20);
   const [useSoraPro, setUseSoraPro] = useState(false);
   const [soraProResolution, setSoraProResolution] = useState<'720p' | '1080p'>('1080p');
 
@@ -872,7 +873,7 @@ Be specific, constructive, and actionable. Reference exact moments/frames when p
 
   // Check if text contains video prompt blocks
   const hasVideoPrompts = (text: string) => {
-    return /```video-prompt-1\n/.test(text) && /```video-prompt-2\n/.test(text);
+    return /```video-prompt\b/.test(text);
   };
 
   const analyzeReference = async () => {
@@ -962,18 +963,18 @@ Be specific, constructive, and actionable. Reference exact moments/frames when p
       }
 
       const formatLabel = aspectRatio === '9:16' ? 'vertical reel (9:16)' : 'horizontal landscape (16:9)';
-      const systemPrompt = `You are an AI Script Director for UGC ad videos. You help filmmakers craft and refine scripts for FULL 30-SECOND videos in ${formatLabel} format. You split ads into exactly TWO segments that will be generated separately and stitched together seamlessly.
+      const wordTarget = Math.round(singleDuration * 2.5);
+      const systemPrompt = `You are an AI Script Director for UGC ad videos. You help filmmakers craft and refine scripts for a SINGLE-TAKE ${singleDuration}-SECOND video in ${formatLabel} format. The video is generated as ONE continuous Sora-2 clip — NO stitching, NO segmenting.
 
 Your personality: Warm, experienced, collaborative. You speak like a veteran ad creative director. You welcome feedback and iterate on scripts.
 
 CRITICAL RULES:
-- The total ad is 30 seconds, split into Segment 1 (~15s) and Segment 2 (~15s)
+- The total ad is exactly ${singleDuration} seconds — ONE continuous clip, no cuts to a second segment, no stitching
 - Format: ${formatLabel} — frame all shots accordingly
-- Segment 2 MUST visually continue from where Segment 1 ends — same character, same environment, continuous action
-- Each segment prompt must be 80-150 words with full cinematic detail
-- Include explicit transition instructions: Segment 1's final frame should set up Segment 2's opening frame
-- You MUST also provide a narration script that will be read as voiceover over the full 30-second video
-- ALWAYS include the video-prompt-1, video-prompt-2, and narration code blocks in your response so the user can generate when ready`;
+- Spoken script must be paced at ~2.5 words/second → target ~${wordTarget} words of voiceover (max ${wordTarget + 5})
+- The ad MUST end with a complete closing beat (resolved CTA / payoff frame) — NEVER mid-sentence, NEVER a fade before ${singleDuration}s, NEVER trail off on a preposition or article
+- The single video-prompt block must be 120-200 words with full cinematic detail covering the entire ${singleDuration}-second arc (hook → body → payoff/CTA)
+- ALWAYS include the video-prompt and narration code blocks in your response so the user can generate when ready`;
 
       const analysisInstruction = `User request: "${userMsg.content}"
 
@@ -982,34 +983,29 @@ ${productImageUrl ? 'Product image provided above — incorporate this product n
 
 Provide:
 1. **Reference Analysis**: What you observed in the reference frames — hook type, pacing, camera style, talent energy, visual effects
-2. **Estimated Transcript**: Based on the visual cues (lip movements, expressions, gestures, text overlays, captions), reconstruct what the person in the video is most likely saying throughout the ad. Present this as a timestamped script (e.g., "0-3s: ...", "3-8s: ..."). If you can see captions or text overlays, transcribe them exactly.
+2. **Estimated Transcript**: Based on visual cues (lip movements, expressions, gestures, text overlays, captions), reconstruct what the person is most likely saying. Present as timestamped script (e.g., "0-3s: ...", "3-8s: ..."). If you see captions or text overlays, transcribe them exactly.
 3. **Hook Strategy**: How the first 3 seconds will stop the scroll
-4. **Full 30-Second Script**: Scene-by-scene breakdown covering 0-30 seconds
-5. **Segment Breakdown**: How the 30s ad splits into two ~15s segments with seamless continuity
-6. **Product Integration**: How and when the product appears naturally
-7. **CTA Strategy**: Closing technique for maximum conversion
+4. **Full ${singleDuration}-Second Script**: Scene-by-scene breakdown covering 0-${singleDuration} seconds, with explicit timestamps that SUM to exactly ${singleDuration}s
+5. **Product Integration**: How and when the product appears naturally
+6. **CTA Strategy**: Closing technique for maximum conversion — must land cleanly inside the ${singleDuration}s window
 
-Then provide TWO video prompt blocks — one per segment:
+Then provide ONE single video prompt block:
 
-\`\`\`video-prompt-1
-[Segment 1: 0-15 seconds. Detailed video generation prompt — 80-150 words covering environment, character, action, camera, lighting, product placement, pacing. This segment covers the HOOK and PROBLEM/SETUP. End with a specific visual that Segment 2 will continue from.]
-\`\`\`
-
-\`\`\`video-prompt-2
-[Segment 2: 15-30 seconds. Detailed video generation prompt — 80-150 words. This segment starts EXACTLY where Segment 1 ends — same character, same environment, continuous motion. Covers the SOLUTION/PRODUCT SHOWCASE and CTA. Include the closing action and call-to-action.]
+\`\`\`video-prompt
+[ONE continuous ${singleDuration}-second video. 120-200 words covering environment, character, action choreography, camera movement, lighting, product placement, pacing, sound design, and the FINAL closing frame. The clip must end on a complete payoff/CTA frame — never mid-action, never a cut-off. Explicitly describe the closing 2 seconds so the model lands the ending.]
 \`\`\`
 
 And finally, provide the voiceover narration script:
 
 \`\`\`narration
-[The full voiceover script for the 30-second ad. 60-90 words. Conversational, punchy, direct. Should complement the visuals without describing them literally.]
+[The full voiceover script for the ${singleDuration}-second ad. ~${wordTarget} words (max ${wordTarget + 5}). Conversational, punchy, direct. The final sentence MUST be a complete, self-contained closing line — never trail off, never end on "and", "to", "the", or a comma.]
 \`\`\`
 
 After providing the script, let the user know they can give feedback to refine it, or hit "Generate Video" when they're happy with it.`;
 
       const styleSuffix = selectedStyle ? STYLE_OPTIONS.find(s => s.id === selectedStyle)?.promptSuffix : null;
       const fullInstruction = styleSuffix
-        ? `${analysisInstruction}\n\n🎬 STYLE LOCK: ${styleSuffix}\nApply this style consistently across both segments.`
+        ? `${analysisInstruction}\n\n🎬 STYLE LOCK: ${styleSuffix}\nApply this style consistently across the entire ${singleDuration}-second clip.`
         : analysisInstruction;
 
       contentParts.push({ type: 'text', text: fullInstruction });
@@ -1083,16 +1079,18 @@ After providing the script, let the user know they can give feedback to refine i
 
     try {
       const formatLabel = aspectRatio === '9:16' ? 'vertical reel (9:16)' : 'horizontal landscape (16:9)';
-      const systemPrompt = `You are an AI Script Director for UGC ad videos. You're in a collaborative session helping refine a 30-second ${formatLabel} ad script.
+      const wordTargetFollow = Math.round(singleDuration * 2.5);
+      const systemPrompt = `You are an AI Script Director for UGC ad videos. You're in a collaborative session helping refine a SINGLE-TAKE ${singleDuration}-second ${formatLabel} ad script.
 
 RULES:
 - Listen to user feedback and revise the script accordingly
-- ALWAYS include updated video-prompt-1, video-prompt-2, and narration code blocks when you make script changes
-- Keep segment timing at ~15s each (total 30s)
-- Maintain continuity between segments
+- ALWAYS include updated video-prompt and narration code blocks when you make script changes
+- The ad is ONE continuous ${singleDuration}s clip — NO segmenting, NO stitching
+- The closing line and final frame MUST land cleanly inside the ${singleDuration}s window — never mid-sentence, never trailing off
+- Narration target: ~${wordTargetFollow} words (max ${wordTargetFollow + 5})
 - Be collaborative, warm, and constructive
 - If the user asks questions about the script, answer helpfully
-- Each segment prompt must be 80-150 words with full cinematic detail`;
+- The single video-prompt block must be 120-200 words with full cinematic detail`;
 
       // Build conversation history for context
       const aiMessages: any[] = [
