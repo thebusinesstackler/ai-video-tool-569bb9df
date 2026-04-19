@@ -3936,38 +3936,61 @@ const ChatcutAI = () => {
                           </div>
                         </div>
                       )}
-                      {/* B-Roll overlay when active — prefer video over still. Smooth crossfade on enter so it doesn't pop. */}
+                      {/* B-Roll overlay when active — prefer video over still. Smooth crossfade on enter so it doesn't pop.
+                          We render a blurred copy of the same media as a backdrop, then the real media
+                          on top with object-contain so the FULL frame is visible (no cropping/zoom).
+                          This fixes "the picture is too zoomed in / cut off". */}
                       {activeBRoll && (
                         activeBRoll.videoUrl && activeBRoll.videoStatus === 'ready' ? (
-                          <video
-                            key={activeBRoll.id}
-                            src={activeBRoll.videoUrl}
-                            autoPlay
-                            muted={!activeBRoll.audioEnabled}
-                            loop={typeof activeBRoll.sourceStart !== 'number'}
-                            playsInline
-                            className="block absolute inset-0 w-full h-full object-cover z-[5] animate-fade-in transition-opacity duration-300"
-                            onLoadedMetadata={(e) => {
-                              if (typeof activeBRoll.sourceStart === 'number') {
-                                (e.currentTarget as HTMLVideoElement).currentTime = activeBRoll.sourceStart;
-                              }
-                            }}
-                            onTimeUpdate={(e) => {
-                              if (typeof activeBRoll.sourceStart !== 'number') return;
-                              const v = e.currentTarget as HTMLVideoElement;
-                              const end = activeBRoll.sourceStart + activeBRoll.duration;
-                              if (v.currentTime >= end - 0.05) {
-                                v.currentTime = activeBRoll.sourceStart;
-                              }
-                            }}
-                          />
+                          <div key={`${activeBRoll.id}-wrap`} className="absolute inset-0 z-[5] animate-fade-in transition-opacity duration-300 bg-black">
+                            {/* Blurred backdrop fill so letterbox bars never look empty */}
+                            <video
+                              src={activeBRoll.videoUrl}
+                              autoPlay
+                              muted
+                              loop
+                              playsInline
+                              aria-hidden
+                              className="absolute inset-0 w-full h-full object-cover opacity-60 blur-2xl scale-110 pointer-events-none"
+                            />
+                            <video
+                              key={activeBRoll.id}
+                              src={activeBRoll.videoUrl}
+                              autoPlay
+                              muted={!activeBRoll.audioEnabled}
+                              loop={typeof activeBRoll.sourceStart !== 'number'}
+                              playsInline
+                              className="block absolute inset-0 w-full h-full object-contain"
+                              onLoadedMetadata={(e) => {
+                                if (typeof activeBRoll.sourceStart === 'number') {
+                                  (e.currentTarget as HTMLVideoElement).currentTime = activeBRoll.sourceStart;
+                                }
+                              }}
+                              onTimeUpdate={(e) => {
+                                if (typeof activeBRoll.sourceStart !== 'number') return;
+                                const v = e.currentTarget as HTMLVideoElement;
+                                const end = activeBRoll.sourceStart + activeBRoll.duration;
+                                if (v.currentTime >= end - 0.05) {
+                                  v.currentTime = activeBRoll.sourceStart;
+                                }
+                              }}
+                            />
+                          </div>
                         ) : (
-                          <img
-                            key={activeBRoll.id}
-                            src={activeBRoll.imageUrl}
-                            alt={activeBRoll.name}
-                            className="block absolute inset-0 w-full h-full object-cover z-[5] animate-fade-in transition-opacity duration-300"
-                          />
+                          <div key={`${activeBRoll.id}-wrap`} className="absolute inset-0 z-[5] animate-fade-in transition-opacity duration-300 bg-black">
+                            <img
+                              src={activeBRoll.imageUrl}
+                              alt=""
+                              aria-hidden
+                              className="absolute inset-0 w-full h-full object-cover opacity-60 blur-2xl scale-110 pointer-events-none"
+                            />
+                            <img
+                              key={activeBRoll.id}
+                              src={activeBRoll.imageUrl}
+                              alt={activeBRoll.name}
+                              className="block absolute inset-0 w-full h-full object-contain"
+                            />
+                          </div>
                         )
                       )}
                       {/* Active B-Roll badge — shows which clip is on screen and lets user toggle its audio */}
