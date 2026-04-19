@@ -434,6 +434,28 @@ const ChatcutAI = () => {
   const [reelCropX, setReelCropX] = useState(50);
   const [isAutoCentering, setIsAutoCentering] = useState(false);
 
+  // PiP scene layouts (Marco picks per scene). Drives a CSS transform on the main video.
+  const [sceneLayouts, setSceneLayouts] = useState<SceneLayout[]>([]);
+
+  // Vision analysis cache (subject position, negative space, busy/calm). Populated on draft load
+  // by sending 4-6 keyframes through `analyze-frame-vision`. Marco reads it on every edit.
+  const [visionAnalysis, setVisionAnalysis] = useState<{
+    frames: Array<{
+      time: number;
+      subjectPosition: 'left' | 'center' | 'right' | 'none';
+      faceBbox?: { x: number; y: number; w: number; h: number };
+      negativeSpaceSide: 'top' | 'bottom' | 'left' | 'right' | 'none';
+      busyRating: 'low' | 'medium' | 'high';
+      dominantColors: string[];
+    }>;
+    summary: {
+      framesAnalyzed: number;
+      mostCommonSubjectPosition: string;
+      mostCommonNegativeSpaceSide: string;
+      dominantBusyRating: string;
+    };
+  } | null>(null);
+
   // B-Roll storyboard review state — populated when Marco runs review_broll
   type BrollSuggestion = {
     id: string;
