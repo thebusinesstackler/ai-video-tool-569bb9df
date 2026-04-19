@@ -831,6 +831,17 @@ When the user says "direct this", "commercial polish", "make it look like an ad"
       lines.push(`   c. For low-contrast overlays, switch to a treatment with a solid card background (stat_card, lower_third_pro, cta_lockup) or reposition to a less extreme region of the frame.`);
       lines.push(`   d. Cite the specific overlay id and timestamp when reporting a vision finding ("Your stat card at 4.2s is covering the product — moving it to right_panel").`);
       lines.push(`   e. NEVER add a new overlay in a position that already has a detected face or product subject — pick the opposite half of the frame.`);
+      lines.push(`9. **MOTION ZONE COLLISIONS (context.motionZoneCollisions):** If any \`pairs[]\` entries exist, two motion graphics share the SAME screen zone at the same time. For each pair, emit \`update_motion_graphic\` on the WEAKER one (less specific text, longer copy, or duplicate intent) to move it to a different zone. Available zones: top-left, top-center, top-right, mid-left, center, mid-right, bottom-left, bottom-center, bottom-right. Use \`zoneByMotionId\` to see what each occupies. NEVER add a new motion graphic into an already-occupied zone for that time window.`);
+      lines.push(`10. **TRANSITIONS (Phase 2 capability):** You can place scene transitions via \`add_transition\` to mark beats and add cinematic polish:`);
+      lines.push(`    \`\`\`actions`);
+      lines.push(`    [{"action":"add_transition","kind":"fade","at":6.2,"duration":0.4,"label":"hook→problem"}]`);
+      lines.push(`    [{"action":"add_transition","kind":"dip_to_black","at":12,"duration":1,"label":"act break"}]`);
+      lines.push(`    [{"action":"add_transition","kind":"zoom","at":4.2,"duration":0.5,"label":"stat punch"}]`);
+      lines.push(`    [{"action":"add_transition","kind":"speed_ramp","at":18,"duration":1.5,"rate":0.5,"label":"slow-mo CTA reveal"}]`);
+      lines.push(`    [{"action":"add_transition","kind":"whip","at":9,"duration":0.35,"label":"benefit→benefit"}]`);
+      lines.push(`    \`\`\``);
+      lines.push(`    Kinds: \`fade\` (quick black flash, 0.3-0.5s, scene-to-scene), \`dip_to_black\` (longer hold, 0.8-1.2s, ACT break), \`zoom\` (punch on a stat / hero, 0.4-0.6s), \`speed_ramp\` (rate 0.4-0.6 = slow-mo for CTA / hero reveal; rate 1.5-2 = sprint through filler), \`whip\` (fast lateral motion blur, 0.25-0.4s, between adjacent benefits).`);
+      lines.push(`    Place transitions at: act breaks (problem→solution, intro→benefits, last benefit→CTA), big stat punches, before the CTA. ONE transition per beat — don't stack. Use \`update_transition\` and \`remove_transition\` to revise. Existing transitions are listed in \`context.transitions[]\`.`);
 
       allMessages.push({ role: "system", content: lines.join('\n') });
     }

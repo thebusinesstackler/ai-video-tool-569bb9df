@@ -203,6 +203,26 @@ interface OverlayAnimation {
   exit: 'fade-out' | 'scale-out' | 'slide-down' | 'none';
 }
 
+/**
+ * Phase 2: Transitions Marco can place between scenes / cuts.
+ *  - fade           → CSS opacity dip (black flash)
+ *  - dip_to_black   → longer hold-on-black, then back in
+ *  - zoom           → quick CSS scale punch on the video wrapper
+ *  - speed_ramp     → temporarily ramps videoRef.playbackRate (slow-mo or speed-up)
+ *  - whip           → quick blur+x-translate "whip-pan" feel
+ * `at` is the start time on the master timeline. `duration` is the visible effect length.
+ */
+interface Transition {
+  id: string;
+  kind: 'fade' | 'dip_to_black' | 'zoom' | 'speed_ramp' | 'whip';
+  at: number;
+  duration: number;
+  /** Used by speed_ramp — 0.5=slow-mo, 2=double-speed. Defaults to 0.5 for slow-mo. */
+  rate?: number;
+  /** Optional human label Marco passes for the timeline marker. */
+  label?: string;
+}
+
 type TimelineAction = {
   action: string;
   [key: string]: any;
@@ -262,6 +282,8 @@ const ChatcutAI = () => {
   const [musicTracks, setMusicTracks] = useState<MusicTrack[]>([]);
   const [overlays, setOverlays] = useState<OverlayItem[]>([]);
   const [bRollClips, setBRollClips] = useState<BRollClip[]>([]);
+  // Phase 2: scene transitions Marco can place between cuts (fade, dip, zoom, speed-ramp, whip).
+  const [transitions, setTransitions] = useState<Transition[]>([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isGeneratingMusic, setIsGeneratingMusic] = useState(false);
   const [trackMuted, setTrackMuted] = useState({ v1: false, v2: false, a1: false });
@@ -886,6 +908,7 @@ const ChatcutAI = () => {
         bRollClips,
         captionSettings,
         thumbnail,
+        transitions,
       };
       const payload: Record<string, unknown> = {
         user_id: user.id,
@@ -928,6 +951,7 @@ const ChatcutAI = () => {
       setMusicTracks(ts.musicTracks || []);
       setOverlays(ts.overlays || []);
       setBRollClips(ts.bRollClips || []);
+      setTransitions(Array.isArray(ts.transitions) ? ts.transitions : []);
       if (ts.captionSettings) setCaptionSettings(ts.captionSettings);
       if (ts.thumbnail) setThumbnail(ts.thumbnail);
     }
@@ -1542,8 +1566,22 @@ const ChatcutAI = () => {
           const isMotionGraphicAct = act.action === 'add_motion_graphic';
           const placementPos = act.placement && placementToPos[act.placement];
           const intentPos = isMotionGraphicAct && act.intent && intentToPos[act.intent];
-          const finalPos = act.position
+          let finalPos = act.position
             || (isCTA ? { x: 50, y: 80 } : (placementPos || intentPos || def.pos));
+
+          // ── Phase 2: Zone-collision avoidance for motion graphics ──────
+          // If this is a motion graphic and the chosen zone is already occupied during the same
+          // window, snap it to the next free zone instead of stacking on top.
+          if (isMotionGraphicAct && !isFullCoverage) {
+            const proposedDurForZone = act.duration || 5;
+            const proposedEnd = (act.start || 0) + proposedDurForZone;
+            const desiredZone = zoneOfPosition(finalPos);
+            const freeZone = findFreeMotionZone(desiredZone, act.start || 0, proposedEnd);
+            if (freeZone !== desiredZone) {
+              finalPos = zoneToPosition(freeZone);
+              toast({ title: '🧭 Auto-spaced', description: `Moved "${(act.text || '').slice(0, 24)}" from ${desiredZone} → ${freeZone} so it doesn't stack.` });
+            }
+          }
 
           // ── RENDER-MODE DECISION ────────────────────────────────────────
           // 'video' → animated VEO 3.1 graphic (premium hero reveals).
@@ -1895,6 +1933,44 @@ const ChatcutAI = () => {
           }
           break;
         }
+        // ── Phase 2: Transition actions ───────────────────────────────
+        case 'add_transition': {
+          const kind = (['fade', 'dip_to_black', 'zoom', 'speed_ramp', 'whip'].includes(act.kind) ? act.kind : 'fade') as Transition['kind'];
+          const at = typeof act.at === 'number' ? act.at : (typeof act.start === 'number' ? act.start : currentTime);
+          const dur = typeof act.duration === 'number' ? Math.max(0.15, Math.min(act.duration, 3)) : (kind === 'dip_to_black' ? 1 : kind === 'speed_ramp' ? 1.5 : 0.4);
+          const t: Transition = {
+            id: crypto.randomUUID(),
+            kind, at, duration: dur,
+            rate: typeof act.rate === 'number' ? act.rate : (kind === 'speed_ramp' ? 0.5 : undefined),
+            label: act.label,
+          };
+          setTransitions(prev => [...prev, t].sort((x, y) => x.at - y.at));
+          toast({ title: '🎞️ Transition added', description: `${kind.replace('_', ' ')} @ ${at.toFixed(1)}s (${dur.toFixed(1)}s)` });
+          break;
+        }
+        case 'update_transition': {
+          const id = act.id || act.transitionId;
+          if (!id) break;
+          setTransitions(prev => prev.map(t => {
+            if (t.id !== id) return t;
+            const next = { ...t };
+            if (typeof act.at === 'number') next.at = Math.max(0, act.at);
+            if (typeof act.duration === 'number') next.duration = Math.max(0.15, Math.min(act.duration, 3));
+            if (typeof act.rate === 'number') next.rate = act.rate;
+            if (act.kind && ['fade', 'dip_to_black', 'zoom', 'speed_ramp', 'whip'].includes(act.kind)) next.kind = act.kind;
+            if (typeof act.label === 'string') next.label = act.label;
+            return next;
+          }));
+          toast({ title: 'Transition updated' });
+          break;
+        }
+        case 'remove_transition': {
+          const id = act.id || act.transitionId;
+          if (!id) break;
+          setTransitions(prev => prev.filter(t => t.id !== id));
+          toast({ title: 'Transition removed' });
+          break;
+        }
         case 'hide_overlay': {
           const ids: string[] = Array.isArray(act.ids) ? act.ids : (act.id ? [act.id] : (act.overlayId ? [act.overlayId] : []));
           if (ids.length) {
@@ -2174,6 +2250,27 @@ const ChatcutAI = () => {
               image: Array.from(overlapIdsByTrack.image),
               overlay: Array.from(overlapIdsByTrack.overlay),
             },
+            // ── PHASE 2: Motion-zone collisions (two graphics in same screen zone at same time) ──
+            motionZoneCollisions: {
+              ids: Array.from(motionZoneCollisions.ids),
+              pairs: motionZoneCollisions.pairs.map(p => ({
+                a: p.a, b: p.b, zone: p.zone,
+                overlapStart: +p.overlapStart.toFixed(2),
+                overlapEnd: +p.overlapEnd.toFixed(2),
+              })),
+              // Snapshot of which zone each motion overlay occupies right now
+              zoneByMotionId: Object.fromEntries(
+                overlays
+                  .filter(o => classifyOverlay(o) === 'motion' && !o.fullCoverage)
+                  .map(o => [o.id, zoneOfPosition(o.position)])
+              ),
+            },
+            // ── PHASE 2: Transitions on the timeline ──
+            transitions: transitions.map(t => ({
+              id: t.id, kind: t.kind,
+              at: +t.at.toFixed(2), duration: +t.duration.toFixed(2),
+              rate: t.rate, label: t.label || null,
+            })),
             currentThumbnail: thumbnail
               ? { url: thumbnail.url, headline: thumbnail.headline, duration: thumbnail.duration }
               : null,
@@ -2543,6 +2640,79 @@ const ChatcutAI = () => {
     return 'overlay';
   };
 
+  // ── Phase 2: Motion-zone classification + collision detection ──────
+  // Buckets a position {x,y} (0–100%) into a named screen zone so we can detect
+  // when two motion graphics share the SAME ZONE at the SAME TIME (visual chaos).
+  // Zones cover the whole canvas; we use 7 buckets that map to common placements.
+  const zoneOfPosition = (pos: { x: number; y: number } | undefined | null): string => {
+    if (!pos) return 'center';
+    const { x, y } = pos;
+    // Vertical bands: top (<35), middle (35-65), bottom (>65)
+    const band = y < 35 ? 'top' : y > 65 ? 'bottom' : 'mid';
+    // Horizontal bands: left (<35), center (35-65), right (>65)
+    const col = x < 35 ? 'left' : x > 65 ? 'right' : 'center';
+    if (band === 'mid' && col === 'center') return 'center';
+    return `${band}-${col}`;
+  };
+
+  // Returns a Set of overlay IDs that share a zone with another motion overlay during overlapping time.
+  // Also returns a list of pairs so Marco can act on specific (a,b) collisions.
+  const motionZoneCollisions = useMemo(() => {
+    const motion = overlays.filter(o => classifyOverlay(o) === 'motion' && !o.fullCoverage && !o.hidden);
+    const conflicts = new Set<string>();
+    const pairs: { a: string; b: string; zone: string; overlapStart: number; overlapEnd: number }[] = [];
+    for (let i = 0; i < motion.length; i++) {
+      for (let j = i + 1; j < motion.length; j++) {
+        const a = motion[i]; const b = motion[j];
+        const zoneA = zoneOfPosition(a.position);
+        const zoneB = zoneOfPosition(b.position);
+        if (zoneA !== zoneB) continue;
+        const overlapStart = Math.max(a.start, b.start);
+        const overlapEnd = Math.min(a.start + a.duration, b.start + b.duration);
+        if (overlapEnd - overlapStart > 0.05) {
+          conflicts.add(a.id); conflicts.add(b.id);
+          pairs.push({ a: a.id, b: b.id, zone: zoneA, overlapStart, overlapEnd });
+        }
+      }
+    }
+    return { ids: conflicts, pairs };
+  }, [overlays]);
+
+  // Find the first free zone for a new motion graphic at [start, end] given a preferred zone.
+  // Falls back through a sensible order so Marco's "everything in lower_third" never triple-stacks.
+  const findFreeMotionZone = (preferredZone: string, start: number, end: number): string => {
+    const zoneFallbacks: Record<string, string[]> = {
+      'top-center':    ['top-center', 'top-right', 'top-left', 'mid-right', 'mid-left'],
+      'top-left':      ['top-left', 'mid-left', 'top-center', 'bottom-left'],
+      'top-right':     ['top-right', 'mid-right', 'top-center', 'bottom-right'],
+      'mid-left':      ['mid-left', 'top-left', 'bottom-left', 'top-center'],
+      'mid-right':     ['mid-right', 'top-right', 'bottom-right', 'top-center'],
+      'center':        ['center', 'mid-right', 'mid-left', 'top-center'],
+      'bottom-left':   ['bottom-left', 'mid-left', 'top-left'],
+      'bottom-center': ['bottom-center', 'top-center', 'mid-right', 'mid-left'],
+      'bottom-right':  ['bottom-right', 'mid-right', 'top-right'],
+    };
+    const order = zoneFallbacks[preferredZone] || [preferredZone, 'top-center', 'mid-right', 'mid-left', 'bottom-center'];
+    const motion = overlays.filter(o => classifyOverlay(o) === 'motion' && !o.fullCoverage && !o.hidden);
+    const occupied = (zone: string) =>
+      motion.some(o => zoneOfPosition(o.position) === zone &&
+        Math.max(o.start, start) < Math.min(o.start + o.duration, end) - 0.05);
+    for (const z of order) if (!occupied(z)) return z;
+    return preferredZone;
+  };
+
+  const zoneToPosition = (zone: string): { x: number; y: number } => ({
+    'top-left':      { x: 22, y: 16 },
+    'top-center':    { x: 50, y: 16 },
+    'top-right':     { x: 78, y: 16 },
+    'mid-left':      { x: 22, y: 50 },
+    'center':        { x: 50, y: 50 },
+    'mid-right':     { x: 78, y: 50 },
+    'bottom-left':   { x: 22, y: 78 },
+    'bottom-center': { x: 50, y: 82 },
+    'bottom-right':  { x: 78, y: 78 },
+  }[zone] || { x: 50, y: 50 });
+
   const toggleTrackMute = (track: 'v1' | 'v2' | 'a1') => {
     setTrackMuted(prev => {
       const next = { ...prev, [track]: !prev[track] };
@@ -2803,6 +2973,28 @@ const ChatcutAI = () => {
       videoRef.current.muted = trackMuted.v1;
     }
   }, [activeBRoll, trackMuted.v1]);
+
+  // ── Phase 2: Apply speed_ramp transitions to videoRef.playbackRate during their window.
+  // We do NOT touch playbackRate when no speed_ramp is active so other features keep working.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const active = transitions.find(t =>
+      t.kind === 'speed_ramp' && currentTime >= t.at && currentTime < t.at + t.duration
+    );
+    const targetRate = active?.rate ?? 1;
+    if (Math.abs(v.playbackRate - targetRate) > 0.01) v.playbackRate = targetRate;
+  }, [currentTime, transitions]);
+
+  // Find the active visual transition (fade/dip/zoom/whip) at the current playhead so we
+  // can render its CSS effect on top of the preview wrapper.
+  const activeVisualTransition = useMemo(() => {
+    return transitions.find(t =>
+      t.kind !== 'speed_ramp' &&
+      currentTime >= t.at &&
+      currentTime < t.at + t.duration
+    ) || null;
+  }, [currentTime, transitions]);
 
   return (
     <Layout>
@@ -3583,6 +3775,45 @@ const ChatcutAI = () => {
                         ))
                       }
 
+                      {/* ── Phase 2: Visual transition layer (fade / dip / zoom / whip).
+                          Pointer-events off so overlays underneath remain interactive. */}
+                      {activeVisualTransition && (() => {
+                        const t = activeVisualTransition;
+                        const progress = Math.min(1, Math.max(0, (currentTime - t.at) / Math.max(0.05, t.duration)));
+                        const bell = Math.sin(progress * Math.PI);
+                        if (t.kind === 'fade' || t.kind === 'dip_to_black') {
+                          const opacity = t.kind === 'dip_to_black'
+                            ? (progress < 0.4 ? progress / 0.4 : progress > 0.6 ? (1 - progress) / 0.4 : 1)
+                            : bell * 0.92;
+                          return <div className="absolute inset-0 z-[35] pointer-events-none bg-black" style={{ opacity }} />;
+                        }
+                        if (t.kind === 'whip') {
+                          return (
+                            <div
+                              className="absolute inset-0 z-[35] pointer-events-none"
+                              style={{
+                                background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%)',
+                                filter: `blur(${bell * 12}px)`,
+                                transform: `translateX(${(progress - 0.5) * 60}%)`,
+                              }}
+                            />
+                          );
+                        }
+                        if (t.kind === 'zoom') {
+                          return (
+                            <div
+                              className="absolute inset-0 z-[35] pointer-events-none"
+                              style={{
+                                boxShadow: `inset 0 0 ${40 + bell * 80}px ${20 + bell * 40}px rgba(0,0,0,${0.3 + bell * 0.4})`,
+                                transform: `scale(${1 + bell * 0.04})`,
+                                transformOrigin: 'center',
+                              }}
+                            />
+                          );
+                        }
+                        return null;
+                      })()}
+
                       {/* Live caption overlay – constrained to video bounds, always on top */}
                       {captionSettings.enabled && transcriptSegments.length > 0 && (() => {
                         const segs = transcriptSegments;
@@ -3835,6 +4066,40 @@ const ChatcutAI = () => {
 
                   {timelineClips.length > 0 ? (
                     <div className="flex flex-col relative">
+                      {/* ── Phase 2: Transitions marker row ─────────────────── */}
+                      {transitions.length > 0 && (
+                        <div className="flex items-center h-7 border-b border-border/50 group hover:bg-muted/20">
+                          <div className="w-[100px] flex-shrink-0 flex items-center gap-1 px-2" title="Scene transitions (fade, dip, zoom, speed-ramp, whip)">
+                            <span className="text-[9px] font-semibold text-amber-400 truncate">Transitions</span>
+                          </div>
+                          <div className="flex-1 relative h-5 mx-1 bg-muted/10 rounded">
+                            {transitions.map(t => {
+                              const left = duration > 0 ? (t.at / duration) * 100 : 0;
+                              const width = duration > 0 ? Math.max(1.5, (t.duration / duration) * 100) : 2;
+                              return (
+                                <div
+                                  key={t.id}
+                                  className="absolute top-0 bottom-0 rounded bg-amber-500/40 border border-amber-500/70 hover:bg-amber-500/60 cursor-pointer flex items-center justify-center group/tx"
+                                  style={{ left: `${left}%`, width: `${width}%` }}
+                                  onClick={() => seekTo(t.at)}
+                                  title={`${t.kind}${t.rate ? ` @ ${t.rate}×` : ''} — ${t.duration.toFixed(1)}s @ ${t.at.toFixed(1)}s${t.label ? ` · ${t.label}` : ''}`}
+                                >
+                                  <span className="text-[8px] font-bold text-amber-100 truncate px-0.5">
+                                    {t.kind === 'speed_ramp' ? `${t.rate || 0.5}×` : t.kind === 'dip_to_black' ? 'dip' : t.kind}
+                                  </span>
+                                  <button
+                                    className="hidden group-hover/tx:flex absolute -top-1.5 -right-1.5 w-3 h-3 items-center justify-center rounded-full bg-destructive text-white text-[8px] z-10"
+                                    onClick={(e) => { e.stopPropagation(); setTransitions(prev => prev.filter(x => x.id !== t.id)); }}
+                                    title="Remove transition"
+                                  >×</button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="w-10 flex-shrink-0" />
+                        </div>
+                      )}
+
                       {/* ── Three overlay tracks (Motion / Image / Overlay) ─────────────────
                           Each track always stays on the timeline so users can see what's there.
                           The eye toggle only suppresses preview rendering.                       */}
