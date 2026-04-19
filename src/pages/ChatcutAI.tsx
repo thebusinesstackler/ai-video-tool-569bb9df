@@ -1120,7 +1120,7 @@ const ChatcutAI = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [user, draftId, draftName, videoUrl, transcript, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, messages, toast]);
+  }, [user, draftId, draftName, videoUrl, transcript, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, messages, toast, transitions, sfxClips, duckEnabled, duckStrength]);
 
   const loadDraft = useCallback(async (id: string) => {
     if (!user) return;
