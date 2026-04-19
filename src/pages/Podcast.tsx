@@ -1335,14 +1335,20 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                     <h1 className="text-2xl font-bold">Bulk Generate</h1>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Ask Marcus to "Plan 10 Videos" → review → select → bulk render with one click.
+                    Ask Marcus to "Plan 10 Videos" → he'll cast a different AI Twin per video → review → bulk render.
                   </p>
                 </div>
 
-                {!selectedTwin && (
+                {twins.length === 0 ? (
+                  <Card className="border-dashed border-destructive/40">
+                    <CardContent className="p-3 text-xs text-muted-foreground">
+                      ⚠️ You need at least one AI Twin to run a bulk content batch.
+                    </CardContent>
+                  </Card>
+                ) : !selectedTwin && bulkItems.some(i => !i.assignedTwinId) && (
                   <Card className="border-dashed border-primary/30">
                     <CardContent className="p-3 text-xs text-muted-foreground">
-                      ⚠️ Pick a character on the <button className="underline text-primary" onClick={() => setActiveTab('talking-head')}>Single tab</button> first.
+                      ⚠️ Some plans have no twin assigned. Pick a default character on the <button className="underline text-primary" onClick={() => setActiveTab('talking-head')}>Single tab</button> as a fallback.
                     </CardContent>
                   </Card>
                 )}
