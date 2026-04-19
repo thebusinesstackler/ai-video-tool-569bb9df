@@ -1142,6 +1142,9 @@ const ChatcutAI = () => {
       setOverlays(ts.overlays || []);
       setBRollClips(ts.bRollClips || []);
       setTransitions(Array.isArray(ts.transitions) ? ts.transitions : []);
+      setSfxClips(Array.isArray(ts.sfxClips) ? ts.sfxClips : []);
+      if (typeof ts.duckEnabled === 'boolean') setDuckEnabled(ts.duckEnabled);
+      if (typeof ts.duckStrength === 'number') setDuckStrength(ts.duckStrength);
       if (ts.captionSettings) setCaptionSettings(ts.captionSettings);
       if (ts.thumbnail) setThumbnail(ts.thumbnail);
     }
