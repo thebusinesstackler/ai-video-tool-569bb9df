@@ -2624,14 +2624,10 @@ const ChatcutAI = () => {
               fontColor: captionSettings.fontColor,
               background: captionSettings.background,
             },
-            // ── SAFE ZONES (avoid placing overlays here) ───────────────────
-            // Coordinates are 0–100% (x, y, width, height) of the preview frame.
-            safeZones: [
-              // Caption strip — only blocked when captions are enabled
-              ...(captionSettings.enabled ? [{ name: 'caption_strip', x: 10, y: 78, width: 80, height: 18, reason: 'Karaoke captions render here' }] : []),
-              // Assumed face zone for talking-head footage (center, slightly upper)
-              { name: 'face_assumed', x: 30, y: 20, width: 40, height: 50, reason: 'Likely speaker face — keep text/graphics off it' },
-            ],
+            // ── PHASE 4: Per-platform UI safe zones ─────────────────────────
+            // Replaces the old hard-coded list. Pulled from PLATFORM_SAFE_ZONES based on
+            // `targetPlatform`. Marco MUST avoid placing overlays inside these rectangles.
+            safeZones: getActiveSafeZones(),
             // ── KPI / STRATEGIC AUDIT ──────────────────────────────────────
             kpis: (() => {
               const hookOverlays = overlays.filter(o => (o.start || 0) < 2);
@@ -2668,7 +2664,14 @@ const ChatcutAI = () => {
             recentAction: aiUndoSnapshot ? { label: aiUndoSnapshot.label } : null,
             // ── USER INTENT SIGNALS ────────────────────────────────────────
             creatorMode,
-            targetPlatform: reelPreview ? 'reels-shorts-tiktok' : 'youtube-landscape',
+            // PHASE 4: Now driven by user-selectable targetPlatform state, not just reelPreview.
+            targetPlatform,
+            // Number of A/B variant sets currently on the timeline (Marco can reference these by id).
+            variantSets: variantSets.map(v => ({
+              id: v.id, kind: v.kind, label: v.label || null,
+              activeIndex: v.activeIndex,
+              variants: v.items.map(it => ({ id: it.id, label: it.label, text: it.overlay?.text || '', position: it.overlay?.position || null })),
+            })),
             // ── VISION INTEL (Phase 1: Marco's eyes) ───────────────────────
             // Detected subjects (product/face/text/logo) per keyframe + computed
             // occlusions (which overlay covers which subject) + contrast flags.
@@ -2933,6 +2936,56 @@ const ChatcutAI = () => {
     if (o.renderMode === 'image' || (!!o.imageUrl && o.renderMode !== 'dom')) return 'image';
     return 'overlay';
   };
+
+  // ── Phase 4: Per-platform UI safe zones ────────────────────────────
+  // Each zone is a rectangle (in % of preview frame) where the platform's NATIVE UI
+  // (username, action bar, captions, subscribe button) covers the video. Marco MUST
+  // avoid placing overlays inside these rectangles or they'll be hidden in-app.
+  // Coordinates are calibrated to a 9:16 vertical canvas; YouTube uses 16:9.
+  const PLATFORM_SAFE_ZONES: Record<TargetPlatform, Array<{ name: string; x: number; y: number; width: number; height: number; reason: string }>> = {
+    tiktok: [
+      { name: 'tiktok_username',   x: 2,  y: 78, width: 60, height: 8,  reason: 'TikTok username + caption text overlays here in-feed' },
+      { name: 'tiktok_right_rail', x: 86, y: 35, width: 14, height: 55, reason: 'TikTok like/comment/share/bookmark icons stacked on right' },
+      { name: 'tiktok_bottom_nav', x: 0,  y: 92, width: 100, height: 8, reason: 'TikTok bottom navigation tabs' },
+      { name: 'tiktok_top_search', x: 0,  y: 0,  width: 100, height: 6, reason: 'TikTok top "For You / Following" tabs + search' },
+    ],
+    reels: [
+      { name: 'reels_username',    x: 2,  y: 80, width: 65, height: 6,  reason: 'Instagram Reels username + audio name' },
+      { name: 'reels_caption',     x: 2,  y: 86, width: 65, height: 6,  reason: 'Instagram Reels caption strip' },
+      { name: 'reels_right_rail',  x: 88, y: 30, width: 12, height: 60, reason: 'Reels like/comment/share/remix icons on right' },
+      { name: 'reels_top_bar',     x: 0,  y: 0,  width: 100, height: 5, reason: 'Reels top header' },
+    ],
+    shorts: [
+      { name: 'shorts_username',   x: 2,  y: 76, width: 70, height: 6,  reason: 'YouTube Shorts channel name + handle' },
+      { name: 'shorts_caption',    x: 2,  y: 82, width: 70, height: 6,  reason: 'YouTube Shorts video title' },
+      { name: 'shorts_right_rail', x: 88, y: 30, width: 12, height: 60, reason: 'Shorts like/dislike/comment/share/remix stack' },
+      { name: 'shorts_subscribe',  x: 35, y: 89, width: 30, height: 8,  reason: 'Shorts subscribe / channel avatar bottom-center' },
+      { name: 'shorts_progress',   x: 0,  y: 97, width: 100, height: 3, reason: 'Shorts progress bar' },
+    ],
+    youtube: [
+      { name: 'yt_player_controls', x: 0,  y: 88, width: 100, height: 12, reason: 'YouTube player chrome appears bottom 12% on hover' },
+      { name: 'yt_lower_third_zone',x: 60, y: 80, width: 40, height: 8,  reason: 'YouTube end-screen cards land here in last 20s' },
+    ],
+    'youtube-landscape': [
+      { name: 'yt_player_controls', x: 0,  y: 88, width: 100, height: 12, reason: 'YouTube player chrome appears bottom 12% on hover' },
+    ],
+  };
+
+  // Build the active safe-zone list = platform-specific zones + caption strip (if enabled)
+  // + an assumed face zone for talking-head footage. Marco reads this in `context.safeZones`.
+  const getActiveSafeZones = useCallback(() => {
+    const platform = PLATFORM_SAFE_ZONES[targetPlatform] || PLATFORM_SAFE_ZONES.tiktok;
+    const captionZone = captionSettings.enabled
+      ? [{ name: 'caption_strip', x: 10, y: 78, width: 80, height: 18, reason: 'Karaoke captions render here' }]
+      : [];
+    return [
+      ...platform,
+      ...captionZone,
+      { name: 'face_assumed', x: 30, y: 20, width: 40, height: 50, reason: 'Likely speaker face — keep text/graphics off it' },
+    ];
+    // PLATFORM_SAFE_ZONES is a stable const at module scope of the component.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetPlatform, captionSettings.enabled]);
 
   // ── Phase 2: Motion-zone classification + collision detection ──────
   // Buckets a position {x,y} (0–100%) into a named screen zone so we can detect
