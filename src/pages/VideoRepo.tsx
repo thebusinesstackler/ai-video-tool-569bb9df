@@ -33,6 +33,8 @@ import {
 } from 'lucide-react';
 import { ProductPickerDialog, type SelectedProductContext } from '@/components/ProductPickerDialog';
 import { FrameExtractorDialog } from '@/components/FrameExtractorDialog';
+import { ARCHETYPE_LIST, CONTENT_ARCHETYPES, buildArchetypeBlock, type ContentArchetypeId } from '@/data/contentArchetypes';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -111,6 +113,7 @@ const VideoRepo = () => {
   const [productPickerOpen, setProductPickerOpen] = useState(false);
   const [selectedProductCtx, setSelectedProductCtx] = useState<SelectedProductContext | null>(null);
   const [inputMode, setInputMode] = useState<'i2v' | 't2v'>('i2v');
+  const [contentStyle, setContentStyle] = useState<ContentArchetypeId>('auto');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
