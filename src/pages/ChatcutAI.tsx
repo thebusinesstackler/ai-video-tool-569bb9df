@@ -223,6 +223,23 @@ interface Transition {
   label?: string;
 }
 
+/**
+ * Phase 3: Sound effects placed on the timeline. Synthesized via Web Audio API
+ * (no external network calls) so they fire instantly and stay in sync with the
+ * playhead. Triggered when `currentTime` crosses `at` during playback.
+ */
+type SfxKind = 'whoosh' | 'ding' | 'pop' | 'swoosh' | 'thud' | 'click';
+interface SfxClip {
+  id: string;
+  kind: SfxKind;
+  at: number;
+  /** 0–1, default 0.6 */
+  volume?: number;
+  /** Optional human label / paired overlay id so the user knows what fired */
+  label?: string;
+  pairedOverlayId?: string;
+}
+
 type TimelineAction = {
   action: string;
   [key: string]: any;
