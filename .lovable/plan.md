@@ -1,94 +1,72 @@
 
-The user has three distinct complaints about motion graphics in Chatcut AI:
+## What's broken (from screenshots + code review)
 
-1. **Placement is broken** — all motion graphics stuck at the bottom, not respecting Marco's intended placements (top_banner, left_panel, right_panel, center_takeover, behind_subject, floating_note).
-2. **Design is bad** — needs better prompting and visual quality.
-3. **Categorization is wrong** — motion graphics are being lumped in with overlays. They should be a SEPARATE timeline track called "Motion" so Marco can manage them independently.
+**Screenshot 1 — "ON SWITCH" giant text bleeds outside frame**
+- That's `masked_typography` treatment (line 209 in SmartOverlay.tsx): `fontSize: clamp(80px, 22vw, 320px)`.
+- The 22vw is computed against the **viewport** width, not the preview wrapper. On a 1214px viewport that's ~267px text that easily exceeds the preview's narrow 9:16 frame.
+- Wrapper at line 3707 caps width at `min(86vw, 520px)` — but the inner massive text overflows it horizontally because letters are absolutely sized.
 
-Let me investigate the current state before planning.
+**Screenshot 2 — three motion graphics stacked + giant headline cut off**
+- "fdcusy" / "focus" headline overlaid on top of two SideNotes cards — Marco placed multiple motions in roughly the same zone.
+- Zone collision detection exists but only triggers on ADD, not on Marco's AUDIT pass — and only for items with explicit positions.
+- SideNotes default to `right_panel` but here both "Zero jitters" and "No crash" sit center — placement engine being bypassed because outer wrapper pins them to (pos.x, pos.y).
+- The kinetic headline's words (`6vw` font) wrap and clip because parent wrapper is too narrow.
 
-## Investigation needed
-- `src/pages/ChatcutAI.tsx` — how overlays vs motion graphics are stored/rendered/tracked
-- `src/components/chatcut/SmartOverlay.tsx` — the placement engine and design treatments
-- `supabase/functions/chatcut-director/index.ts` — Marco's prompt re: placement
-- `src/components/chatcut/TimelineOverlayTrack.tsx` — timeline rendering
+## Root causes (3)
 
-## Hypothesis
-Looking at recent memory:
-- `chatcut-marco-update-actions.md` says placement maps to position UNLESS position passed (position wins).
-- `chatcut-ai-smart-graphics.md` says SmartOverlay has a placement engine mapping semantic positions to absolute CSS with 8% safe-zone padding.
+1. **Viewport-relative sizing (`vw`/`vh`) inside a contained preview frame.** Every treatment uses `clamp(X, Yvw, Z)` which sizes against window width, not the preview element. This is the #1 cause of "outside the frame."
 
-Likely root causes:
-1. Overlays and motion graphics share the same `overlays` array — there's no separate `motionGraphics` array on the timeline. Marco's `add_motion_graphic` action probably just pushes into `overlays` with a `kind: 'motion'` flag.
-2. The placement engine in SmartOverlay may have a bug where unset placement defaults to `lower_third` (bottom).
-3. When Marco emits motion graphics, he's defaulting `placement: lower_third` because the prompt encourages it.
-4. The visual design quality needs tighter prompts AND better CSS treatments (padding, shadows, gradient backgrounds).
+2. **Wrapper width cap is too generous AND inner text isn't constrained.** `min(86vw, 520px)` allows 86% of viewport on small previews; large headlines and stat numbers overflow because they have no `max-width` themselves.
+
+3. **No safe-zone clamping on user-positioned graphics.** When Marco sets `position: {x: 78, y: 32}` and the card is wide, half of it goes off-screen because we don't clamp position against the rendered card width.
 
 ## Plan
 
-### Part A — Separate Motion track from Overlay track
-1. **Data model** (`src/pages/ChatcutAI.tsx`):
-   - Already have `OverlayItem` with optional flags. Introduce a clear `kind: 'text' | 'motion'` discriminator (default existing items to `'text'`).
-   - Keep one array `overlays` BUT split rendering & timeline display by kind. Alternative: introduce separate `motionGraphics` state. **Decision: split into two arrays** — `overlays` (text/captions) and `motionGraphics` (designed cards, kinetic, stat cards, CTAs). This is what the user is asking for.
-   - Migrate executor: `add_overlay` → push to `overlays`. `add_motion_graphic` → push to `motionGraphics`. `update_overlay` / `update_motion_graphic` → target correct array. `remove_*` likewise.
-   - Persist both arrays in `chatcut_drafts.timeline_state`.
+### A. Switch sizing from viewport units to container queries
+- Wrap the preview in a CSS container (`container-type: inline-size`).
+- Replace every `Xvw` in SmartOverlay treatments with `Xcqw` (container-query-width):
+  - `MaskedTypography`: `22vw` → `14cqw` (max 180px), opacity 0.6
+  - `KineticHeadline`: `6vw` → `5.5cqw` (max 56px)
+  - `StatCard` big number: `7vw` → `6cqw`
+  - `BulletStack` items: `2vw` / `3.2vw` → `2.4cqw` / `3.6cqw`
+  - `CtaLockup`: `3.4vw` → `3.2cqw`
 
-2. **Timeline UI** (`src/components/chatcut/TimelineOverlayTrack.tsx` + parent):
-   - Render TWO distinct tracks in the timeline: "Overlays" (T) row and "Motion" (M) row, each with their own color (overlays=blue, motion=purple).
-   - Each track is independently draggable / resizable.
+### B. Add hard max-width to every treatment
+- KineticHeadline: `maxWidth: '90%'` on the words container
+- MaskedTypography: `maxWidth: '90%'`, `wordBreak: 'keep-all'`, `overflow: 'hidden'`
+- BulletStack: already has `maxWidth: 720` — add `width: '100%'` and tighten to 90%
+- All cards: `maxWidth: 'min(420px, 86%)'`
 
-3. **Preview rendering**:
-   - Render motion graphics ABOVE overlays in z-index so they read as hero graphics.
-   - Both still go through SmartOverlay, but motion items get the Commercial Director treatment path always (force `treatment` if missing).
+### C. Smart wrapper sizing per treatment
+In `ChatcutAI.tsx` (line 3704-3711), make the wrapper width treatment-aware:
+- `masked_typography` / `kinetic_headline` → `width: 'min(88%, 680px)'` (hero text needs room)
+- `stat_card` / `lower_third_pro` / `floating_note` → `width: 'min(36%, 280px)'` (compact)
+- `side_notes` / `bullet_stack` → `width: 'min(40%, 320px)'`
+- `cta_lockup` → `width: 'auto'`, `maxWidth: '70%'`
+- `quote_pop` → `width: 'min(60%, 480px)'`
 
-### Part B — Fix placement so Marco can place ANYWHERE
-1. **SmartOverlay placement engine**:
-   - Currently: placement string → fixed CSS coordinates. PROBLEM: when Marco passes `placement: lower_third` for everything, they all stack at bottom.
-   - Fix: when `position` is explicitly set (x,y in 0-100%), USE IT and IGNORE placement preset. Currently this should work but verify.
-   - Add a wider variety of preset placements: `top_left`, `top_right`, `top_center`, `middle_left`, `middle_right`, `center`, `bottom_left`, `bottom_right`, plus existing semantic ones.
-   - Default placement for motion graphics: stop defaulting to `lower_third`. Use `top_banner` for hooks, `right_panel` for stats, `center` for CTAs based on `intent`.
+### D. Position clamping (keep graphics in frame)
+After computing `pos.x, pos.y` for the outer wrapper, clamp so the graphic respects safe zones:
+- Estimate half-width as a % of preview based on treatment (e.g. `stat_card` ≈ 18%, `kinetic_headline` ≈ 44%)
+- Clamp `pos.x` to `[halfW + 4, 96 - halfW]`, `pos.y` to `[8, 92]`
+- Same for platform-specific safe zones already defined.
 
-2. **Marco's prompt** (`supabase/functions/chatcut-director/index.ts`):
-   - Add explicit instruction: "You can place graphics ANYWHERE. Use the full canvas. Default placements by intent:
-     - hook → top_banner
-     - stat → right_panel or stat_card center
-     - benefit → left_panel or right_panel rotation
-     - proof/quote → center
-     - cta → center_takeover or bottom_center
-     - educational/multi_point → side panels
-     - emotional → floating_note off-center"
-   - Add: "Never stack 2+ motion graphics in the same placement zone unless they're sequential in time."
-   - Add: "When user complains 'all at bottom', proactively reposition using update_motion_graphic with new `position` coords."
-   - Add: "Use `position: {x, y}` (0-100%) for precise placement when needed — this overrides placement presets."
+### E. Fix stacking — auto-stagger motion graphics independently of overlays
+The current `staggeredOverlays` pre-compute groups all overlays together. Split it so motion graphics get their own collision pass per-zone, and re-snap any motion graphic whose collision is detected at *render time* (not just add time). When two motions overlap in the same time window AND their boxes intersect by >30%, push the lower-priority one (later `start`, lower intent priority) to its zone's fallback.
 
-### Part C — Better visual design
-1. **SmartOverlay treatments** (`src/components/chatcut/SmartOverlay.tsx`):
-   - Tighten typography: bigger, bolder, better letter-spacing on KineticHeadline.
-   - Add subtle gradient backgrounds (brand color → transparent) to StatCard, SideNotes, BulletStack so they feel premium not flat.
-   - Add backdrop-blur to card backgrounds so they read over busy footage.
-   - Add subtle entrance animation (slide+fade) so they feel motion-graphic-y.
-   - Add brand-colored accent bars/underlines on CTA and StatCard.
-   - Rounded corners more aggressive (rounded-2xl), drop shadows for depth.
-   - Add max-width constraints per placement so text doesn't sprawl.
-
-2. **Marco's prompt** for motion graphic content:
-   - "Keep text TIGHT: hook = 4-7 words, stat = number + 2-3 word label, benefit = 3-5 words. NEVER paragraphs."
-   - "subtext is optional and max 6 words."
-
-### Part D — Memory update
-Update `mem://features/ai-tools/chatcut-marco-update-actions.md` to document the split.
+### F. Tighten Marco's prompt
+In `chatcut-director/index.ts`:
+- Ban using `masked_typography` for words longer than 6 chars (overflows even with cqw).
+- Force max 1 motion graphic in `center` zone at any moment.
+- When emitting `add_motion_graphic`, REQUIRE `placement` field — never let it default.
 
 ## Files to edit
-1. `src/pages/ChatcutAI.tsx` — split state, executors, timeline rendering, persistence, payload to Marco
-2. `src/components/chatcut/SmartOverlay.tsx` — placement engine + visual treatments
-3. `src/components/chatcut/TimelineOverlayTrack.tsx` — separate Motion track
-4. `supabase/functions/chatcut-director/index.ts` — placement directives + design directives
-5. `.lovable/memory/features/ai-tools/chatcut-marco-update-actions.md` — document split
+1. `src/components/chatcut/SmartOverlay.tsx` — `cqw` units, max-widths, tighter clamps on every treatment
+2. `src/pages/ChatcutAI.tsx` — container-type on preview, treatment-aware wrapper width, position clamping, render-time motion collision re-snap
+3. `supabase/functions/chatcut-director/index.ts` — prompt rules for masked_typography length + required placement
+4. `.lovable/memory/features/ai-tools/chatcut-marco-update-actions.md` — document container-query sizing system
 
 ## Out of scope
-- Drag-and-drop reordering between Overlay and Motion tracks (user can delete + re-add)
-- Animated entrance/exit timing controls per item
-- Custom user-uploaded graphic templates
-
-## Risk
-- Existing drafts have everything in `overlays`. On load, auto-migrate items with `treatment` set → move to `motionGraphics` array. Items without treatment stay in overlays. This is a one-time migration on draft load.
+- Real-time text measurement (using estimated half-widths is good enough)
+- Re-rendering on preview resize beyond what container queries already give for free
+- Per-platform font scaling (cqw handles it)
