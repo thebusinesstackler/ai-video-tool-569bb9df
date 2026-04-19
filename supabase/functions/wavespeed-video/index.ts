@@ -14,7 +14,7 @@ interface WaveSpeedVideoParams {
   endFrameUrl?: string;
   audioUrl?: string;
   videoUrl?: string;
-  model?: 'wan-2.2' | 'alibaba/wan-2.5/text-to-video' | 'wan-2.5-i2v' | 'wan-2.5-a2v' | 'wan-2.6-i2v' | 'hunyuan-video' | 'seedream-v4' | 'vidu' | 'vidu-start-end' | 'seedance-i2v' | 'seedance-2.0' | 'seedance-2.0-i2v' | 'seedance-2.0-t2v' | 'veo3' | 'veo3-fast' | 'avatar-omni-human-1.5' | 'infinitetalk' | 'wan-animate' | 'video-face-swap' | 'keyframe-interpolation' | 'kling-v3.0-pro' | 'sora-2' | 'sora-2-pro' | 'alibaba/wan-2.7/video-edit' | 'alibaba/wan-2.5/video-extend';
+  model?: 'wan-2.2' | 'alibaba/wan-2.5/text-to-video' | 'wan-2.5-i2v' | 'wan-2.5-a2v' | 'wan-2.6-i2v' | 'hunyuan-video' | 'seedream-v4' | 'vidu' | 'vidu-start-end' | 'seedance-i2v' | 'veo3' | 'veo3-fast' | 'avatar-omni-human-1.5' | 'infinitetalk' | 'wan-animate' | 'video-face-swap' | 'keyframe-interpolation' | 'kling-v3.0-pro' | 'sora-2' | 'sora-2-pro' | 'alibaba/wan-2.7/video-edit' | 'alibaba/wan-2.5/video-extend';
   aspectRatio?: '16:9' | '9:16';
   seeds?: number;
   enableFallback?: boolean;
@@ -230,39 +230,6 @@ serve(async (req) => {
         }
         
         console.log('Using ByteDance Seedance V1 Lite I2V 720p for video generation');
-      } else if (params.model === 'seedance-2.0' || params.model === 'seedance-2.0-i2v' || params.model === 'seedance-2.0-t2v') {
-        // ByteDance Seedance 2.0 — premium tier, 4-15s, up to 1080p, native audio understanding
-        const hasImage = !!(params.imageUrls && params.imageUrls.length > 0) || !!params.startFrameUrl;
-        const useI2V = params.model === 'seedance-2.0-i2v' || (params.model === 'seedance-2.0' && hasImage);
-
-        // Clamp duration to allowed range: 4-15 seconds
-        const seedance2Duration = Math.max(4, Math.min(15, duration));
-        console.log(`Seedance 2.0: requested duration ${duration}s, using ${seedance2Duration}s (allowed: 4-15)`);
-
-        if (useI2V) {
-          apiEndpoint = 'https://api.wavespeed.ai/api/v3/bytedance/seedance-2.0/image-to-video';
-          requestBody = {
-            image: params.startFrameUrl || params.imageUrls?.[0],
-            prompt: params.prompt || 'Smooth cinematic motion, professional quality, broadcast-grade lighting',
-            duration: seedance2Duration,
-            resolution: '1080p',
-            aspect_ratio: params.aspectRatio || '9:16',
-          };
-          if (params.endFrameUrl) requestBody.last_image = params.endFrameUrl;
-          console.log('Using ByteDance Seedance 2.0 I2V (1080p) for video generation');
-        } else {
-          apiEndpoint = 'https://api.wavespeed.ai/api/v3/bytedance/seedance-2.0/text-to-video';
-          requestBody = {
-            prompt: params.prompt || 'Smooth cinematic motion, professional quality, broadcast-grade lighting',
-            duration: seedance2Duration,
-            resolution: '1080p',
-            aspect_ratio: params.aspectRatio || '9:16',
-          };
-          if (params.imageUrls && params.imageUrls.length > 0) {
-            requestBody.reference_images = params.imageUrls.slice(0, 9);
-          }
-          console.log('Using ByteDance Seedance 2.0 T2V (1080p) for video generation');
-        }
       } else if (params.model === 'veo3') {
         // VEO3 model — use I2V endpoint when image provided, T2V otherwise
         if (params.imageUrls && params.imageUrls.length > 0) {

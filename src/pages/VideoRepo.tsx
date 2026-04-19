@@ -107,10 +107,10 @@ const VideoRepo = () => {
   const [soraDuration, setSoraDuration] = useState<10 | 20>(10);
   const [useSoraPro, setUseSoraPro] = useState(false);
   const [soraProResolution, setSoraProResolution] = useState<'720p' | '1080p'>('720p');
-  const [useSeedance, setUseSeedance] = useState(false);
   const [lockProduct, setLockProduct] = useState(false);
   const [productPickerOpen, setProductPickerOpen] = useState(false);
   const [selectedProductCtx, setSelectedProductCtx] = useState<SelectedProductContext | null>(null);
+  const [inputMode, setInputMode] = useState<'i2v' | 't2v'>('i2v');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -167,7 +167,9 @@ const VideoRepo = () => {
   const [isImportingFromUrl, setIsImportingFromUrl] = useState(false);
   const importVideoInputRef = useRef<HTMLInputElement>(null);
 
-  const hasComposerInput = Boolean(prompt.trim() || referenceVideoUrl || productImageUrl);
+  const hasComposerInput = inputMode === 't2v'
+    ? Boolean(prompt.trim())
+    : Boolean(prompt.trim() || referenceVideoUrl || productImageUrl);
   const hasFollowUpInput = Boolean(followUpPrompt.trim() || followUpImageUrl);
   const conversationComplete = messages.some(m => m.videoResult) || messages.some(m => m.content.includes('```video-prompt'));
   const showFollowUpComposer = conversationComplete && !isAnalyzing && !isGenerating;
@@ -438,7 +440,11 @@ const VideoRepo = () => {
       return;
     }
     const trimmedPrompt = prompt.trim();
-    if (!trimmedPrompt && !referenceVideoUrl && !productImageUrl) return;
+    if (inputMode === 't2v') {
+      if (!trimmedPrompt) return;
+    } else {
+      if (!trimmedPrompt && !referenceVideoUrl && !productImageUrl) return;
+    }
 
     // Upload files to storage for persistence
     let persistentVideoUrl: string | null = null;
@@ -517,49 +523,35 @@ const VideoRepo = () => {
         contentParts.push({ type: 'image_url', image_url: { url: productImageUrl } });
       }
 
-      const systemPrompt = `You are an elite UGC ad director and Sora-2 prompt engineer. Your job is to write video prompts that produce FINISHED, broadcast-ready short-form ads — not generic clips. Every prompt you write must:
-
-• Open with a SCROLL-STOPPING DYNAMIC HOOK in the first 1.5s (visual surprise + spoken pattern-interrupt). Vary the hook type each time — never repeat the same opener style. Rotate across: bold claim, contrarian take, problem-callout, "POV:" shot, fast cut montage, in-your-face close-up, on-screen text reveal, motion-jump cut, ASMR product reveal, before/after flash.
-• Tell a COMPLETE micro-story with a clear arc: Hook → Problem/Tension → Reveal/Solution (product) → Proof/Demo → CTA. The story must MAKE SENSE end-to-end with no missing beats.
-• Specify the CHARACTER in detail: age, gender, ethnicity, hair, wardrobe, energy, micro-expressions, hand gestures, body language. If a reference frame shows a person, MATCH that look exactly.
-• Specify the VOICE explicitly: gender, age, accent (e.g. warm American female late-20s), tone (confident / conspiratorial / excited), pacing (~2.5 words/sec), mic quality ("clean broadcast voiceover, zero room echo, studio-grade clarity, no muffled audio, no static, no low-bitrate compression"). Sora-2 must produce SYNCED, HIGH-QUALITY DIALOGUE — never mumbled, never low-bitrate.
-• Write the EXACT spoken script in quotes inside the prompt so Sora-2 lip-syncs the right words. Pace it to fit the duration (~2.5 words/second).
-• Include cinematography: camera (handheld iPhone selfie / gimbal push-in / locked tripod / overhead), lens feel, lighting (golden hour, bright daylight window, ring light), color palette, transitions, on-screen text/captions style.
-• Vary the CREATIVE STYLE every generation. Never default to the same talking-head format. Pick intentionally from: Founder POV selfie, Street vox-pop, Day-in-the-life vlog, ASMR ritual / unboxing, Mockumentary skit, Before/After transformation, Problem-Agitate-Solve (PAS), Kinetic typography over b-roll, Testimonial w/ supers, Demo + voiceover, Lifestyle cinematic, Comedy sketch.
-• Anchor product fidelity: when a product image is provided, instruct Sora-2 to keep the bottle/label/colors PIXEL-EXACT to the reference — no logo drift, no color shift.
-• End with a punchy CTA on screen + spoken (URL, "shop now", brand name).
-
-You write prompts that are 180–280 words — long enough to direct every beat, short enough for Sora-2 to execute cleanly. Never produce a generic 50-word prompt.`;
+      const systemPrompt = inputMode === 't2v'
+        ? `You are a UGC ad video strategist and creative director specializing in pure text-to-video generation (no product image required). Your job is to translate the user's idea into a cinematic, scroll-stopping ad concept built from scratch. Focus on scene/concept storytelling: vivid setting, character casting, action choreography, lighting mood, camera movement, sound design. Enforce: a dynamic hook in the first 1.5s, a spoken voice script paced at ~2.5 words/second, studio-clean broadcast audio, and a varied creative style — never default to the same format twice (rotate Founder POV, ASMR Ritual, PAS, Mockumentary, Before/After, Kinetic Typography, Day-in-the-Life, etc.).`
+        : `You are a UGC ad video strategist and visual analyst. When given reference video frames, study them carefully: identify the hook technique (first 3 seconds), pacing rhythm, camera movements, talent actions, lighting style, text overlays, and transition patterns. Use these insights to craft a new video that captures the same energy and conversion potential.`;
 
       const productContextBlock = selectedProductCtx
-        ? `\n\n**FEATURED PRODUCT (must appear naturally in the ad — pixel-exact to reference image):**
+        ? `\n\n**FEATURED PRODUCT (must appear naturally in the ad):**
 - Name: ${selectedProductCtx.productName}
 ${selectedProductCtx.description ? `- Description: ${selectedProductCtx.description}` : ''}
 ${selectedProductCtx.benefits && selectedProductCtx.benefits.length ? `- Key benefits: ${selectedProductCtx.benefits.join(', ')}` : ''}
 ${selectedProductCtx.targetAudience ? `- Target audience: ${selectedProductCtx.targetAudience}` : ''}
-- Reference image: provided above (lock label, bottle shape, colors — no AI drift)`
+- Reference image: provided above (treat as the hero product to feature)`
         : '';
 
       const analysisInstruction = `User request: "${userMsg.content}"
-Target duration: ${soraDuration}s. Aspect ratio: 9:16 vertical.
 
-${videoFrames.length > 0 ? `Reference video: "${referenceVideoName}" — ${videoFrames.length} key frames provided above. Reverse-engineer what makes it work, then BEAT it — same energy, fresher execution, NOT a copy.` : ''}
-${productImageUrl ? 'Product image provided above — incorporate this product naturally and keep it pixel-exact.' : ''}${productContextBlock}
+${videoFrames.length > 0 ? `Reference video: "${referenceVideoName}" — I've provided ${videoFrames.length} key frames above. Study them carefully.` : ''}
+${productImageUrl ? 'Product image provided above — incorporate this product naturally.' : ''}${productContextBlock}
 
-Provide a complete creative brief, then the final prompt:
+Provide:
+1. **Reference Analysis**: What you observed in the reference frames — hook type, pacing, camera style, talent energy, visual effects
+2. **Hook Strategy**: How the first 3 seconds will stop the scroll (based on what works in the reference)
+3. **Scene-by-Scene Script**: A 15-30 second UGC-style script with specific visual directions inspired by the reference
+4. **Product Integration**: How and when the product appears naturally
+5. **CTA Strategy**: Closing technique for maximum conversion
 
-1. **Reference Analysis** — hook technique, pacing rhythm, camera style, talent energy, visual effects, audio quality observed in the reference (or, if no reference, the chosen creative style and why).
-2. **Chosen Creative Style** — pick ONE format from the list (Founder POV / Vox-pop / ASMR / PAS / Mockumentary / Before-After / Kinetic Typography / Demo / Testimonial / Lifestyle Cinematic / Comedy). Explicitly say which one and why it fits THIS product. Do NOT default to the last style used.
-3. **Dynamic Hook (first 1.5s)** — write the EXACT opening visual + opening spoken line. It must pattern-interrupt the scroll.
-4. **Scene-by-Scene Script** — break the ${soraDuration}s into beats with timestamps. For EACH beat: visual, camera, talent action, exact dialogue (quoted), on-screen text. Pace at ~2.5 words/sec so the story is fully told within the duration.
-5. **Character & Voice Casting** — full physical description of the on-camera talent + voice profile (gender, age, accent, tone, energy). Voice MUST be specified as "studio-clean broadcast quality, perfectly lip-synced, no muffled audio, no compression artifacts, no low-bitrate static."
-6. **Product Integration** — exact moment(s) the product appears, how it's held, label visibility, hero shot framing.
-7. **CTA** — final on-screen text + final spoken line.
-
-Then provide the final **VIDEO PROMPT** block — this is what Sora-2 will execute. It MUST be 180–280 words, contain the exact spoken script in quotes, lock the character description, lock the product fidelity, and lock the audio quality directive ("clean studio-grade voiceover, perfectly lip-synced, no muffled or low-bitrate audio").
+Then provide a final **VIDEO PROMPT** block:
 
 \`\`\`video-prompt
-[Your 180–280 word Sora-2 prompt: ENVIRONMENT + CHARACTER (full physical) + WARDROBE + EXACT SPOKEN SCRIPT IN QUOTES (paced at ~2.5 words/sec to fully fit ${soraDuration}s) + VOICE PROFILE (gender, age, accent, tone, "studio-clean broadcast audio, perfectly synced, no muffling, no low-bitrate compression") + CAMERA (movement, lens, framing) + LIGHTING + COLOR + PACING (beat-by-beat) + PRODUCT PLACEMENT (pixel-exact to reference) + ON-SCREEN TEXT + CTA. Open with the dynamic hook in the first 1.5s. Tell a complete story with a clear arc: Hook → Tension → Reveal → Proof → CTA. Vary the style from previous generations — pick a different creative format than the most recent video.]
+[Your detailed video generation prompt — 80-150 words covering environment, character, action, camera, lighting, product placement, pacing. Incorporate the visual style from the reference.]
 \`\`\``;
 
       contentParts.push({ type: 'text', text: analysisInstruction });
@@ -619,13 +611,13 @@ Then provide the final **VIDEO PROMPT** block — this is what Sora-2 will execu
         };
         setMessages((prev) => [...prev, generatingMsg]);
 
-        const useProductLock = lockProduct && !!persistentImageUrl;
-        const generationModel = useSeedance
-          ? 'seedance-2.0'
-          : (useProductLock ? 'wan-2.5-i2v' : (useSoraPro ? 'sora-2-pro' : 'sora-2'));
-        if (useSeedance) {
-          setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: '🌊 Generating with ByteDance Seedance 2.0 (1080p) — premium motion fidelity, native audio understanding...' } : m));
-        } else if (useProductLock) {
+        const isT2V = inputMode === 't2v' || !persistentImageUrl;
+        const useProductLock = lockProduct && !!persistentImageUrl && !isT2V;
+        // T2V always routes to sora-2-pro (sora-2 requires an image)
+        const generationModel = useProductLock
+          ? 'wan-2.5-i2v'
+          : (isT2V ? 'sora-2-pro' : (useSoraPro ? 'sora-2-pro' : 'sora-2'));
+        if (useProductLock) {
           setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: '🎬 Generating with Wan 2.5 i2v (product-locked) for pixel-accurate product fidelity...' } : m));
         } else if (useSoraPro) {
           setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `⭐ Generating with Sora 2 PRO (${soraProResolution}, premium tier) — physics-aware, synchronized audio, broadcast quality...` } : m));
@@ -777,22 +769,14 @@ Previous video prompt was:
 ${lastVideoPrompt || 'N/A'}
 \`\`\`
 
-Revise the script per the user's feedback. The revised prompt MUST still:
-- Open with a dynamic scroll-stopping hook in the first 1.5s (use a DIFFERENT hook style than the previous version unless the user asked to keep it).
-- Tell a complete story (Hook → Tension → Reveal → Proof → CTA).
-- Pick a fresh creative style if the user wants variety (Founder POV / Vox-pop / ASMR / PAS / Mockumentary / Before-After / Kinetic Typography / Demo / Testimonial / Lifestyle Cinematic / Comedy).
-- Lock the character description and product fidelity (pixel-exact to reference image).
-- Quote the EXACT spoken script (paced ~2.5 words/sec to fit the duration).
-- Specify voice as "studio-clean broadcast quality, perfectly lip-synced, no muffled or low-bitrate audio."
-
-Provide the updated **VIDEO PROMPT** block (180–280 words):
+Based on the user's feedback, revise the script and provide an updated **VIDEO PROMPT** block:
 
 \`\`\`video-prompt
-[Revised Sora-2 prompt with all the elements above.]
+[Your revised detailed video generation prompt — 80-150 words. Incorporate the user's requested changes.]
 \`\`\``,
       });
 
-      const systemPrompt = `You are an elite UGC ad director iterating on a previous video. Apply the user's feedback while keeping every prompt broadcast-ready: dynamic hook, complete story arc, detailed character, exact spoken script in quotes, studio-clean voice directive ("perfectly lip-synced, no muffled audio, no low-bitrate compression"), pixel-exact product fidelity, and intentional creative-style variety. Never produce a generic short prompt — always 180–280 words.`;
+      const systemPrompt = `You are a UGC ad video strategist helping iterate on a video script. The user has already generated a video and wants to make changes. Review the conversation history, understand their feedback, and provide a revised script with an updated video-prompt block. Be concise — focus on what changed and why.`;
 
       const { data: aiData, error: aiError } = await supabase.functions.invoke('ai', {
         body: {
@@ -845,9 +829,7 @@ Provide the updated **VIDEO PROMPT** block (180–280 words):
         setMessages(prev => [...prev, generatingMsg]);
 
         const useProductLockFollow = lockProduct && !!newImageUrl;
-        const followModel = useSeedance
-          ? 'seedance-2.0'
-          : (useProductLockFollow ? 'wan-2.5-i2v' : (useSoraPro ? 'sora-2-pro' : 'sora-2'));
+        const followModel = useProductLockFollow ? 'wan-2.5-i2v' : (useSoraPro ? 'sora-2-pro' : 'sora-2');
         try {
           const taskId = await createWaveSpeedVideo({
             prompt: newVideoPrompt,
@@ -1552,9 +1534,29 @@ Provide the updated **VIDEO PROMPT** block (180–280 words):
                   <>
                     {/* Ad Video Composer */}
                     <div className="px-3 py-3 border-b border-border/50 bg-background/70">
-                      <div className="mb-1.5 text-xs font-medium text-muted-foreground uppercase tracking-[0.18em]">Prompt</div>
+                      <div className="flex items-center gap-1 mb-2 p-0.5 rounded-lg bg-muted/60 w-fit">
+                        <button
+                          type="button"
+                          onClick={() => setInputMode('i2v')}
+                          className={`px-2.5 py-1 text-xs rounded-md transition-colors ${inputMode === 'i2v' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                          🖼 Image → Video
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setInputMode('t2v')}
+                          className={`px-2.5 py-1 text-xs rounded-md transition-colors ${inputMode === 't2v' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                          📝 Text → Video
+                        </button>
+                      </div>
+                      <div className="mb-1.5 text-xs font-medium text-muted-foreground uppercase tracking-[0.18em]">
+                        {inputMode === 't2v' ? 'Describe your video' : 'Prompt'}
+                      </div>
                       <Textarea
-                        placeholder="Upload your product image or reference video and describe your idea"
+                        placeholder={inputMode === 't2v'
+                          ? 'Describe your ad concept — setting, character, action, mood. Marco will turn it into a cinematic Sora-2 Pro directive.'
+                          : 'Upload your product image or reference video and describe your idea'}
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
                         onKeyDown={handleKeyDown}
@@ -1684,18 +1686,6 @@ Provide the updated **VIDEO PROMPT** block (180–280 words):
                         <Button
                           type="button"
                           size="sm"
-                          variant={useSeedance ? 'default' : 'outline'}
-                          className="h-8 text-xs rounded-lg gap-1 px-2.5"
-                          title={useSeedance
-                            ? 'ByteDance Seedance 2.0 ON — premium 1080p motion fidelity, 4–15s, native audio understanding. Overrides Sora & Product Lock.'
-                            : 'Switch to ByteDance Seedance 2.0 — premium 1080p motion model with native audio understanding'}
-                          onClick={() => setUseSeedance((v) => !v)}
-                        >
-                          🌊 {useSeedance ? 'Seedance 2.0' : 'Seedance'}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
                           variant={lockProduct ? 'default' : 'outline'}
                           className="h-8 text-xs rounded-lg gap-1 px-2.5"
                           title={lockProduct ? 'Product Lock ON — Wan 2.5 i2v will be used when an image is attached for pixel-accurate product fidelity' : 'Turn on Product Lock to use Wan 2.5 i2v (stricter product fidelity than Sora-2)'}
@@ -1710,7 +1700,7 @@ Provide the updated **VIDEO PROMPT** block (180–280 words):
                           disabled={isAnalyzing || isGenerating || isExtractingFrames || !hasComposerInput}
                         >
                           {statusLabel ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4 h-4" />}
-                          Generate
+                          {inputMode === 't2v' ? 'Generate from Text' : 'Generate'}
                         </Button>
                       </div>
                     </div>
