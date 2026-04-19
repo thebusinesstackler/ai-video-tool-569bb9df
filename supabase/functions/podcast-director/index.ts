@@ -149,7 +149,7 @@ When the user asks to plan multiple videos ("plan 10 videos", "give me a content
 }
 </VIDEO_PLAN>
 
-Exactly 10 plans. Each must cover a DIFFERENT angle (educational, story, myth-bust, before/after, list, controversial take, behind-the-scenes, FAQ, comparison, prediction). Vary hook types (question, bold claim, stat, story). EVERY plan must reference specific brand products / rituals / audience pains from the brief — no generic content. If a cast of AI twins was provided, EVERY plan must include a `twinName` and the cast must be rotated across the 10 plans (no twin used more than ⌈10/N⌉ times where N = number of available twins).
+Exactly 10 plans. Each must cover a DIFFERENT angle (educational, story, myth-bust, before/after, list, controversial take, behind-the-scenes, FAQ, comparison, prediction). Vary hook types (question, bold claim, stat, story). EVERY plan must reference specific brand products / rituals / audience pains from the brief — no generic content. If a cast of AI twins was provided, EVERY plan must include a "twinName" and the cast must be rotated across the 10 plans (no twin used more than ceil(10/N) times where N = number of available twins).
 
 Format chat replies in clean markdown. Be enthusiastic but concise. Bullet points for lists.
 
