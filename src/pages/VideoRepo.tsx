@@ -611,8 +611,12 @@ Then provide a final **VIDEO PROMPT** block:
         };
         setMessages((prev) => [...prev, generatingMsg]);
 
-        const useProductLock = lockProduct && !!persistentImageUrl;
-        const generationModel = useProductLock ? 'wan-2.5-i2v' : (useSoraPro ? 'sora-2-pro' : 'sora-2');
+        const isT2V = inputMode === 't2v' || !persistentImageUrl;
+        const useProductLock = lockProduct && !!persistentImageUrl && !isT2V;
+        // T2V always routes to sora-2-pro (sora-2 requires an image)
+        const generationModel = useProductLock
+          ? 'wan-2.5-i2v'
+          : (isT2V ? 'sora-2-pro' : (useSoraPro ? 'sora-2-pro' : 'sora-2'));
         if (useProductLock) {
           setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: '🎬 Generating with Wan 2.5 i2v (product-locked) for pixel-accurate product fidelity...' } : m));
         } else if (useSoraPro) {
