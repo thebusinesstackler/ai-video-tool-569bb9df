@@ -107,6 +107,7 @@ const VideoRepo = () => {
   const [soraDuration, setSoraDuration] = useState<10 | 20>(10);
   const [useSoraPro, setUseSoraPro] = useState(false);
   const [soraProResolution, setSoraProResolution] = useState<'720p' | '1080p'>('720p');
+  const [useSeedance, setUseSeedance] = useState(false);
   const [lockProduct, setLockProduct] = useState(false);
   const [productPickerOpen, setProductPickerOpen] = useState(false);
   const [selectedProductCtx, setSelectedProductCtx] = useState<SelectedProductContext | null>(null);
