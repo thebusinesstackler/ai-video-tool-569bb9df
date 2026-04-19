@@ -733,8 +733,9 @@ When the user says "direct this", "commercial polish", "make it look like an ad"
     const recentAction = (context as any)?.recentAction;
     const creatorMode = (context as any)?.creatorMode;
     const targetPlatform = (context as any)?.targetPlatform;
+    const vision = (context as any)?.vision;
 
-    if (playback || audio || brand || captions || kpis) {
+    if (playback || audio || brand || captions || kpis || vision) {
       const lines: string[] = [];
       lines.push(`🎬 DIRECTOR INTEL — read this BEFORE every creative decision. Cite specific numbers when you reply.`);
 
@@ -790,6 +791,32 @@ When the user says "direct this", "commercial polish", "make it look like an ad"
       if (creatorMode) lines.push(`\n**USER MODE:** ${creatorMode}${creatorMode === 'beginner' || creatorMode === 'quick' ? ' — explain choices in plain language, default to safer one-tap suggestions, avoid jargon.' : ' — talk peer-to-peer, surface advanced options.'}`);
       if (targetPlatform) lines.push(`**TARGET PLATFORM:** ${targetPlatform}${targetPlatform.includes('reels') ? ' — fast cuts, hook in first 1.5s, captions ON by default.' : ' — slower pacing, room for setup, longer overlays OK.'}`);
 
+      // ── VISION INTEL (Phase 1: Marco's eyes) ──────────────────────────
+      if (vision && (vision.subjects?.length || vision.occlusions?.length || vision.contrast?.length)) {
+        lines.push(`\n**👁️ VISION INTEL — what's actually on screen (computer-vision pass on sampled frames):**`);
+        if (vision.summary) {
+          const s = vision.summary;
+          lines.push(`- Frames analyzed: ${s.framesAnalyzed} | Subjects detected: ${s.subjectCount} | Occlusions: ${s.occlusionCount} (${s.highSeverityOcclusions} HIGH severity) | Low-contrast overlays: ${s.lowContrastCount}`);
+        }
+        if (Array.isArray(vision.subjects) && vision.subjects.length) {
+          const grouped: Record<string, number> = {};
+          vision.subjects.forEach((s: any) => { grouped[s.label] = (grouped[s.label] || 0) + 1; });
+          lines.push(`- Subjects on screen: ${Object.entries(grouped).map(([k, v]) => `${v}× ${k}`).join(', ')}`);
+        }
+        if (Array.isArray(vision.occlusions) && vision.occlusions.length) {
+          lines.push(`\n**🚨 OCCLUSIONS DETECTED — these overlays are covering important on-screen elements:**`);
+          vision.occlusions.slice(0, 8).forEach((o: any) => {
+            lines.push(`  - overlay id="${o.overlayId}" covers ${o.subjectLabel} at ${o.time}s (${o.overlapPct}% overlap, ${o.severity.toUpperCase()}) → ${o.suggestion}`);
+          });
+        }
+        if (Array.isArray(vision.contrast) && vision.contrast.some((c: any) => c.contrast === 'low')) {
+          lines.push(`\n**⚠️ LOW-CONTRAST OVERLAYS — text may be unreadable on busy/extreme background:**`);
+          vision.contrast.filter((c: any) => c.contrast === 'low').slice(0, 6).forEach((c: any) => {
+            lines.push(`  - overlay id="${c.overlayId}" sits on ${c.bgLuminance > 0.5 ? 'very bright' : 'very dark'} background (lum=${c.bgLuminance}) → switch treatment to one with stronger card background OR move to a calmer zone.`);
+          });
+        }
+      }
+
       lines.push(`\n**DIRECTIVES based on this intel:**`);
       lines.push(`1. Every new overlay MUST use brand.colors.primary as accent and brand.font when possible.`);
       lines.push(`2. Never place an overlay whose position falls inside a safeZone rectangle. Pick a different placement (top_banner, right_panel, left_panel, lower_third).`);
@@ -798,6 +825,12 @@ When the user says "direct this", "commercial polish", "make it look like an ad"
       lines.push(`5. If audio.avgWPM is outside 120–180, mention it and suggest pacing fixes (tighter cuts vs. trim pauses).`);
       lines.push(`6. Match cut density to targetPlatform — fewer, longer overlays for YouTube; more punchy beats for Reels/TikTok.`);
       lines.push(`7. Do NOT touch any item id whose user-pinned reference appears in the latest user message (the 📎 line).`);
+      lines.push(`8. **VISION RULES (when context.vision is present):**`);
+      lines.push(`   a. For EVERY occlusion with severity=high, IMMEDIATELY emit \`update_overlay\` (or \`update_motion_graphic\`) with a new \`position\` or \`placement\` that follows the suggestion field. Don't wait for the user to ask.`);
+      lines.push(`   b. For severity=med occlusions, mention them in your reply and offer the fix as a one-tap suggestion.`);
+      lines.push(`   c. For low-contrast overlays, switch to a treatment with a solid card background (stat_card, lower_third_pro, cta_lockup) or reposition to a less extreme region of the frame.`);
+      lines.push(`   d. Cite the specific overlay id and timestamp when reporting a vision finding ("Your stat card at 4.2s is covering the product — moving it to right_panel").`);
+      lines.push(`   e. NEVER add a new overlay in a position that already has a detected face or product subject — pick the opposite half of the frame.`);
 
       allMessages.push({ role: "system", content: lines.join('\n') });
     }

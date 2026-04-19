@@ -2064,6 +2064,41 @@ const ChatcutAI = () => {
         console.warn('[ChatcutAI] keyframe extraction failed', e);
       }
     }
+
+    // ── VISION ANALYSIS ─────────────────────────────────────────────────────
+    // Phase 1: give Marco "eyes". Run a parallel vision pass that detects
+    // product/face/text/logo bounding boxes per frame and computes which
+    // overlays cover which subjects + a quick contrast check.
+    // Cheap: Gemini 2.5 Flash on max 4 frames. Fails open (Marco still works
+    // without vision data — he just can't see occlusions).
+    let visionResult: any = null;
+    if (videoFrames.length >= 2 && overlays.length > 0) {
+      try {
+        const visionOverlays = overlays.map((o) => ({
+          id: o.id,
+          type: o.type,
+          text: (o.text || '').slice(0, 40),
+          start: +(o.start || 0).toFixed(2),
+          end: +(((o.start || 0) + (o.duration || 0))).toFixed(2),
+          position: o.position ? { x: +o.position.x.toFixed(1), y: +o.position.y.toFixed(1) } : null,
+          scale: typeof o.scale === 'number' ? +o.scale.toFixed(2) : null,
+          treatment: (o as any).treatment || null,
+        }));
+        const { data: visionData, error: visionErr } = await supabase.functions.invoke('analyze-frame-vision', {
+          body: {
+            frames: videoFrames.slice(0, 4), // cap to 4 for cost
+            overlays: visionOverlays,
+            aspectRatio: reelPreview ? '9:16' : (videoAspect && videoAspect > 1.4 ? '16:9' : videoAspect && videoAspect < 0.7 ? '9:16' : '1:1'),
+            captionStripActive: captionSettings.enabled,
+          },
+        });
+        if (!visionErr && visionData?.ok) {
+          visionResult = visionData;
+        }
+      } catch (e) {
+        console.warn('[ChatcutAI] vision analysis failed (non-fatal):', e);
+      }
+    }
     try {
       const resp = await fetch(CHAT_URL, {
         method: 'POST',
@@ -2243,6 +2278,16 @@ const ChatcutAI = () => {
             // ── USER INTENT SIGNALS ────────────────────────────────────────
             creatorMode,
             targetPlatform: reelPreview ? 'reels-shorts-tiktok' : 'youtube-landscape',
+            // ── VISION INTEL (Phase 1: Marco's eyes) ───────────────────────
+            // Detected subjects (product/face/text/logo) per keyframe + computed
+            // occlusions (which overlay covers which subject) + contrast flags.
+            // Null when no overlays exist or analysis was skipped/failed.
+            vision: visionResult ? {
+              subjects: visionResult.subjects,
+              occlusions: visionResult.occlusions,
+              contrast: visionResult.contrast,
+              summary: visionResult.summary,
+            } : null,
           },
         }),
       });
