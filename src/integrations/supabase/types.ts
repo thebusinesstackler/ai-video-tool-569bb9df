@@ -682,8 +682,10 @@ export type Database = {
       }
       profiles: {
         Row: {
+          brand_analysis: Json | null
           brand_description: string | null
           brand_guidelines_url: string | null
+          brand_url: string | null
           company_name: string | null
           content_goal: string | null
           created_at: string
@@ -695,8 +697,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          brand_analysis?: Json | null
           brand_description?: string | null
           brand_guidelines_url?: string | null
+          brand_url?: string | null
           company_name?: string | null
           content_goal?: string | null
           created_at?: string
@@ -708,8 +712,10 @@ export type Database = {
           user_id: string
         }
         Update: {
+          brand_analysis?: Json | null
           brand_description?: string | null
           brand_guidelines_url?: string | null
+          brand_url?: string | null
           company_name?: string | null
           content_goal?: string | null
           created_at?: string
