@@ -1095,6 +1095,10 @@ const ChatcutAI = () => {
         captionSettings,
         thumbnail,
         transitions,
+        // Phase 3
+        sfxClips,
+        duckEnabled,
+        duckStrength,
       };
       const payload: Record<string, unknown> = {
         user_id: user.id,
@@ -2510,6 +2514,17 @@ const ChatcutAI = () => {
               at: +t.at.toFixed(2), duration: +t.duration.toFixed(2),
               rate: t.rate, label: t.label || null,
             })),
+            // ── PHASE 3: SFX clips on the timeline ──
+            sfx: sfxClips.map(s => ({
+              id: s.id, kind: s.kind, at: +s.at.toFixed(2),
+              volume: s.volume, label: s.label || null,
+              pairedOverlayId: s.pairedOverlayId || null,
+            })),
+            // ── PHASE 3: Speech-aware audio ducking config ──
+            ducking: { enabled: duckEnabled, strength: +duckStrength.toFixed(2), speechActiveNow: isSpeechActive },
+            // ── PHASE 3: Word-level timing index (sampled — first 200 words to keep payload small) ──
+            wordTimings: wordList.slice(0, 200).map(w => ({ word: w.word, start: +w.start.toFixed(2), end: +w.end.toFixed(2) })),
+            wordTimingsAvailable: wordList.length > 0,
             currentThumbnail: thumbnail
               ? { url: thumbnail.url, headline: thumbnail.headline, duration: thumbnail.duration }
               : null,
