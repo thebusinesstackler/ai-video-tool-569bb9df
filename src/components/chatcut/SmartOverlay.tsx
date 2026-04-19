@@ -341,25 +341,51 @@ const QuotePop: React.FC<{
 const CtaLockup: React.FC<{
   text: string; subtext?: string; brandColor: string; onBrand: string; family: string;
 }> = ({ text, subtext, brandColor, onBrand, family }) => (
-  <div className="flex flex-col items-center gap-3" style={{ fontFamily: family, animation: 'smartOvCta 0.6s cubic-bezier(.2,1,.36,1)' }}>
+  <div
+    className="flex flex-col items-center"
+    style={{ fontFamily: family, animation: 'smartOvCta 0.6s cubic-bezier(.2,1,.36,1)', gap: 10, maxWidth: '100%' }}
+  >
     <div
       className="rounded-full"
       style={{
-        background: `linear-gradient(135deg, ${brandColor}, ${hexA(brandColor, 0.82)})`,
+        background: `linear-gradient(135deg, ${brandColor}, ${hexA(brandColor, 0.85)})`,
         color: onBrand,
-        padding: '20px 48px',
-        maxWidth: 'min(420px, 86%)',
-        fontSize: 'clamp(20px, 3.2cqw, 34px)',
+        padding: '14px 28px',
+        maxWidth: '100%',
+        fontSize: 'clamp(18px, 4.6cqw, 38px)',
         fontWeight: 900,
-        letterSpacing: '0.02em',
-        boxShadow: `0 22px 60px ${hexA(brandColor, 0.6)}, 0 1px 0 rgba(255,255,255,0.22) inset, 0 0 0 1px ${hexA('#ffffff', 0.14)}`,
-        textShadow: '0 1px 0 rgba(0,0,0,0.12)',
+        letterSpacing: '0.01em',
+        lineHeight: 1.05,
+        textAlign: 'center',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        boxShadow: `0 18px 50px ${hexA(brandColor, 0.55)}, 0 1px 0 rgba(255,255,255,0.22) inset, 0 0 0 1.5px ${hexA('#ffffff', 0.18)}`,
+        textShadow: '0 1px 0 rgba(0,0,0,0.18)',
       }}
     >
       {text}
     </div>
     {subtext && (
-      <div style={{ color: '#fff', fontSize: 16, fontWeight: 700, opacity: 0.95, letterSpacing: '0.05em', textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>{subtext}</div>
+      <div
+        className="rounded-md"
+        style={{
+          color: '#fff',
+          background: hexA('#000000', 0.55),
+          padding: '4px 12px',
+          fontSize: 'clamp(13px, 2.6cqw, 20px)',
+          fontWeight: 800,
+          opacity: 0.98,
+          letterSpacing: '0.04em',
+          textShadow: '0 2px 8px rgba(0,0,0,0.6)',
+          whiteSpace: 'nowrap',
+          maxWidth: '100%',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}
+      >
+        {subtext}
+      </div>
     )}
     <style>{`@keyframes smartOvCta { from { opacity: 0; transform: translateY(20px) scale(0.94); } to { opacity: 1; transform: translateY(0) scale(1); } }`}</style>
   </div>
