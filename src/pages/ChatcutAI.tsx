@@ -1042,6 +1042,8 @@ const ChatcutAI = () => {
     setMusicTracks([]);
     setOverlays([]);
     setBRollClips([]);
+    setTransitions([]);
+    setSfxClips([]);
     setVizardClips([]);
     setCaptionSettings({ ...defaultCaptionSettings, enabled: false });
     setThumbnail(null);
