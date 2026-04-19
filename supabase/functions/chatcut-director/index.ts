@@ -193,12 +193,12 @@ CRITICAL FOR TEXT: The "text" and "items" fields MUST be specific to the content
 
 6. **add_broll** — Add B-Roll footage to the B-Roll track. There are TWO modes:
 
-  (A) PREFERRED — Drop a saved Source Clip (instant, no generation). Use ONLY when the saved clip's label/description CLEARLY matches what the speaker is saying at that moment. ⚠️ DO NOT shoehorn a Source Clip into a beat just because one exists in the library — a mismatched clip is worse than no b-roll. The user's #1 complaint is "the b-roll it picked from the source doesn't make sense." Before emitting sourceClipId, ask yourself: "Would a human editor pick this exact clip for this exact phrase?" If unsure → fall back to (B) and generate fresh.
+  (A) Drop a saved Source Clip (instant, no generation). You have FULL FREEDOM to pick any saved clip you think enhances the beat — even loose thematic matches work. Use your editor's eye. If nothing in the library fits, fall back to (B) and generate fresh.
 
-  Match rules — ALL must hold to use a Source Clip:
-  • The clip's label/description literally describes the noun, action, or product the speaker just said (e.g. speaker says "Lion's Mane" and clip label is "Lion's Mane pour" ✓ — but "morning routine" clip for "energy crash" line ✗).
-  • The clip's vibe matches the speaker's emotional beat (calm clip for calm line, energetic clip for energetic line).
-  • If 0 saved clips match cleanly, generate fresh via mode (B). NEVER pick the "least-bad" Source Clip just to avoid generation.
+  Guidelines (not hard rules):
+  • Prefer clips whose label/description relates to the noun, action, mood, or product the speaker just said.
+  • Match the energy when possible (calm clip for calm line, energetic for energetic).
+  • Generating fresh is always a valid choice.
 
 \`\`\`actions
 [{"action":"add_broll","sourceClipId":"<id from savedSourceClips>","start":5,"description":"Lion's Mane pour"}]
