@@ -3488,11 +3488,83 @@ const ChatcutAI = () => {
     toast({ title: 'Music track removed' });
   };
 
+  /**
+   * Final Marco QA pass — runs automatically before every export.
+   * Pulls the user's primary product from the Product Library, extracts up
+   * to 6 keyframes, and asks Gemini to confirm the on-screen bottle/product
+   * matches and the edit feels on-brand. Posts Marco's verdict in chat and
+   * halts export when high-severity issues are found.
+   */
+  const runFinalQA = async (): Promise<boolean> => {
+    if (!videoRef.current || !videoUrl) return true;
+    const primaryProduct = productLibrary[0];
+    if (!primaryProduct?.primary_image) {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `Heads up — no primary product image in your Library, so I can't double-check the bottle on screen 📦\n\nAdd one and I'll verify every shot before the next export.`,
+      }]);
+      return true;
+    }
+
+    toast({ title: 'Marco is reviewing the video…', description: 'Final product + brand check before export.' });
+
+    let keyframes: Keyframe[] = [];
+    try {
+      keyframes = await extractKeyframesFromElement(videoRef.current, 6);
+    } catch (e) {
+      console.warn('[QA] keyframe extraction failed', e);
+      return true;
+    }
+
+    const targetAspect = targetPlatform === 'youtube-landscape' ? '16:9' : (targetPlatform === 'square' ? '1:1' : '9:16');
+
+    try {
+      const { data, error } = await supabase.functions.invoke('qa-product-match', {
+        body: {
+          keyframes: keyframes.map(k => ({ time: k.time, dataUrl: k.dataUrl })),
+          product: {
+            name: primaryProduct.name,
+            description: primaryProduct.description,
+            benefits: primaryProduct.benefits,
+            brand: primaryProduct.brand_name,
+            imageUrl: primaryProduct.primary_image,
+          },
+          brand: {
+            tone: (brandSettings as any)?.tone,
+            palette: (brandSettings as any)?.palette,
+            audience: (brandSettings as any)?.audience,
+            recurringPhrases: (brandSettings as any)?.recurringPhrases,
+          },
+          targetPlatform,
+          targetAspect,
+        },
+      });
+      if (error) throw error;
+      if (data?.marcoMessage) {
+        setMessages(prev => [...prev, { role: 'assistant', content: data.marcoMessage }]);
+      }
+      if (data?.verdict === 'needs_review') {
+        toast({
+          title: 'Marco flagged some issues 🛑',
+          description: 'Check the chat — product or brand match looks off in a few shots.',
+          variant: 'destructive',
+        });
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.warn('[QA] qa-product-match failed', e);
+      return true;
+    }
+  };
+
   const handleExport = async () => {
     if (!videoUrl) {
       toast({ title: 'Nothing to export', description: 'Upload a video first', variant: 'destructive' });
       return;
     }
+    const cleared = await runFinalQA();
+    if (!cleared) return;
     toast({ title: 'Exporting...', description: 'Preparing your video with all timeline edits. This may take a moment.' });
     try {
       const exportData = {
