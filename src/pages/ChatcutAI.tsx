@@ -532,6 +532,69 @@ const ChatcutAI = () => {
     });
   }, [musicTracks]);
 
+  // ── Phase 3: Transcript / word-list / speech-active derivation (declared early so the
+  // music-sync effect below can read isSpeechActive for ducking).
+  const transcriptSegments = useMemo(() => {
+    if (!transcript) return [];
+    if (Array.isArray(transcript)) return transcript;
+    if (Array.isArray(transcript.segments)) return transcript.segments;
+    if (Array.isArray(transcript.words)) return transcript.words;
+    if (typeof transcript.text === 'string' && transcript.text.trim()) {
+      return [{ start: 0, end: duration || undefined, text: transcript.text }];
+    }
+    return [];
+  }, [transcript, duration]);
+
+  // Flatten transcript.segments[].words[] into a single sorted list `[{word, start, end}]`.
+  // Marco can ask "align the stat card to the word 'fifty' (occurrence 1)" and we'll snap
+  // the overlay's `start` to that word's `start` time.
+  const wordList = useMemo<Array<{ word: string; start: number; end: number; norm: string }>>(() => {
+    const out: Array<{ word: string; start: number; end: number; norm: string }> = [];
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+    for (const seg of transcriptSegments as any[]) {
+      if (Array.isArray(seg?.words)) {
+        for (const w of seg.words) {
+          const text = (w.word || w.text || '').trim();
+          if (!text) continue;
+          out.push({ word: text, start: Number(w.start) || 0, end: Number(w.end) || Number(w.start) || 0, norm: norm(text) });
+        }
+      } else if (typeof seg?.text === 'string' && typeof seg?.start === 'number') {
+        // Coarse fallback: distribute words evenly across the segment window.
+        const tokens = seg.text.split(/\s+/).filter(Boolean);
+        const segDur = (Number(seg.end) || (seg.start + 1)) - seg.start;
+        const per = tokens.length > 0 ? segDur / tokens.length : 0;
+        tokens.forEach((t: string, i: number) => out.push({
+          word: t, start: seg.start + i * per, end: seg.start + (i + 1) * per, norm: norm(t),
+        }));
+      }
+    }
+    return out.sort((a, b) => a.start - b.start);
+  }, [transcriptSegments]);
+
+  // Find the Nth occurrence of a word (case + punctuation insensitive). 1-based occurrence.
+  const findWordTime = useCallback((word: string, occurrence: number = 1): { start: number; end: number; matchedWord: string } | null => {
+    const target = word.toLowerCase().replace(/[^a-z0-9]+/g, '');
+    if (!target) return null;
+    let count = 0;
+    for (const w of wordList) {
+      if (w.norm === target || w.norm.includes(target) || target.includes(w.norm)) {
+        count++;
+        if (count === occurrence) return { start: w.start, end: w.end, matchedWord: w.word };
+      }
+    }
+    return null;
+  }, [wordList]);
+
+  // Is the speaker actively talking RIGHT NOW? Used for ducking music under speech.
+  const isSpeechActive = useMemo(() => {
+    if (!duckEnabled || wordList.length === 0) return false;
+    for (const w of wordList) {
+      if (w.start - 0.05 <= currentTime && currentTime <= w.end + 0.15) return true;
+      if (w.start > currentTime + 0.2) break;
+    }
+    return false;
+  }, [wordList, currentTime, duckEnabled]);
+
   // Sync music audio with video playback (only play/pause/seek/volume)
   useEffect(() => {
     musicTracks.forEach(track => {
