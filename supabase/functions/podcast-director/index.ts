@@ -142,13 +142,14 @@ When the user asks to plan multiple videos ("plan 10 videos", "give me a content
       "hook": "First-line spoken hook (1 sentence, scroll-stopping, 15-25 words)",
       "narration": "Full ~150-word spoken script — natural conversational, short sentences, ends with a CTA. NO stage directions, NO speaker labels. References specific brand products/rituals/audience.",
       "audience": "Who this targets (specific segment, not generic)",
-      "duration": 60
+      "duration": 60,
+      "twinName": "EXACT name of one of the available AI twins from the cast above — REQUIRED if the cast list was provided. Rotate across plans for variety."
     }
   ]
 }
 </VIDEO_PLAN>
 
-Exactly 10 plans. Each must cover a DIFFERENT angle (educational, story, myth-bust, before/after, list, controversial take, behind-the-scenes, FAQ, comparison, prediction). Vary hook types (question, bold claim, stat, story). EVERY plan must reference specific brand products / rituals / audience pains from the brief — no generic content.
+Exactly 10 plans. Each must cover a DIFFERENT angle (educational, story, myth-bust, before/after, list, controversial take, behind-the-scenes, FAQ, comparison, prediction). Vary hook types (question, bold claim, stat, story). EVERY plan must reference specific brand products / rituals / audience pains from the brief — no generic content. If a cast of AI twins was provided, EVERY plan must include a `twinName` and the cast must be rotated across the 10 plans (no twin used more than ⌈10/N⌉ times where N = number of available twins).
 
 Format chat replies in clean markdown. Be enthusiastic but concise. Bullet points for lists.
 
