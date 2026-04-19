@@ -536,22 +536,35 @@ ${selectedProductCtx.targetAudience ? `- Target audience: ${selectedProductCtx.t
 - Reference image: provided above (treat as the hero product to feature)`
         : '';
 
+      const productFidelityBlock = persistentImageUrl
+        ? `\n\n**🔒 PRODUCT FIDELITY (NON-NEGOTIABLE):**
+The attached image is the EXACT hero product. The video model MUST keep label text, color, bottle/box shape, cap, branding, and proportions PIXEL-IDENTICAL to the reference image. Do NOT redesign, restyle, recolor, or invent variants. Do NOT change the label typography. The product on screen must be visually indistinguishable from the reference.`
+        : '';
+
       const analysisInstruction = `User request: "${userMsg.content}"
 
 ${videoFrames.length > 0 ? `Reference video: "${referenceVideoName}" — I've provided ${videoFrames.length} key frames above. Study them carefully.` : ''}
-${productImageUrl ? 'Product image provided above — incorporate this product naturally.' : ''}${productContextBlock}
+${productImageUrl ? 'Product image provided above — incorporate this product naturally.' : ''}${productContextBlock}${productFidelityBlock}
+
+Target duration: ${soraDuration} seconds. The script and action MUST fully fill this duration with a complete three-act arc (Hook → Body → Payoff/CTA) — no fade-outs before the end, no dead air.
 
 Provide:
 1. **Reference Analysis**: What you observed in the reference frames — hook type, pacing, camera style, talent energy, visual effects
-2. **Hook Strategy**: How the first 3 seconds will stop the scroll (based on what works in the reference)
-3. **Scene-by-Scene Script**: A 15-30 second UGC-style script with specific visual directions inspired by the reference
-4. **Product Integration**: How and when the product appears naturally
-5. **CTA Strategy**: Closing technique for maximum conversion
+2. **Hook Strategy**: How the first 1.5–3 seconds will stop the scroll
+3. **Scene-by-Scene Script**: Timed beats (0-3s, 3-8s, etc.) summing to exactly ${soraDuration}s. Voiceover paced at ~2.5 words/second (~${Math.round(soraDuration * 2.5)} words total).
+4. **ACTION MANIFEST** — a literal bullet list of countable physical actions the video model MUST execute exactly. Be specific with COUNTS (e.g. "squeeze dropper TWO times — exactly 2 drops fall", "hand lifts glass once"). Format:
+\`\`\`
+ACTION MANIFEST (execute exactly):
+- [action 1 with explicit count/direction]
+- [action 2]
+\`\`\`
+5. **Product Integration**: How and when the product appears (must match reference image exactly)
+6. **CTA Strategy**: Final 2-3 seconds payoff line + on-screen text
 
 Then provide a final **VIDEO PROMPT** block:
 
 \`\`\`video-prompt
-[Your detailed video generation prompt — 80-150 words covering environment, character, action, camera, lighting, product placement, pacing. Incorporate the visual style from the reference.]
+[180–280 word cinematic directive covering: environment, character, action choreography (literal counts from ACTION MANIFEST — non-negotiable), camera movement, lighting, product placement (pixel-identical to reference if attached), pacing, sound design, final-frame description. Explicitly state "Follow the ACTION MANIFEST literally — counts like 'two drops' are non-negotiable." End with the closing shot description so the ${soraDuration}s video ends on a complete payoff, not a cut-off.]
 \`\`\``;
 
       contentParts.push({ type: 'text', text: analysisInstruction });
