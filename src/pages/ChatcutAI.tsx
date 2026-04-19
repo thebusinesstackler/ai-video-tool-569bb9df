@@ -53,6 +53,7 @@ import {
   PanelLeftOpen,
   Undo2,
   Smartphone,
+  Square,
   Package,
   RefreshCw,
   AlertTriangle,
