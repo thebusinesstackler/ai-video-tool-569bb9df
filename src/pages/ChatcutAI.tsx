@@ -1627,7 +1627,7 @@ const ChatcutAI = () => {
         content: `⚠️ The animated graphic for **"${text}"** didn't render. Want me to retry or fall back to a static brand card? 🔄`,
       }]);
     }
-  }, [toast, brandSettings, reelPreview]);
+  }, [toast, brandSettings, reelPreview, targetPlatform]);
 
   // Generate or regenerate the opening TikTok-style cover via Nano Banana
   const generateThumbnail = useCallback(async (opts: {
@@ -1832,10 +1832,16 @@ const ChatcutAI = () => {
           if (act.action === 'add_animated_graphic' || act.renderMode === 'video') renderMode = 'video';
           else if (act.renderMode === 'image') renderMode = 'image';
 
-          // For Commercial Director (`add_motion_graphic`), the treatment+placement carry the visual
-          // intent — force DOM render so SmartOverlay can apply the new layered treatments.
+          // 🎬 AUTO-PROMOTE hero motion graphics (hook/stat/cta/proof) to ANIMATED.
+          // The user explicitly chose "Always animated" — Marco's add_motion_graphic
+          // for any hero beat now becomes a real VEO 3.1 reveal instead of a flat
+          // DOM card. Low-priority intents (educational/multi_point/emotional/
+          // benefit) stay DOM so we don't blow render budget on side cards.
           const isMotionGraphic = act.action === 'add_motion_graphic';
-          const finalRenderMode = isMotionGraphic ? 'dom' : renderMode;
+          const heroIntents = new Set(['hook', 'stat', 'cta', 'proof']);
+          const shouldPromoteToAnimated = isMotionGraphic && act.intent && heroIntents.has(act.intent);
+          let finalRenderMode: 'dom' | 'image' | 'video' = isMotionGraphic ? 'dom' : renderMode;
+          if (shouldPromoteToAnimated) finalRenderMode = 'video';
           // Anti-stacking: snap the new overlay to the next free slot on its own sub-track,
           // so Marco's add_overlay calls never land on top of an existing one.
           const isOnGraphicsTrack = overlayType === 'motion_graphic' || overlayType === 'animated_text';
@@ -1871,13 +1877,15 @@ const ChatcutAI = () => {
             subjectAction: act.subjectAction,
           };
           setOverlays(prev => [...prev, newOverlay]);
-          if (renderMode === 'dom') {
+          if (finalRenderMode === 'dom') {
             toast({ title: '✨ Graphic added', description: `"${act.text}" — rendered with your brand colors` });
-          } else if (renderMode === 'video') {
-            toast({ title: '🎬 Animating graphic', description: `"${act.text}" — VEO 3.1 is rendering (~30-60s)...` });
+          } else if (finalRenderMode === 'video') {
+            const promotedNote = shouldPromoteToAnimated ? ' (auto-promoted to VEO 3.1)' : '';
+            toast({ title: '🎬 Animating graphic', description: `"${act.text}"${promotedNote} — VEO 3.1 is rendering (~30-60s)...` });
+            const platformAspect: '16:9' | '9:16' = targetPlatform === 'youtube-landscape' ? '16:9' : '9:16';
             generateAnimatedGraphic(overlayId, act.text || '', overlayType, {
               animationPrompt: act.animationPrompt,
-              aspectRatio: act.aspectRatio || (reelPreview ? '9:16' : '16:9'),
+              aspectRatio: act.aspectRatio || platformAspect,
               duration: act.duration || 5,
               fullCoverage: isFullCoverage,
             });
