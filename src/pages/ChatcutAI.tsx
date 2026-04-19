@@ -2250,6 +2250,27 @@ const ChatcutAI = () => {
               image: Array.from(overlapIdsByTrack.image),
               overlay: Array.from(overlapIdsByTrack.overlay),
             },
+            // ── PHASE 2: Motion-zone collisions (two graphics in same screen zone at same time) ──
+            motionZoneCollisions: {
+              ids: Array.from(motionZoneCollisions.ids),
+              pairs: motionZoneCollisions.pairs.map(p => ({
+                a: p.a, b: p.b, zone: p.zone,
+                overlapStart: +p.overlapStart.toFixed(2),
+                overlapEnd: +p.overlapEnd.toFixed(2),
+              })),
+              // Snapshot of which zone each motion overlay occupies right now
+              zoneByMotionId: Object.fromEntries(
+                overlays
+                  .filter(o => classifyOverlay(o) === 'motion' && !o.fullCoverage)
+                  .map(o => [o.id, zoneOfPosition(o.position)])
+              ),
+            },
+            // ── PHASE 2: Transitions on the timeline ──
+            transitions: transitions.map(t => ({
+              id: t.id, kind: t.kind,
+              at: +t.at.toFixed(2), duration: +t.duration.toFixed(2),
+              rate: t.rate, label: t.label || null,
+            })),
             currentThumbnail: thumbnail
               ? { url: thumbnail.url, headline: thumbnail.headline, duration: thumbnail.duration }
               : null,
