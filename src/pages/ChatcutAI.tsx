@@ -4359,6 +4359,42 @@ const ChatcutAI = () => {
                         </div>
                       )}
 
+                      {/* ── Phase 3: SFX marker row ─────────────────── */}
+                      {sfxClips.length > 0 && (
+                        <div className="flex items-center h-7 border-b border-border/50 group hover:bg-muted/20">
+                          <div className="w-[100px] flex-shrink-0 flex items-center gap-1 px-2" title="Sound effects (whoosh, ding, pop, swoosh, thud, click)">
+                            <span className="text-[9px] font-semibold text-cyan-400 truncate">SFX</span>
+                            {duckEnabled && (
+                              <span className="text-[8px] px-1 rounded bg-cyan-500/20 text-cyan-300" title={`Music ducks ${(duckStrength * 100).toFixed(0)}% under speech`}>
+                                Duck {Math.round(duckStrength * 100)}%
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex-1 relative h-5 mx-1 bg-muted/10 rounded">
+                            {sfxClips.map(s => {
+                              const left = duration > 0 ? (s.at / duration) * 100 : 0;
+                              return (
+                                <div
+                                  key={s.id}
+                                  className="absolute top-0 bottom-0 w-1.5 rounded bg-cyan-500/60 hover:bg-cyan-500 cursor-pointer flex items-center justify-center group/sfx"
+                                  style={{ left: `${left}%`, minWidth: '12px' }}
+                                  onClick={() => { seekTo(s.at); playSfx(s.kind, s.volume ?? 0.6); }}
+                                  title={`${s.kind} @ ${s.at.toFixed(2)}s${s.label ? ` · ${s.label}` : ''} — click to preview`}
+                                >
+                                  <span className="text-[7px] font-bold text-cyan-100 truncate px-0.5">{s.kind[0].toUpperCase()}</span>
+                                  <button
+                                    className="hidden group-hover/sfx:flex absolute -top-1.5 -right-1.5 w-3 h-3 items-center justify-center rounded-full bg-destructive text-white text-[8px] z-10"
+                                    onClick={(e) => { e.stopPropagation(); setSfxClips(prev => prev.filter(x => x.id !== s.id)); }}
+                                    title="Remove SFX"
+                                  >×</button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="w-10 flex-shrink-0" />
+                        </div>
+                      )}
+
                       {/* ── Three overlay tracks (Motion / Image / Overlay) ─────────────────
                           Each track always stays on the timeline so users can see what's there.
                           The eye toggle only suppresses preview rendering.                       */}
