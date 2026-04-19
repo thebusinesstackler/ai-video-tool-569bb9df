@@ -107,6 +107,7 @@ const VideoRepo = () => {
   const [soraDuration, setSoraDuration] = useState<10 | 20>(10);
   const [useSoraPro, setUseSoraPro] = useState(false);
   const [soraProResolution, setSoraProResolution] = useState<'720p' | '1080p'>('720p');
+  const [useSeedance, setUseSeedance] = useState(false);
   const [lockProduct, setLockProduct] = useState(false);
   const [productPickerOpen, setProductPickerOpen] = useState(false);
   const [selectedProductCtx, setSelectedProductCtx] = useState<SelectedProductContext | null>(null);
@@ -619,8 +620,12 @@ Then provide the final **VIDEO PROMPT** block — this is what Sora-2 will execu
         setMessages((prev) => [...prev, generatingMsg]);
 
         const useProductLock = lockProduct && !!persistentImageUrl;
-        const generationModel = useProductLock ? 'wan-2.5-i2v' : (useSoraPro ? 'sora-2-pro' : 'sora-2');
-        if (useProductLock) {
+        const generationModel = useSeedance
+          ? 'seedance-2.0'
+          : (useProductLock ? 'wan-2.5-i2v' : (useSoraPro ? 'sora-2-pro' : 'sora-2'));
+        if (useSeedance) {
+          setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: '🌊 Generating with ByteDance Seedance 2.0 (1080p) — premium motion fidelity, native audio understanding...' } : m));
+        } else if (useProductLock) {
           setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: '🎬 Generating with Wan 2.5 i2v (product-locked) for pixel-accurate product fidelity...' } : m));
         } else if (useSoraPro) {
           setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `⭐ Generating with Sora 2 PRO (${soraProResolution}, premium tier) — physics-aware, synchronized audio, broadcast quality...` } : m));
@@ -840,7 +845,9 @@ Provide the updated **VIDEO PROMPT** block (180–280 words):
         setMessages(prev => [...prev, generatingMsg]);
 
         const useProductLockFollow = lockProduct && !!newImageUrl;
-        const followModel = useProductLockFollow ? 'wan-2.5-i2v' : (useSoraPro ? 'sora-2-pro' : 'sora-2');
+        const followModel = useSeedance
+          ? 'seedance-2.0'
+          : (useProductLockFollow ? 'wan-2.5-i2v' : (useSoraPro ? 'sora-2-pro' : 'sora-2'));
         try {
           const taskId = await createWaveSpeedVideo({
             prompt: newVideoPrompt,
@@ -1674,6 +1681,18 @@ Provide the updated **VIDEO PROMPT** block (180–280 words):
                             </SelectContent>
                           </Select>
                         )}
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={useSeedance ? 'default' : 'outline'}
+                          className="h-8 text-xs rounded-lg gap-1 px-2.5"
+                          title={useSeedance
+                            ? 'ByteDance Seedance 2.0 ON — premium 1080p motion fidelity, 4–15s, native audio understanding. Overrides Sora & Product Lock.'
+                            : 'Switch to ByteDance Seedance 2.0 — premium 1080p motion model with native audio understanding'}
+                          onClick={() => setUseSeedance((v) => !v)}
+                        >
+                          🌊 {useSeedance ? 'Seedance 2.0' : 'Seedance'}
+                        </Button>
                         <Button
                           type="button"
                           size="sm"
