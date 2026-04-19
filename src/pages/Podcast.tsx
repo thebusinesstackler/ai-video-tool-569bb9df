@@ -1427,6 +1427,11 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <span className="text-[10px] font-mono text-muted-foreground">#{idx + 1}</span>
                                   <p className="text-sm font-semibold truncate">{it.plan.topic}</p>
+                                  {it.assignedTwinName && (
+                                    <Badge variant="outline" className="text-[9px] h-4 px-1.5 border-primary/40 text-primary">
+                                      🎭 {it.assignedTwinName}
+                                    </Badge>
+                                  )}
                                   {it.status === 'done' && <Badge className="text-[10px] bg-primary/15 text-primary border-primary/30">Done</Badge>}
                                   {it.status === 'failed' && <Badge variant="destructive" className="text-[10px]">Failed</Badge>}
                                   {it.status !== 'pending' && it.status !== 'done' && it.status !== 'failed' && (
