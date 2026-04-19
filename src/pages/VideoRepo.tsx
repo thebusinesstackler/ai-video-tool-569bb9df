@@ -143,6 +143,8 @@ const VideoRepo = () => {
   const [motionPrompt, setMotionPrompt] = useState('');
   const [motionDuration, setMotionDuration] = useState<5 | 10>(5);
   const [isMotionGenerating, setIsMotionGenerating] = useState(false);
+  const [isAutoMotion, setIsAutoMotion] = useState(false);
+  const [autoMotionStatus, setAutoMotionStatus] = useState<string>('');
   const motionStartRef = useRef<HTMLInputElement>(null);
   const motionEndRef = useRef<HTMLInputElement>(null);
 
