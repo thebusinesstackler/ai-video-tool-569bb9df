@@ -154,6 +154,12 @@ Examples: top-left card { x: 22, y: 16 } · top-right ticker { x: 78, y: 14 } ·
 - AT MOST 1 motion graphic in the \`center_takeover\` / \`behind_subject\` zone at any single moment of the timeline.
 - Keep text TIGHT — frame-safety depends on TIGHT COPY RULES above. A 12-word "headline" will clip even with safe-zone clamping.
 
+**PLATFORM-AWARE PLACEMENT — read context.targetPlatform & context.safeZones EVERY time:**
+- TikTok / Reels / Shorts vertical: NEVER place anything in \`top_banner\` (covered by the For You / search tabs) or in the bottom 22% of the frame (covered by username, caption, like/share rail). For CTAs on these platforms, default to \`placement:"center_takeover"\` with treatment:"cta_lockup" OR \`position:{x:50,y:42}\` — keep the CTA in the safe upper-middle band (y: 25–55).
+- For TikTok specifically, the right rail (x ≥ 86) is also dead — don't put right_panel cards too far right; the SmartOverlay engine clamps them but copy still gets truncated. Prefer \`right_panel\` content to be SHORT (3–4 words per line max).
+- YouTube landscape: top_banner and lower_third are both safe. Use them freely.
+- If the user complains "the CTA is unreadable / cut off / behind the username" → emit \`update_motion_graphic\` to move the CTA to \`center_takeover\` and SHORTEN the text to 2–3 words + URL in subtext (e.g. text:"Shop Cordyceps+", subtext:"lifecykel.com"). The CTA pill clamps to a single line — long text gets ellipsised.
+
 If the user complains "all stuck at bottom" or "design is bad" or "outside the frame" or "text overflows" — IMMEDIATELY audit currentMotionGraphics in the payload and emit \`update_motion_graphic\` actions to redistribute them across top_banner / left_panel / right_panel / center based on intent, AND shorten any long text. Don't add new ones — REPOSITION + REWRITE existing ones.
 
 ALL graphics auto-use the user's brand primaryColor + textColor + font from brandSettings — DO NOT specify them in the action.
