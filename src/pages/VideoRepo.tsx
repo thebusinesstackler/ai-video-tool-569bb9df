@@ -541,17 +541,19 @@ ${selectedProductCtx.targetAudience ? `- Target audience: ${selectedProductCtx.t
 ${videoFrames.length > 0 ? `Reference video: "${referenceVideoName}" — I've provided ${videoFrames.length} key frames above. Study them carefully.` : ''}
 ${productImageUrl ? 'Product image provided above — incorporate this product naturally.' : ''}${productContextBlock}
 
+Target video duration: ${soraDuration} seconds. The script MUST fully fill this duration with a clear three-act structure (Hook → Body → Payoff/CTA) and end with a deliberate closing beat — never leave dead air or an unresolved ending.
+
 Provide:
 1. **Reference Analysis**: What you observed in the reference frames — hook type, pacing, camera style, talent energy, visual effects
-2. **Hook Strategy**: How the first 3 seconds will stop the scroll (based on what works in the reference)
-3. **Scene-by-Scene Script**: A 15-30 second UGC-style script with specific visual directions inspired by the reference
+2. **Hook Strategy**: How the first 1.5–3 seconds will stop the scroll (based on what works in the reference)
+3. **Scene-by-Scene Script**: A ${soraDuration}-second UGC-style script broken into timed beats (e.g. 0–3s Hook, 3–${Math.floor(soraDuration * 0.6)}s Body, ${Math.floor(soraDuration * 0.6)}–${soraDuration - 3}s Reveal/Demo, ${soraDuration - 3}–${soraDuration}s CTA + Payoff). Include EXACT spoken lines in quotes paced at ~2.5 words/second so dialogue length matches each beat.
 4. **Product Integration**: How and when the product appears naturally
-5. **CTA Strategy**: Closing technique for maximum conversion
+5. **CTA Strategy**: A concrete closing line + final on-screen action that lands in the LAST 2–3 seconds. The video must feel finished, not cut off.
 
 Then provide a final **VIDEO PROMPT** block:
 
 \`\`\`video-prompt
-[Your detailed video generation prompt — 80-150 words covering environment, character, action, camera, lighting, product placement, pacing. Incorporate the visual style from the reference.]
+[Your detailed video generation prompt — 180-280 words covering: scene-by-scene timed beats with quoted dialogue for the full ${soraDuration}s, environment, character, action, camera, lighting, product placement, voice quality (studio-clean, broadcast-grade), and an explicit final-frame description so the video ends on a deliberate payoff/CTA, not mid-action.]
 \`\`\``;
 
       contentParts.push({ type: 'text', text: analysisInstruction });
@@ -562,6 +564,7 @@ Then provide a final **VIDEO PROMPT** block:
             { role: 'system', content: systemPrompt },
             { role: 'user', content: contentParts.length > 1 ? contentParts : analysisInstruction },
           ],
+          model: 'google/gemini-2.5-pro',
         },
       });
 
@@ -776,7 +779,7 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
 \`\`\``,
       });
 
-      const systemPrompt = `You are a UGC ad video strategist helping iterate on a video script. The user has already generated a video and wants to make changes. Review the conversation history, understand their feedback, and provide a revised script with an updated video-prompt block. Be concise — focus on what changed and why.`;
+      const systemPrompt = `You are a UGC ad video strategist helping iterate on a video script. The user has already generated a video and wants to make changes. Review the conversation history, understand their feedback, and provide a revised script with an updated video-prompt block. The script MUST fully fill the target duration with a clear three-act structure (Hook → Body → Payoff/CTA), include exact quoted dialogue paced at ~2.5 words/second, and end on a deliberate closing beat (CTA + final-frame description) — never leave dead air or cut off mid-action. Voice quality must be studio-clean broadcast grade. Be concise in your reasoning — focus on what changed and why — but the final \`\`\`video-prompt\`\`\` block must be 180–280 words with timed beats covering the full duration.`;
 
       const { data: aiData, error: aiError } = await supabase.functions.invoke('ai', {
         body: {
@@ -785,6 +788,7 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
             ...conversationHistory,
             { role: 'user', content: contentParts.length > 1 ? contentParts : contentParts[contentParts.length - 1].text },
           ],
+          model: 'google/gemini-2.5-pro',
         },
       });
 
