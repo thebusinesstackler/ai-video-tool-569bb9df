@@ -555,7 +555,114 @@ const ChatcutAI = () => {
         if (!audioEl.paused) audioEl.pause();
       }
     });
-  }, [isPlaying, currentTime, musicTracks, trackMuted.a1, hasInteracted]);
+  }, [isPlaying, currentTime, musicTracks, trackMuted.a1, hasInteracted, isSpeechActive, duckEnabled, duckStrength]);
+
+  // ── Phase 3: SFX engine — synthesizes whoosh / ding / pop / swoosh / thud / click via Web Audio ──
+  // Cheap, instant, no network. Re-uses one AudioContext and builds per-trigger oscillator+filter chains.
+  const playSfx = useCallback((kind: SfxKind, volume = 0.6) => {
+    try {
+      if (!sfxAudioCtxRef.current) {
+        const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+        sfxAudioCtxRef.current = new Ctx();
+      }
+      const ctx = sfxAudioCtxRef.current!;
+      if (ctx.state === 'suspended') ctx.resume();
+      const now = ctx.currentTime;
+      const masterGain = ctx.createGain();
+      masterGain.gain.value = Math.max(0, Math.min(1, volume));
+      masterGain.connect(ctx.destination);
+
+      if (kind === 'whoosh' || kind === 'swoosh') {
+        const dur = kind === 'whoosh' ? 0.45 : 0.7;
+        const bufferSize = Math.floor(ctx.sampleRate * dur);
+        const noiseBuf = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = noiseBuf.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+        const noise = ctx.createBufferSource();
+        noise.buffer = noiseBuf;
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(kind === 'whoosh' ? 800 : 600, now);
+        filter.frequency.exponentialRampToValueAtTime(kind === 'whoosh' ? 4000 : 2200, now + dur * 0.6);
+        filter.frequency.exponentialRampToValueAtTime(300, now + dur);
+        filter.Q.value = kind === 'whoosh' ? 4 : 2;
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.9, now + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+        noise.connect(filter); filter.connect(gain); gain.connect(masterGain);
+        noise.start(now); noise.stop(now + dur);
+      } else if (kind === 'ding') {
+        const dur = 0.7;
+        const osc1 = ctx.createOscillator(); osc1.type = 'sine'; osc1.frequency.value = 1320;
+        const osc2 = ctx.createOscillator(); osc2.type = 'sine'; osc2.frequency.value = 1976;
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.7, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+        osc1.connect(gain); osc2.connect(gain); gain.connect(masterGain);
+        osc1.start(now); osc2.start(now); osc1.stop(now + dur); osc2.stop(now + dur);
+      } else if (kind === 'pop') {
+        const dur = 0.18;
+        const osc = ctx.createOscillator(); osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.exponentialRampToValueAtTime(220, now + dur);
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.8, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+        osc.connect(gain); gain.connect(masterGain);
+        osc.start(now); osc.stop(now + dur);
+      } else if (kind === 'thud') {
+        const dur = 0.35;
+        const osc = ctx.createOscillator(); osc.type = 'sine';
+        osc.frequency.setValueAtTime(140, now);
+        osc.frequency.exponentialRampToValueAtTime(40, now + dur);
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.95, now + 0.005);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+        osc.connect(gain); gain.connect(masterGain);
+        osc.start(now); osc.stop(now + dur);
+      } else { // click
+        const dur = 0.06;
+        const osc = ctx.createOscillator(); osc.type = 'square';
+        osc.frequency.value = 1800;
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.5, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+        osc.connect(gain); gain.connect(masterGain);
+        osc.start(now); osc.stop(now + dur);
+      }
+    } catch (err) {
+      console.warn('[SFX] Failed to play', kind, err);
+    }
+  }, []);
+
+  // Trigger SFX clips when the playhead crosses their `at` during playback.
+  // Reset the fired set on pause / backward seek so they re-trigger on rewind.
+  const lastSfxTimeRef = useRef<number>(0);
+  useEffect(() => {
+    if (!isPlaying || !hasInteracted) {
+      lastSfxTimeRef.current = currentTime;
+      return;
+    }
+    if (currentTime < lastSfxTimeRef.current - 0.25) {
+      sfxFiredRef.current.clear();
+    }
+    for (const sfx of sfxClips) {
+      if (sfxFiredRef.current.has(sfx.id)) continue;
+      if (currentTime >= sfx.at && currentTime <= sfx.at + 0.4) {
+        playSfx(sfx.kind, sfx.volume ?? 0.6);
+        sfxFiredRef.current.add(sfx.id);
+      }
+    }
+    lastSfxTimeRef.current = currentTime;
+  }, [currentTime, isPlaying, hasInteracted, sfxClips, playSfx]);
+
+  useEffect(() => {
+    if (!isPlaying) sfxFiredRef.current.clear();
+  }, [isPlaying]);
 
   // Cleanup music audio on unmount
   useEffect(() => {
