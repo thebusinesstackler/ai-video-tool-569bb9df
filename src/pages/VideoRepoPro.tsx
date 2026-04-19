@@ -36,6 +36,7 @@ import {
   Mic,
   Scissors,
   Package,
+  Trash2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
@@ -229,6 +230,22 @@ const VideoRepoPro = () => {
     if (error) {
       toast({ title: 'Error', description: 'Could not rename', variant: 'destructive' });
       fetchHistory();
+    }
+  };
+
+  const deleteProject = async (project: VideoRepoProject, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const label = project.custom_name || project.prompt?.slice(0, 60) || 'this video';
+    if (!confirm(`Delete "${label}"? This cannot be undone.`)) return;
+    const prev = historyProjects;
+    setHistoryProjects(prev.filter(p => p.id !== project.id));
+    if (selectedProject?.id === project.id) setSelectedProject(null);
+    const { error } = await supabase.from('video_repo_projects').delete().eq('id', project.id);
+    if (error) {
+      setHistoryProjects(prev);
+      toast({ title: 'Delete failed', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Deleted', description: 'Video removed from history.' });
     }
   };
 
