@@ -245,7 +245,24 @@ interface SfxClip {
  * Phase 4: Target platform identifier — drives safe-zone selection so Marco
  * never places overlays under the TikTok username strip, Reels right-rail, etc.
  */
-type TargetPlatform = 'tiktok' | 'reels' | 'shorts' | 'youtube' | 'youtube-landscape';
+type TargetPlatform = 'tiktok' | 'reels' | 'shorts' | 'youtube' | 'youtube-landscape' | 'square';
+
+// PiP scene layout (Marco picks per scene). Drives a CSS transform on the main video.
+type SceneLayoutKind =
+  | 'pip_actor_bottom_circle'
+  | 'pip_actor_bottom_strip'
+  | 'pip_actor_floating_card'
+  | 'fullscreen_actor'
+  | 'fullscreen_broll';
+
+interface SceneLayout {
+  id: string;
+  start: number;
+  duration: number;
+  layout: SceneLayoutKind;
+  actorScale?: number;
+  actorPosition?: { x: number; y: number }; // 0–100 %
+}
 
 /**
  * Phase 4: An A/B variant set — multiple alternative versions of an overlay
@@ -416,6 +433,28 @@ const ChatcutAI = () => {
   const [reelPreview, setReelPreview] = useState(false);
   const [reelCropX, setReelCropX] = useState(50);
   const [isAutoCentering, setIsAutoCentering] = useState(false);
+
+  // PiP scene layouts (Marco picks per scene). Drives a CSS transform on the main video.
+  const [sceneLayouts, setSceneLayouts] = useState<SceneLayout[]>([]);
+
+  // Vision analysis cache (subject position, negative space, busy/calm). Populated on draft load
+  // by sending 4-6 keyframes through `analyze-frame-vision`. Marco reads it on every edit.
+  const [visionAnalysis, setVisionAnalysis] = useState<{
+    frames: Array<{
+      time: number;
+      subjectPosition: 'left' | 'center' | 'right' | 'none';
+      faceBbox?: { x: number; y: number; w: number; h: number };
+      negativeSpaceSide: 'top' | 'bottom' | 'left' | 'right' | 'none';
+      busyRating: 'low' | 'medium' | 'high';
+      dominantColors: string[];
+    }>;
+    summary: {
+      framesAnalyzed: number;
+      mostCommonSubjectPosition: string;
+      mostCommonNegativeSpaceSide: string;
+      dominantBusyRating: string;
+    };
+  } | null>(null);
 
   // B-Roll storyboard review state — populated when Marco runs review_broll
   type BrollSuggestion = {
@@ -1121,7 +1160,17 @@ const ChatcutAI = () => {
       font: brandSettings.font,
       hasLogo: !!brandSettings.logoUrl,
     },
-  }), [videoUrl, duration, currentTime, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, brandSettings]);
+    sceneLayouts: sceneLayouts.map(l => ({ id: l.id, start: l.start, duration: l.duration, layout: l.layout, actorScale: l.actorScale, actorPosition: l.actorPosition })),
+    currentSceneLayout: (sceneLayouts.find(l => currentTime >= l.start && currentTime < l.start + l.duration)) || null,
+    vision: visionAnalysis ? {
+      summary: visionAnalysis.summary,
+      currentFrame: visionAnalysis.frames.reduce<typeof visionAnalysis.frames[number] | null>((best, cur) => {
+        if (!best) return cur;
+        return Math.abs(cur.time - currentTime) < Math.abs(best.time - currentTime) ? cur : best;
+      }, null),
+      note: 'Use vision.currentFrame.subjectPosition + vision.currentFrame.negativeSpaceSide BEFORE choosing placement on every add_motion_graphic / add_overlay. If subject=left → text on right. If busyRating=high → use treatment:full_card instead of overlay. If negativeSpaceSide=top → use top_banner. If negativeSpaceSide=bottom → use lower_third.',
+    } : null,
+  }), [videoUrl, duration, currentTime, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, brandSettings, sceneLayouts, visionAnalysis]);
 
   const saveDraft = useCallback(async () => {
     if (!user) return;
@@ -1144,6 +1193,10 @@ const ChatcutAI = () => {
         targetPlatform,
         variantSets,
         showSafeZones,
+        // PiP scene layouts + Marco vision cache
+        sceneLayouts,
+        visionAnalysis,
+        punchIns,
       };
       const payload: Record<string, unknown> = {
         user_id: user.id,
@@ -1165,7 +1218,7 @@ const ChatcutAI = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [user, draftId, draftName, videoUrl, transcript, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, messages, toast, transitions, sfxClips, duckEnabled, duckStrength, targetPlatform, variantSets, showSafeZones]);
+  }, [user, draftId, draftName, videoUrl, transcript, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, messages, toast, transitions, sfxClips, duckEnabled, duckStrength, targetPlatform, variantSets, showSafeZones, sceneLayouts, visionAnalysis, punchIns]);
 
   const loadDraft = useCallback(async (id: string) => {
     if (!user) return;
@@ -1195,6 +1248,9 @@ const ChatcutAI = () => {
       if (typeof ts.showSafeZones === 'boolean') setShowSafeZones(ts.showSafeZones);
       if (ts.captionSettings) setCaptionSettings(ts.captionSettings);
       if (ts.thumbnail) setThumbnail(ts.thumbnail);
+      if (Array.isArray(ts.sceneLayouts)) setSceneLayouts(ts.sceneLayouts);
+      if (Array.isArray(ts.punchIns)) setPunchIns(ts.punchIns);
+      if (ts.visionAnalysis && Array.isArray(ts.visionAnalysis.frames)) setVisionAnalysis(ts.visionAnalysis);
     }
     const ch = data.chat_history as any;
     if (Array.isArray(ch)) setMessages(ch);
@@ -2007,6 +2063,39 @@ const ChatcutAI = () => {
           toast({ title: 'Punch-in removed' });
           break;
         }
+        case 'set_scene_layout': {
+          // Marco picks a per-scene PiP layout. Renderer applies CSS transforms on the main video
+          // so the speaker shrinks to a circle/strip/floating card while B-roll fills the top region.
+          const validLayouts: SceneLayoutKind[] = [
+            'pip_actor_bottom_circle',
+            'pip_actor_bottom_strip',
+            'pip_actor_floating_card',
+            'fullscreen_actor',
+            'fullscreen_broll',
+          ];
+          const layout = validLayouts.includes(act.layout) ? act.layout as SceneLayoutKind : 'fullscreen_actor';
+          const start = typeof act.start === 'number' ? act.start : currentTime;
+          const dur = Math.max(0.5, typeof act.duration === 'number' ? act.duration : 4);
+          const id = crypto.randomUUID();
+          const actorScale = typeof act.actorScale === 'number' ? Math.max(0.2, Math.min(1, act.actorScale)) : undefined;
+          const actorPosition = act.actorPosition && typeof act.actorPosition.x === 'number'
+            ? { x: Math.max(0, Math.min(100, act.actorPosition.x)), y: Math.max(0, Math.min(100, act.actorPosition.y)) }
+            : undefined;
+          setSceneLayouts(prev => [...prev, { id, start, duration: dur, layout, actorScale, actorPosition }].sort((a, b) => a.start - b.start));
+          toast({ title: '🎬 Scene layout set', description: `${layout.replace(/_/g, ' ')} @ ${start.toFixed(1)}s for ${dur.toFixed(1)}s` });
+          break;
+        }
+        case 'remove_scene_layout': {
+          const id = act.id as string | undefined;
+          const at = typeof act.at === 'number' ? act.at : null;
+          setSceneLayouts(prev => prev.filter(l => {
+            if (id && l.id === id) return false;
+            if (at != null && at >= l.start && at < l.start + l.duration) return false;
+            return true;
+          }));
+          toast({ title: 'Scene layout cleared' });
+          break;
+        }
         case 'trim_tail': {
           // Cut off a long ending. Marco passes how many seconds of tail to remove,
           // or an explicit start time. We add a "cut" so playback skips the tail.
@@ -2275,7 +2364,7 @@ const ChatcutAI = () => {
         }
         // ── Phase 4: Platform + safe-zone + A/B variant actions ───────
         case 'set_platform': {
-          const valid: TargetPlatform[] = ['tiktok', 'reels', 'shorts', 'youtube', 'youtube-landscape'];
+          const valid: TargetPlatform[] = ['tiktok', 'reels', 'shorts', 'youtube', 'youtube-landscape', 'square'];
           const next = valid.includes(act.platform) ? act.platform : 'tiktok';
           setTargetPlatform(next as TargetPlatform);
           // Always link reel preview to platform: vertical platforms force 9:16 preview.
@@ -3114,6 +3203,10 @@ const ChatcutAI = () => {
     'youtube-landscape': [
       { name: 'yt_player_controls', x: 0,  y: 88, width: 100, height: 12, reason: 'YouTube player chrome appears bottom 12% on hover' },
     ],
+    square: [
+      { name: 'sq_caption_strip',   x: 5,  y: 80, width: 90, height: 14, reason: 'Feed caption strip on Instagram/LinkedIn 1:1 posts' },
+      { name: 'sq_top_safe',        x: 0,  y: 0,  width: 100, height: 6, reason: 'Top platform chrome on square posts' },
+    ],
   };
 
   // Build the active safe-zone list = platform-specific zones + caption strip (if enabled)
@@ -3494,6 +3587,65 @@ const ChatcutAI = () => {
       currentTime >= p.start && currentTime < p.start + p.duration
     ) || null;
   }, [currentTime, punchIns]);
+
+  // Active PiP scene layout (Marco picks per scene). Drives a CSS transform on the video.
+  const activeSceneLayout = useMemo(() => {
+    return sceneLayouts.find(l =>
+      currentTime >= l.start && currentTime < l.start + l.duration
+    ) || null;
+  }, [currentTime, sceneLayouts]);
+
+  // Compose punch-in + scene-layout transforms into a single style block.
+  const composedVideoStyle = useMemo<React.CSSProperties>(() => {
+    let scale = activePunchIn?.scale ?? 1;
+    let translateX = 0;
+    let translateY = 0;
+    let origin = 'center 40%';
+    let borderRadius = 0;
+    let zIndex: number | undefined = undefined;
+
+    if (activeSceneLayout) {
+      switch (activeSceneLayout.layout) {
+        case 'pip_actor_bottom_circle':
+          scale = (activeSceneLayout.actorScale ?? 0.42) * scale;
+          translateY = 28; // % toward bottom
+          borderRadius = 9999;
+          origin = 'center center';
+          zIndex = 25;
+          break;
+        case 'pip_actor_bottom_strip':
+          scale = (activeSceneLayout.actorScale ?? 0.55) * scale;
+          translateY = 24;
+          origin = 'center center';
+          zIndex = 25;
+          break;
+        case 'pip_actor_floating_card':
+          scale = (activeSceneLayout.actorScale ?? 0.32) * scale;
+          translateX = activeSceneLayout.actorPosition?.x ? activeSceneLayout.actorPosition.x - 50 : 28;
+          translateY = activeSceneLayout.actorPosition?.y ? activeSceneLayout.actorPosition.y - 50 : 22;
+          borderRadius = 14;
+          origin = 'center center';
+          zIndex = 25;
+          break;
+        case 'fullscreen_broll':
+          scale = 0.001; // hide the actor entirely
+          break;
+        case 'fullscreen_actor':
+        default:
+          break;
+      }
+    }
+    return {
+      transform: `translate(${translateX}%, ${translateY}%) scale(${scale})`,
+      transformOrigin: origin,
+      transition: 'transform 0.6s cubic-bezier(.2,1,.36,1), border-radius 0.4s ease',
+      borderRadius: borderRadius ? `${borderRadius}px` : undefined,
+      zIndex,
+      boxShadow: activeSceneLayout && activeSceneLayout.layout !== 'fullscreen_actor' && activeSceneLayout.layout !== 'fullscreen_broll'
+        ? '0 12px 40px hsl(var(--background) / 0.6)'
+        : undefined,
+    };
+  }, [activePunchIn, activeSceneLayout]);
 
   return (
     <Layout>
@@ -4078,14 +4230,7 @@ const ChatcutAI = () => {
                           cutoutMode === 'white' && "mix-blend-multiply",
                           cutoutMode === 'dark' && "mix-blend-screen",
                         )}
-                        style={activePunchIn ? {
-                          transform: `scale(${activePunchIn.scale})`,
-                          transformOrigin: 'center 40%',
-                          transition: 'transform 0.6s cubic-bezier(.2,1,.36,1)',
-                        } : {
-                          transform: 'scale(1)',
-                          transition: 'transform 0.5s cubic-bezier(.2,1,.36,1)',
-                        }}
+                        style={composedVideoStyle}
                         onClick={togglePlay}
                       />
 
@@ -4542,6 +4687,7 @@ const ChatcutAI = () => {
                     <option value="shorts">Shorts</option>
                     <option value="youtube">YouTube</option>
                     <option value="youtube-landscape">YT 16:9</option>
+                    <option value="square">Square 1:1</option>
                   </select>
                   <Button variant="ghost" size="icon" className="h-7 w-7" title={showSafeZones ? 'Hide platform safe zones' : 'Show platform UI safe zones'}
                     onClick={() => setShowSafeZones(v => !v)}>

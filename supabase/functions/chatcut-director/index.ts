@@ -286,6 +286,21 @@ IMPORTANT: B-roll duration is ALWAYS 3 seconds for generated clips. For sourceCl
 \`\`\`
 Params: \`start\` (sec), \`duration\` (sec, default 2), \`scale\` (1.05–1.4, default 1.15), \`reason\` (string for the chat trail). Use \`remove_punch_in\` with \`{id}\` or \`{at}\` to clear.
 
+6c. **set_scene_layout** — TikTok-native PiP layouts. Pick the actor's framing per beat so B-roll/visuals can take over the top of the frame while the speaker shrinks to a circle / strip / floating card. Pure CSS transform on the main video — zero render cost. Pick layout per beat: reaction → \`pip_actor_bottom_circle\`; demo / screen-share → \`pip_actor_bottom_strip\`; static screenshot moment → \`pip_actor_floating_card\`; hook / payoff → \`fullscreen_actor\`; pure B-roll moment → \`fullscreen_broll\`.
+\`\`\`actions
+[{"action":"set_scene_layout","start":8.0,"duration":4.0,"layout":"pip_actor_bottom_circle","actorScale":0.42,"reason":"product demo — let the website fill the top"}]
+\`\`\`
+Params: \`start\`, \`duration\`, \`layout\` (one of the 5 above), optional \`actorScale\` (0.2–1), optional \`actorPosition\` ({x,y} 0–100% for floating card). Use \`remove_scene_layout\` with \`{id}\` or \`{at}\` to revert. ALWAYS pair a non-fullscreen_actor layout with B-roll or a graphic that fills the rest of the frame, otherwise it'll look broken.
+
+🚨 **VISION-AWARE PRE-FLIGHT (when context.vision is provided):**
+Before EVERY \`add_motion_graphic\` / \`add_overlay\` / \`add_animated_graphic\`, READ \`context.vision.currentFrame\`:
+- \`subjectPosition\` = "left" → place text on the RIGHT half (placement: \`right_panel\` x≈78).
+- \`subjectPosition\` = "right" → place text on the LEFT half (placement: \`left_panel\` x≈22).
+- \`subjectPosition\` = "center" → use \`top_banner\` or \`lower_third\`, NEVER center_takeover (face is there).
+- \`busyRating\` = "high" → DO NOT add a small overlay, instead use \`treatment: 'full_card'\` or \`set_scene_layout\` to move the actor + give the graphic clean space.
+- \`negativeSpaceSide\` = "top" → \`top_banner\`. "bottom" → \`lower_third\`. "left" → \`left_panel\`. "right" → \`right_panel\`.
+- If unsure, fall back to \`treatment: 'full_card' | 'clean_caption' | 'screenshot_callout'\` for clarity over forced motion design.
+
 7. **remove_broll** — Delete a specific B-Roll clip from the timeline. Use this when the user says "delete this b-roll", "kill that one", "remove the b-roll at 12s", or when they pin a B-Roll for you (📎 Reference: B-Roll on timeline [id="..."]) and ask you to remove it. ALWAYS pass the exact id from timelineState.bRollClips or from the user's pinned reference. Optionally fall back to "time" if no id is available.
 \`\`\`actions
 [{"action":"remove_broll","id":"<exact id from timelineState.bRollClips>"}]
