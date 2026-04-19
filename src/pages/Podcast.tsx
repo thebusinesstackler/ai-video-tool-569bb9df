@@ -881,6 +881,15 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
             onUseScript={(script) => { setMessage(script); setActiveTab('talking-head'); }}
             onUseBatchPlan={handleBatchPlan}
             selectedCharacterName={selectedTwin?.name}
+            brandContext={{
+              brandName: brandContext.brandName,
+              brandDescription: brandContext.brandDescription,
+              productLines: brandContext.productLines,
+              audience: brandContext.audience,
+              websiteUrl: brandContext.websiteUrl,
+              websiteSummary: brandContext.websiteSummary,
+              userEmail: user?.email,
+            }}
           />
         </div>
 
