@@ -355,6 +355,10 @@ const ChatcutAI = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const musicAudioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
+  // Phase 3: shared AudioContext for synthesized SFX + tracking which sfx ids have already
+  // fired in the current playback pass (reset on seek/pause so they re-trigger on rewind).
+  const sfxAudioCtxRef = useRef<AudioContext | null>(null);
+  const sfxFiredRef = useRef<Set<string>>(new Set());
 
   // Snapshot of timeline state captured RIGHT BEFORE Marco's last action ran.
   // Lets the user undo whatever Marco just did (B-roll, overlay, music, captions, cuts, thumbnail).
