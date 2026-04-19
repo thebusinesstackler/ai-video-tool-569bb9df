@@ -440,7 +440,11 @@ const VideoRepo = () => {
       return;
     }
     const trimmedPrompt = prompt.trim();
-    if (!trimmedPrompt && !referenceVideoUrl && !productImageUrl) return;
+    if (inputMode === 't2v') {
+      if (!trimmedPrompt) return;
+    } else {
+      if (!trimmedPrompt && !referenceVideoUrl && !productImageUrl) return;
+    }
 
     // Upload files to storage for persistence
     let persistentVideoUrl: string | null = null;
