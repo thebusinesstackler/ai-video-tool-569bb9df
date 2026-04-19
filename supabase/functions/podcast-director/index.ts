@@ -17,13 +17,23 @@ interface BrandContext {
   userFirstName?: string;
 }
 
-function buildBrandBriefing(ctx: BrandContext | undefined, character?: string): string {
-  if (!ctx) return "";
+interface AvailableTwin {
+  name: string;
+  gender?: string;
+  description?: string;
+}
+
+function buildBrandBriefing(
+  ctx: BrandContext | undefined,
+  character?: string,
+  availableTwins?: AvailableTwin[],
+): string {
+  if (!ctx && !availableTwins?.length) return "";
 
   const isLifecykel =
-    /lifecykel/i.test(ctx.brandName || "") ||
-    /lifecykel/i.test(ctx.userEmail || "") ||
-    /lifecykel/i.test(ctx.websiteUrl || "");
+    /lifecykel/i.test(ctx?.brandName || "") ||
+    /lifecykel/i.test(ctx?.userEmail || "") ||
+    /lifecykel/i.test(ctx?.websiteUrl || "");
 
   const lifecykelDeepBrief = isLifecykel
     ? `
@@ -46,14 +56,29 @@ LIFECYKEL — DEEP BRAND CONTEXT (you know this brand intimately):
 
   const lines: string[] = [];
   lines.push("=== BRAND CONTEXT (use this on EVERY response without asking) ===");
-  if (ctx.userEmail) lines.push(`User: ${ctx.userEmail}${ctx.userFirstName ? ` (${ctx.userFirstName})` : ""}`);
-  if (ctx.brandName) lines.push(`Brand: ${ctx.brandName}`);
-  if (ctx.websiteUrl) lines.push(`Website: ${ctx.websiteUrl}`);
-  if (ctx.brandDescription) lines.push(`About: ${ctx.brandDescription}`);
-  if (ctx.productLines) lines.push(`Products: ${ctx.productLines}`);
-  if (ctx.audience) lines.push(`Target audience: ${ctx.audience}`);
-  if (ctx.websiteSummary) lines.push(`Recent activity: ${ctx.websiteSummary}`);
+  if (ctx?.userEmail) lines.push(`User: ${ctx.userEmail}${ctx.userFirstName ? ` (${ctx.userFirstName})` : ""}`);
+  if (ctx?.brandName) lines.push(`Brand: ${ctx.brandName}`);
+  if (ctx?.websiteUrl) lines.push(`Website: ${ctx.websiteUrl}`);
+  if (ctx?.brandDescription) lines.push(`About: ${ctx.brandDescription}`);
+  if (ctx?.productLines) lines.push(`Products: ${ctx.productLines}`);
+  if (ctx?.audience) lines.push(`Target audience: ${ctx.audience}`);
+  if (ctx?.websiteSummary) lines.push(`Recent activity: ${ctx.websiteSummary}`);
   if (character) lines.push(`Active on-camera character / AI Twin: ${character}`);
+
+  if (availableTwins && availableTwins.length > 0) {
+    lines.push("");
+    lines.push("=== AVAILABLE AI TWINS (cast across the content batch) ===");
+    availableTwins.forEach((t, i) => {
+      const meta = [t.gender, t.description].filter(Boolean).join(" — ");
+      lines.push(`${i + 1}. "${t.name}"${meta ? ` (${meta})` : ""}`);
+    });
+    lines.push("CASTING RULES for multi-video plans:");
+    lines.push("- Treat the available twins as your CAST. Assign a different twin to each video plan to create variety in the content batch (different faces, different vibes).");
+    lines.push("- Match the twin to the topic/angle when it makes sense (e.g. softer twin for calm/sleep angles, energetic twin for pre-workout angles, gendered casting where appropriate).");
+    lines.push("- If you have fewer twins than plans, ROTATE through them so the same twin is used roughly evenly. Never assign the same twin to more than ⌈plans/twins⌉ slots in a row.");
+    lines.push("- ALWAYS include a `twinName` field in EVERY plan, exactly matching one of the names above (case-sensitive).");
+  }
+
   if (lifecykelDeepBrief) {
     lines.push("");
     lines.push(lifecykelDeepBrief);
