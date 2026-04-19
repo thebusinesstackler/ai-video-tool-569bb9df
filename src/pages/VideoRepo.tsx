@@ -45,12 +45,25 @@ import { createWaveSpeedVideo, getWaveSpeedVideoJob } from '@/lib/wavespeed';
 import { downloadSocialVideoToStorage } from '@/lib/socialVideoDownload';
 import ReactMarkdown from 'react-markdown';
 
+interface MotionApprovalCard {
+  strategy: string;
+  startUrl: string;
+  endUrl: string;
+  motionPrompt: string;
+  model: 'keyframe-interpolation' | 'vidu-start-end' | 'seedance-i2v';
+  duration: 5 | 10;
+  productImageUrl?: string | null;
+  productName?: string | null;
+  status: 'pending' | 'approved' | 'cancelled';
+}
+
 interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   attachments?: { type: 'image' | 'video'; url: string; name?: string }[];
   videoResult?: { url: string; status: string };
+  approvalCard?: MotionApprovalCard;
 }
 
 interface VideoRepoProject {
