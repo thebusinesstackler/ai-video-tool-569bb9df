@@ -14,7 +14,7 @@ interface WaveSpeedVideoParams {
   endFrameUrl?: string;
   audioUrl?: string;
   videoUrl?: string;
-  model?: 'wan-2.2' | 'alibaba/wan-2.5/text-to-video' | 'wan-2.5-i2v' | 'wan-2.5-a2v' | 'wan-2.6-i2v' | 'hunyuan-video' | 'seedream-v4' | 'vidu' | 'vidu-start-end' | 'seedance-i2v' | 'veo3' | 'veo3-fast' | 'avatar-omni-human-1.5' | 'infinitetalk' | 'wan-animate' | 'video-face-swap' | 'keyframe-interpolation' | 'kling-v3.0-pro' | 'sora-2' | 'sora-2-pro' | 'alibaba/wan-2.7/video-edit' | 'alibaba/wan-2.5/video-extend';
+  model?: 'wan-2.2' | 'alibaba/wan-2.5/text-to-video' | 'wan-2.5-i2v' | 'wan-2.5-a2v' | 'wan-2.6-i2v' | 'hunyuan-video' | 'seedream-v4' | 'vidu' | 'vidu-start-end' | 'seedance-i2v' | 'seedance-2.0' | 'seedance-2.0-i2v' | 'seedance-2.0-t2v' | 'veo3' | 'veo3-fast' | 'avatar-omni-human-1.5' | 'infinitetalk' | 'wan-animate' | 'video-face-swap' | 'keyframe-interpolation' | 'kling-v3.0-pro' | 'sora-2' | 'sora-2-pro' | 'alibaba/wan-2.7/video-edit' | 'alibaba/wan-2.5/video-extend';
   aspectRatio?: '16:9' | '9:16';
   seeds?: number;
   enableFallback?: boolean;
