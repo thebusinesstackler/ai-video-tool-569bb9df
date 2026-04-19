@@ -1304,15 +1304,17 @@ const ChatcutAI = () => {
   // Generate B-roll image via generate-scene-image, then animate to video.
   // Auto-retries ONCE with a stripped-down prompt if the image step fails,
   // and surfaces a clear error + Retry button in chat if it still fails.
-  const generateBRollImage = useCallback(async (clipId: string, prompt: string) => {
-    setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, imageStatus: 'generating' } : b));
+  const generateBRollImage = useCallback(async (clipId: string, prompt: string, opts: { aspectRatio?: '16:9' | '9:16' } = {}) => {
+    const platformAspect: '16:9' | '9:16' = targetPlatform === 'youtube-landscape' ? '16:9' : '9:16';
+    const aspect = opts.aspectRatio || platformAspect;
+    setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, imageStatus: 'generating', videoStatus: 'generating', imageUrl: undefined, videoUrl: undefined } : b));
     try {
       const { data, error } = await supabase.functions.invoke('generate-scene-image', {
-        body: { prompt },
+        body: { prompt, aspectRatio: aspect },
       });
       if (error || !data?.imageUrl) throw new Error(error?.message || 'No image generated');
       setBRollClips(prev => prev.map(b => b.id === clipId ? { ...b, imageUrl: data.imageUrl, imageStatus: 'ready', videoStatus: 'generating' } : b));
-      toast({ title: 'B-Roll image ready', description: 'Now animating into video clip...' });
+      toast({ title: 'B-Roll image ready', description: `Animating ${aspect} clip…` });
 
       // Chain: animate the still image into a 3s 720p video via Wan 2.5 i2v
       try {
@@ -1324,7 +1326,7 @@ const ChatcutAI = () => {
             prompt, // use the director's tone-matched prompt verbatim (no forced "cinematic slow motion")
             duration: 3,
             resolution: '720p',
-            aspectRatio: '16:9',
+            aspectRatio: aspect,
           },
         });
         if (vidError || !vidData?.taskId) {
@@ -1351,7 +1353,7 @@ const ChatcutAI = () => {
           .slice(0, 220);
         const safePrompt = stripped || `Natural close-up shot, soft daylight, casual handheld phone footage`;
         toast({ title: 'Retrying B-Roll…', description: 'First attempt failed — trying a simpler prompt' });
-        setTimeout(() => generateBRollImage(clipId, safePrompt), 800);
+        setTimeout(() => generateBRollImage(clipId, safePrompt, opts), 800);
         return;
       }
 
@@ -1363,7 +1365,7 @@ const ChatcutAI = () => {
         content: `⚠️ I couldn't generate that B-roll after 2 tries — **${errMsg}**\n\nClick the **Retry B-Roll** button on the failed clip in the timeline, or just tell me to try a different prompt.`,
       }]);
     }
-  }, [toast, pollBRollVideo]);
+  }, [toast, pollBRollVideo, targetPlatform]);
 
   // Public retry helper — re-runs generation for a B-roll clip with its current prompt
   const retryBRoll = useCallback((clipId: string) => {
@@ -1394,6 +1396,7 @@ const ChatcutAI = () => {
     toast({ title: 'B-Roll added', description: `"${label}" — animating into 3s clip...` });
     (async () => {
       try {
+        const platformAspect: '16:9' | '9:16' = targetPlatform === 'youtube-landscape' ? '16:9' : '9:16';
         const { data: vidData, error: vidError } = await supabase.functions.invoke('wavespeed-video', {
           body: {
             action: 'create',
@@ -1402,7 +1405,7 @@ const ChatcutAI = () => {
             prompt: broll.prompt,
             duration: 3,
             resolution: '720p',
-            aspectRatio: '16:9',
+            aspectRatio: platformAspect,
           },
         });
         if (vidError || !vidData?.taskId) {
@@ -1415,7 +1418,7 @@ const ChatcutAI = () => {
         setBRollClips(prev => prev.map(b => b.id === brollId ? { ...b, videoStatus: 'failed' } : b));
       }
     })();
-  }, [currentTime, toast, pollBRollVideo]);
+  }, [currentTime, toast, pollBRollVideo, targetPlatform]);
 
   // Add B-roll from an EXISTING video clip (e.g., extracted source clip) — uses it directly, no Wan animation.
   // Auto-snaps the start time forward to avoid overlapping any existing b-roll on the track.
