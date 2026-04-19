@@ -845,7 +845,9 @@ Provide the updated **VIDEO PROMPT** block (180–280 words):
         setMessages(prev => [...prev, generatingMsg]);
 
         const useProductLockFollow = lockProduct && !!newImageUrl;
-        const followModel = useProductLockFollow ? 'wan-2.5-i2v' : (useSoraPro ? 'sora-2-pro' : 'sora-2');
+        const followModel = useSeedance
+          ? 'seedance-2.0'
+          : (useProductLockFollow ? 'wan-2.5-i2v' : (useSoraPro ? 'sora-2-pro' : 'sora-2'));
         try {
           const taskId = await createWaveSpeedVideo({
             prompt: newVideoPrompt,
@@ -1679,6 +1681,18 @@ Provide the updated **VIDEO PROMPT** block (180–280 words):
                             </SelectContent>
                           </Select>
                         )}
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={useSeedance ? 'default' : 'outline'}
+                          className="h-8 text-xs rounded-lg gap-1 px-2.5"
+                          title={useSeedance
+                            ? 'ByteDance Seedance 2.0 ON — premium 1080p motion fidelity, 4–15s, native audio understanding. Overrides Sora & Product Lock.'
+                            : 'Switch to ByteDance Seedance 2.0 — premium 1080p motion model with native audio understanding'}
+                          onClick={() => setUseSeedance((v) => !v)}
+                        >
+                          🌊 {useSeedance ? 'Seedance 2.0' : 'Seedance'}
+                        </Button>
                         <Button
                           type="button"
                           size="sm"
