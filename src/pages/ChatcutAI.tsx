@@ -3571,6 +3571,65 @@ const ChatcutAI = () => {
     ) || null;
   }, [currentTime, punchIns]);
 
+  // Active PiP scene layout (Marco picks per scene). Drives a CSS transform on the video.
+  const activeSceneLayout = useMemo(() => {
+    return sceneLayouts.find(l =>
+      currentTime >= l.start && currentTime < l.start + l.duration
+    ) || null;
+  }, [currentTime, sceneLayouts]);
+
+  // Compose punch-in + scene-layout transforms into a single style block.
+  const composedVideoStyle = useMemo<React.CSSProperties>(() => {
+    let scale = activePunchIn?.scale ?? 1;
+    let translateX = 0;
+    let translateY = 0;
+    let origin = 'center 40%';
+    let borderRadius = 0;
+    let zIndex: number | undefined = undefined;
+
+    if (activeSceneLayout) {
+      switch (activeSceneLayout.layout) {
+        case 'pip_actor_bottom_circle':
+          scale = (activeSceneLayout.actorScale ?? 0.42) * scale;
+          translateY = 28; // % toward bottom
+          borderRadius = 9999;
+          origin = 'center center';
+          zIndex = 25;
+          break;
+        case 'pip_actor_bottom_strip':
+          scale = (activeSceneLayout.actorScale ?? 0.55) * scale;
+          translateY = 24;
+          origin = 'center center';
+          zIndex = 25;
+          break;
+        case 'pip_actor_floating_card':
+          scale = (activeSceneLayout.actorScale ?? 0.32) * scale;
+          translateX = activeSceneLayout.actorPosition?.x ? activeSceneLayout.actorPosition.x - 50 : 28;
+          translateY = activeSceneLayout.actorPosition?.y ? activeSceneLayout.actorPosition.y - 50 : 22;
+          borderRadius = 14;
+          origin = 'center center';
+          zIndex = 25;
+          break;
+        case 'fullscreen_broll':
+          scale = 0.001; // hide the actor entirely
+          break;
+        case 'fullscreen_actor':
+        default:
+          break;
+      }
+    }
+    return {
+      transform: `translate(${translateX}%, ${translateY}%) scale(${scale})`,
+      transformOrigin: origin,
+      transition: 'transform 0.6s cubic-bezier(.2,1,.36,1), border-radius 0.4s ease',
+      borderRadius: borderRadius ? `${borderRadius}px` : undefined,
+      zIndex,
+      boxShadow: activeSceneLayout && activeSceneLayout.layout !== 'fullscreen_actor' && activeSceneLayout.layout !== 'fullscreen_broll'
+        ? '0 12px 40px hsl(var(--background) / 0.6)'
+        : undefined,
+    };
+  }, [activePunchIn, activeSceneLayout]);
+
   return (
     <Layout>
       <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden">
@@ -4154,14 +4213,7 @@ const ChatcutAI = () => {
                           cutoutMode === 'white' && "mix-blend-multiply",
                           cutoutMode === 'dark' && "mix-blend-screen",
                         )}
-                        style={activePunchIn ? {
-                          transform: `scale(${activePunchIn.scale})`,
-                          transformOrigin: 'center 40%',
-                          transition: 'transform 0.6s cubic-bezier(.2,1,.36,1)',
-                        } : {
-                          transform: 'scale(1)',
-                          transition: 'transform 0.5s cubic-bezier(.2,1,.36,1)',
-                        }}
+                        style={composedVideoStyle}
                         onClick={togglePlay}
                       />
 
