@@ -4066,6 +4066,40 @@ const ChatcutAI = () => {
 
                   {timelineClips.length > 0 ? (
                     <div className="flex flex-col relative">
+                      {/* ── Phase 2: Transitions marker row ─────────────────── */}
+                      {transitions.length > 0 && (
+                        <div className="flex items-center h-7 border-b border-border/50 group hover:bg-muted/20">
+                          <div className="w-[100px] flex-shrink-0 flex items-center gap-1 px-2" title="Scene transitions (fade, dip, zoom, speed-ramp, whip)">
+                            <span className="text-[9px] font-semibold text-amber-400 truncate">Transitions</span>
+                          </div>
+                          <div className="flex-1 relative h-5 mx-1 bg-muted/10 rounded">
+                            {transitions.map(t => {
+                              const left = duration > 0 ? (t.at / duration) * 100 : 0;
+                              const width = duration > 0 ? Math.max(1.5, (t.duration / duration) * 100) : 2;
+                              return (
+                                <div
+                                  key={t.id}
+                                  className="absolute top-0 bottom-0 rounded bg-amber-500/40 border border-amber-500/70 hover:bg-amber-500/60 cursor-pointer flex items-center justify-center group/tx"
+                                  style={{ left: `${left}%`, width: `${width}%` }}
+                                  onClick={() => seekTo(t.at)}
+                                  title={`${t.kind}${t.rate ? ` @ ${t.rate}×` : ''} — ${t.duration.toFixed(1)}s @ ${t.at.toFixed(1)}s${t.label ? ` · ${t.label}` : ''}`}
+                                >
+                                  <span className="text-[8px] font-bold text-amber-100 truncate px-0.5">
+                                    {t.kind === 'speed_ramp' ? `${t.rate || 0.5}×` : t.kind === 'dip_to_black' ? 'dip' : t.kind}
+                                  </span>
+                                  <button
+                                    className="hidden group-hover/tx:flex absolute -top-1.5 -right-1.5 w-3 h-3 items-center justify-center rounded-full bg-destructive text-white text-[8px] z-10"
+                                    onClick={(e) => { e.stopPropagation(); setTransitions(prev => prev.filter(x => x.id !== t.id)); }}
+                                    title="Remove transition"
+                                  >×</button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="w-10 flex-shrink-0" />
+                        </div>
+                      )}
+
                       {/* ── Three overlay tracks (Motion / Image / Overlay) ─────────────────
                           Each track always stays on the timeline so users can see what's there.
                           The eye toggle only suppresses preview rendering.                       */}
