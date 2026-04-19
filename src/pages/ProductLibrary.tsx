@@ -468,6 +468,7 @@ export default function ProductLibrary() {
                         </Button>
                       </label>
                     </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {gallery.length === 0 ? (
