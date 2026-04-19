@@ -1613,12 +1613,30 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
 
                         <Button
                           className="w-full rounded-xl gap-1.5"
-                          onClick={generateMotionVideo}
-                          disabled={isMotionGenerating || !motionStartFrame}
+                          onClick={() => generateMotionVideo()}
+                          disabled={isMotionGenerating || isAutoMotion || !motionStartFrame}
                         >
                           {isMotionGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
                           Generate Motion Video
                         </Button>
+
+                        <div className="relative">
+                          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border/60" /></div>
+                          <div className="relative flex justify-center"><span className="bg-background px-2 text-[10px] uppercase tracking-wider text-muted-foreground">or</span></div>
+                        </div>
+
+                        <Button
+                          variant="outline"
+                          className="w-full rounded-xl gap-1.5 border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary"
+                          onClick={autoGenerateMotionVideo}
+                          disabled={isMotionGenerating || isAutoMotion}
+                        >
+                          {isAutoMotion ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                          {isAutoMotion ? (autoMotionStatus || 'Auto-generating…') : '✨ Auto-Generate Motion Video'}
+                        </Button>
+                        <p className="text-[10px] text-muted-foreground text-center leading-tight">
+                          AI picks a strategy, generates the start + end frames, writes the motion prompt, and renders the video — fully automatic.
+                        </p>
                       </div>
                     </div>
                   </>
