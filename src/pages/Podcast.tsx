@@ -104,6 +104,8 @@ const Podcast = () => {
     sceneImageUrl?: string;
     error?: string;
     projectId?: string;
+    assignedTwinId?: string | null;
+    assignedTwinName?: string | null;
   }
   const [bulkItems, setBulkItems] = useState<BulkItem[]>([]);
   const [bulkOutput, setBulkOutput] = useState<'video' | 'voiceover'>('video');
