@@ -158,7 +158,7 @@ interface OverlayItem {
   /** Director intent — drives badge in the timeline + UI affordances. */
   intent?: 'hook' | 'stat' | 'benefit' | 'proof' | 'cta' | 'educational' | 'emotional' | 'multi_point';
   /** Director treatment — picks the SmartOverlay rendering path. */
-  treatment?: 'kinetic_headline' | 'masked_typography' | 'stat_card' | 'side_notes' | 'bullet_stack' | 'quote_pop' | 'cta_lockup' | 'lower_third_pro' | 'floating_note';
+  treatment?: 'kinetic_headline' | 'masked_typography' | 'bold_outline' | 'stat_card' | 'side_notes' | 'bullet_stack' | 'quote_pop' | 'cta_lockup' | 'lower_third_pro' | 'floating_note';
   /** Director placement — semantic position the renderer maps to coords. */
   placement?: 'behind_subject' | 'left_panel' | 'right_panel' | 'lower_third' | 'center_takeover' | 'top_banner' | 'floating_note';
   /** Paired subject treatment applied to the underlying source video while this overlay is on screen. */
@@ -4463,6 +4463,7 @@ const ChatcutAI = () => {
                           const wrapperWidthByTreatment: Record<string, string> = {
                             masked_typography: 'min(86%, 680px)',
                             kinetic_headline:  'min(86%, 680px)',
+                            bold_outline:      'min(70%, 560px)',
                             stat_card:         'min(34%, 260px)',
                             lower_third_pro:   'min(58%, 360px)',
                             floating_note:     'min(34%, 260px)',
@@ -4477,6 +4478,7 @@ const ChatcutAI = () => {
                           // them fully inside on narrow 9:16 previews.
                           const halfWidthByTreatment: Record<string, number> = {
                             masked_typography: 43, kinetic_headline: 43,
+                            bold_outline: 35,
                             stat_card: 18, lower_third_pro: 30, floating_note: 18,
                             side_notes: 22, bullet_stack: 22,
                             cta_lockup: 34, quote_pop: 30,
