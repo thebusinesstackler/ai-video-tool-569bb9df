@@ -735,7 +735,7 @@ When the user says "direct this", "commercial polish", "make it look like an ad"
     const targetPlatform = (context as any)?.targetPlatform;
     const vision = (context as any)?.vision;
 
-    if (playback || audio || brand || captions || kpis) {
+    if (playback || audio || brand || captions || kpis || vision) {
       const lines: string[] = [];
       lines.push(`🎬 DIRECTOR INTEL — read this BEFORE every creative decision. Cite specific numbers when you reply.`);
 
