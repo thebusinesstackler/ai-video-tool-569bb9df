@@ -8,7 +8,7 @@ const corsHeaders = {
 
 // Step 1: Claude designs the premium prompt
 async function designPromptWithClaude(
-  type: 'thumbnail' | 'outro',
+  type: 'thumbnail' | 'outro' | 'keyframe',
   context: {
     topic: string;
     style: string;
@@ -38,6 +38,18 @@ YOUR DESIGN PRINCIPLES:
 BANNED: Dark/moody lighting. Nighttime scenes. Dramatic shadows. Generic stock photo feel. Flat lighting. Busy backgrounds. Small subjects. Low contrast. Cluttered composition. Airbrushed or plastic-looking skin.
 
 OUTPUT: Write ONLY the image generation prompt. No explanation. Under 400 words. Include specific technical photography directions.`;
+
+  const keyframeSystem = `You are a PREMIUM KEYFRAME DIRECTOR for product commercials and motion-video planning. You write image generation prompts for photoreal cinematic stills that will become the START or END frame of a motion clip.
+
+YOUR DESIGN PRINCIPLES:
+1. PRODUCT FIDELITY: When a reference product image is supplied, preserve the exact bottle, label, cap/dropper, proportions, and brand details. Never invent a substitute product.
+2. STORY LOGIC: The frame must depict a believable physical moment. No floating props, disconnected hands, or impossible object positions.
+3. CHARACTER CONTINUITY: If a person is described, keep their identity grounded and specific so another frame can match them.
+4. COMPOSITION: Premium editorial ad photography. Clear focal hierarchy, intentional negative space, strong depth, crisp focus on the hero subject.
+5. LIGHTING: Beautiful commercial lighting with realistic directionality. Avoid muddy, flat, or generic stock-photo looks.
+6. OUTPUT PURPOSE: These are pure visual keyframes for video generation — NO text overlays, NO typography, NO logos added into the scene unless explicitly part of the product packaging.
+
+OUTPUT: Write ONLY the image generation prompt. No explanation. Under 400 words.`;
 
   const outroSystem = `You are a PREMIUM MOTION GRAPHICS DESIGNER who creates end screens for Netflix, Apple, and top brands. You write image generation prompts that produce professional branded outro cards.
 
@@ -73,7 +85,22 @@ REQUIREMENTS:
 - Color grading must be BRIGHT, vibrant, and eye-catching
 - MUST include BOLD TEXT OVERLAY: 2-5 words summarizing the topic in large, thick, high-contrast font with drop shadow — positioned so it doesn't cover the face. Think MrBeast thumbnail text style.
 - The text should be the SECONDARY focal point after the person
-- Must make someone STOP scrolling and click`
+ - Must make someone STOP scrolling and click`
+    : type === 'keyframe'
+    ? `Design a PREMIUM cinematic motion-video keyframe for:
+TOPIC: "${context.topic}"
+STYLE: ${context.style || 'cinematic-motion-keyframe'}
+${context.characterDescription ? `CHARACTER / SUBJECT LOCK: ${context.characterDescription}` : 'Show a grounded premium ad subject that matches the scene.'}
+${context.sceneDescriptions ? `SCENE CONTEXT: ${context.sceneDescriptions}` : ''}
+
+REQUIREMENTS:
+- Horizontal 16:9 frame
+- This is a photoreal ad keyframe, not a thumbnail
+- NO text overlays, typography, captions, stickers, badges, or UI
+- Keep product physics believable: no floating bottle, no floating dropper, no disconnected hand
+- If a person appears, they must be naturally interacting with the product
+- Premium editorial commercial look, crisp focus, strong depth, realistic lighting
+- If a product reference image is provided, match that exact product faithfully`
     : `Design a PREMIUM branded outro/end screen:
 STYLE: ${context.style || 'logo-fade'}
 CTA TEXT AREA FOR: "${context.ctaText || 'Follow for more'}"
@@ -90,7 +117,7 @@ REQUIREMENTS:
 - NO actual text or letters in the image — pure visual design only
 - Must feel like a Netflix/Apple end screen`;
 
-  const systemPrompt = type === 'thumbnail' ? thumbnailSystem : outroSystem;
+  const systemPrompt = type === 'thumbnail' ? thumbnailSystem : type === 'keyframe' ? keyframeSystem : outroSystem;
 
   // Try Claude first
   if (ANTHROPIC_API_KEY) {
@@ -312,7 +339,7 @@ serve(async (req) => {
 
     const body = await req.json();
     const {
-      type = 'thumbnail', // 'thumbnail' | 'outro'
+      type = 'thumbnail', // 'thumbnail' | 'outro' | 'keyframe'
       topic = '',
       style = 'dramatic',
       ctaText,
@@ -325,9 +352,9 @@ serve(async (req) => {
       referenceImageUrl, // NEW: lock output to user's actual product
     } = body;
 
-    if (!topic && type === 'thumbnail') {
+    if (!topic && (type === 'thumbnail' || type === 'keyframe')) {
       return new Response(
-        JSON.stringify({ error: 'Topic is required for thumbnails' }),
+        JSON.stringify({ error: 'Topic is required for thumbnails and keyframes' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
