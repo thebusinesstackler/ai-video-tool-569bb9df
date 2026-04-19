@@ -540,9 +540,33 @@ const VideoRepo = () => {
         contentParts.push({ type: 'image_url', image_url: { url: productImageUrl } });
       }
 
-      const systemPrompt = inputMode === 't2v'
+      // Brand-aware context block — injects user's brand profile so Marco knows the brand without being told
+      const brandBlock = brandProfile && (brandProfile.company_name || brandProfile.brand_url || brandProfile.brand_description)
+        ? `\n\n**🏷️ BRAND CONTEXT (you already represent this brand — never ask for it):**
+${brandProfile.company_name ? `- Brand: ${brandProfile.company_name}` : ''}
+${brandProfile.brand_url ? `- Website (use for any URL/CTA overlay or voiceover mention): ${brandProfile.brand_url.replace(/^https?:\/\//, '')}` : ''}
+${brandProfile.brand_description ? `- Brand voice & positioning: ${brandProfile.brand_description}` : ''}
+RULES: When a CTA or on-screen URL is needed, use "${brandProfile.brand_url ? brandProfile.brand_url.replace(/^https?:\/\//, '') : (brandProfile.company_name || 'the brand')}" — NEVER use placeholders like "YourWebsite.com", "yoursite.com", "[Your Brand]", or generic stand-ins. Speak as if you are this brand's in-house creative director.`
+        : '';
+
+      // Recent-history awareness — gives Marco the last 8 successful concepts so it doesn't repeat itself
+      const recentSuccesses = (historyProjects || [])
+        .filter((p) => p.status === 'completed' && (p.prompt || p.analysis_text))
+        .slice(0, 8);
+      const historyBlock = recentSuccesses.length > 0
+        ? `\n\n**📚 RECENT WORK FOR THIS BRAND (avoid repeating these — make this one distinct):**
+${recentSuccesses.map((p, i) => {
+  const concept = (p.analysis_text || p.prompt || '').replace(/\s+/g, ' ').slice(0, 180);
+  return `${i + 1}. [${p.model || 'video'}] ${(p.custom_name || p.prompt || 'Untitled').slice(0, 60)} — ${concept}${concept.length >= 180 ? '…' : ''}`;
+}).join('\n')}
+RULES: Do NOT reuse the same hook, opening line, setting, or shot composition from the videos above. Vary the archetype, beverage choice (water/coffee/tea/smoothie/juice), location, time-of-day, and emotional arc. If the user keeps making the same product, your job is to find a NEW angle each time.`
+        : '';
+
+      const systemPrompt = (inputMode === 't2v'
         ? `You are a UGC ad video strategist and creative director specializing in pure text-to-video generation (no product image required). Your job is to translate the user's idea into a cinematic, scroll-stopping ad concept built from scratch. Focus on scene/concept storytelling: vivid setting, character casting, action choreography, lighting mood, camera movement, sound design. Enforce: a dynamic hook in the first 1.5s, a spoken voice script paced at ~2.5 words/second, studio-clean broadcast audio, and a varied creative style — never default to the same format twice (rotate Founder POV, ASMR Ritual, PAS, Mockumentary, Before/After, Kinetic Typography, Day-in-the-Life, etc.).`
-        : `You are a UGC ad video strategist and visual analyst. When given reference video frames, study them carefully: identify the hook technique (first 3 seconds), pacing rhythm, camera movements, talent actions, lighting style, text overlays, and transition patterns. Use these insights to craft a new video that captures the same energy and conversion potential.`;
+        : `You are a UGC ad video strategist and visual analyst. When given reference video frames, study them carefully: identify the hook technique (first 3 seconds), pacing rhythm, camera movements, talent actions, lighting style, text overlays, and transition patterns. Use these insights to craft a new video that captures the same energy and conversion potential.`)
+        + brandBlock
+        + historyBlock;
 
       const productContextBlock = selectedProductCtx
         ? `\n\n**FEATURED PRODUCT (must appear naturally in the ad):**
