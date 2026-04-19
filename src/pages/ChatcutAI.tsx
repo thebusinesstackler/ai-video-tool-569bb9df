@@ -4481,9 +4481,21 @@ const ChatcutAI = () => {
                   {/* ── Phase 4: Platform selector + safe-zone toggle ── */}
                   <select
                     value={targetPlatform}
-                    onChange={(e) => setTargetPlatform(e.target.value as TargetPlatform)}
+                    onChange={(e) => {
+                      const next = e.target.value as TargetPlatform;
+                      setTargetPlatform(next);
+                      // Auto-link aspect ratio: vertical platforms force 9:16 preview.
+                      setReelPreview(next !== 'youtube-landscape');
+                      const hasMismatch = bRollClips.length > 0;
+                      toast({
+                        title: `📱 Platform → ${next}`,
+                        description: hasMismatch
+                          ? `Switched to ${next === 'youtube-landscape' ? '16:9' : '9:16'}. Existing B-roll will letterbox — click "Regen B-roll" to remake clips for this aspect.`
+                          : `Aspect + safe zones updated for ${next}.`,
+                      });
+                    }}
                     className="h-7 text-[10px] px-1.5 rounded border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                    title="Target platform — Marco uses this to know which UI zones to avoid"
+                    title="Target platform — drives aspect ratio AND safe zones"
                   >
                     <option value="tiktok">TikTok</option>
                     <option value="reels">Reels</option>
@@ -4495,6 +4507,30 @@ const ChatcutAI = () => {
                     onClick={() => setShowSafeZones(v => !v)}>
                     <Square className={cn("w-3.5 h-3.5", showSafeZones && "text-destructive")} />
                   </Button>
+                  {bRollClips.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-[10px] gap-1"
+                      title={`Regenerate every B-roll clip natively at ${targetPlatform === 'youtube-landscape' ? '16:9' : '9:16'} for ${targetPlatform}`}
+                      onClick={() => {
+                        const platformAspect: '16:9' | '9:16' = targetPlatform === 'youtube-landscape' ? '16:9' : '9:16';
+                        let n = 0;
+                        for (const b of bRollClips) {
+                          if (!b.prompt) continue;
+                          // Re-fire image+video pipeline with current platform aspect
+                          generateBRollImage(b.id, b.prompt, { aspectRatio: platformAspect });
+                          n++;
+                        }
+                        toast({
+                          title: `🔄 Regenerating ${n} B-roll clip${n === 1 ? '' : 's'}`,
+                          description: `Native ${platformAspect} for ${targetPlatform} — keep editing while they render.`,
+                        });
+                      }}
+                    >
+                      <Sparkles className="w-3 h-3" /> Regen B-roll
+                    </Button>
+                  )}
                   {reelPreview && (
                     <>
                       <div className="flex items-center gap-1.5 ml-1">
