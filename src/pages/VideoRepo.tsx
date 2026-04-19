@@ -2094,6 +2094,97 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
                                 </div>
                               </div>
                             )}
+                            {msg.approvalCard && (
+                              <div className="mt-3 space-y-3 rounded-xl border border-primary/30 bg-background/60 p-3">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-semibold uppercase tracking-wider text-primary">
+                                    Review before generating
+                                  </span>
+                                  <Badge
+                                    variant={
+                                      msg.approvalCard.status === 'approved'
+                                        ? 'default'
+                                        : msg.approvalCard.status === 'cancelled'
+                                          ? 'outline'
+                                          : 'secondary'
+                                    }
+                                    className="text-[10px]"
+                                  >
+                                    {msg.approvalCard.status === 'approved'
+                                      ? '✓ Approved'
+                                      : msg.approvalCard.status === 'cancelled'
+                                        ? 'Cancelled'
+                                        : 'Pending approval'}
+                                  </Badge>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="space-y-1">
+                                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Start frame</div>
+                                    <img
+                                      src={msg.approvalCard.startUrl}
+                                      alt="Start frame"
+                                      className="w-full rounded-lg border border-border/60 aspect-video object-cover"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground">End frame</div>
+                                    <img
+                                      src={msg.approvalCard.endUrl}
+                                      alt="End frame"
+                                      className="w-full rounded-lg border border-border/60 aspect-video object-cover"
+                                    />
+                                  </div>
+                                </div>
+                                {msg.approvalCard.productImageUrl && (
+                                  <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-2 py-1.5">
+                                    <img
+                                      src={msg.approvalCard.productImageUrl}
+                                      alt="Locked product"
+                                      className="w-8 h-8 rounded object-cover border border-border/60"
+                                    />
+                                    <div className="text-[11px] text-muted-foreground">
+                                      Locked to your product{msg.approvalCard.productName ? `: ${msg.approvalCard.productName}` : ''}
+                                    </div>
+                                  </div>
+                                )}
+                                <div className="rounded-lg bg-muted/40 p-2">
+                                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Motion prompt</div>
+                                  <p className="text-xs leading-relaxed">{msg.approvalCard.motionPrompt}</p>
+                                </div>
+                                {msg.approvalCard.status === 'pending' && (
+                                  <div className="flex flex-wrap gap-2">
+                                    <Button
+                                      size="sm"
+                                      className="rounded-lg gap-1.5 flex-1"
+                                      onClick={() => approveMotionPlan(msg.id)}
+                                      disabled={isMotionGenerating || isAutoMotion}
+                                    >
+                                      <Play className="w-3.5 h-3.5" />
+                                      Approve & Generate
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="rounded-lg gap-1.5"
+                                      onClick={() => regenerateMotionPlan(msg.id)}
+                                      disabled={isMotionGenerating || isAutoMotion}
+                                    >
+                                      <RefreshCw className="w-3.5 h-3.5" />
+                                      Regenerate
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="rounded-lg gap-1.5 text-muted-foreground"
+                                      onClick={() => cancelMotionPlan(msg.id)}
+                                      disabled={isMotionGenerating || isAutoMotion}
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                           {msg.role === 'user' && (
                             <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
