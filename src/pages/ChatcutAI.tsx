@@ -4125,21 +4125,25 @@ const ChatcutAI = () => {
                           // (b) clamp pos.x so wide cards don't get half-pushed off-screen.
                           const ovTreatment = (ov.treatment as string | undefined);
                           const wrapperWidthByTreatment: Record<string, string> = {
-                            masked_typography: 'min(88%, 680px)',
-                            kinetic_headline:  'min(88%, 680px)',
-                            stat_card:         'min(36%, 280px)',
-                            lower_third_pro:   'min(36%, 280px)',
-                            floating_note:     'min(36%, 280px)',
-                            side_notes:        'min(40%, 320px)',
-                            bullet_stack:      'min(40%, 320px)',
-                            cta_lockup:        'min(70%, 420px)',
-                            quote_pop:         'min(60%, 480px)',
+                            masked_typography: 'min(86%, 680px)',
+                            kinetic_headline:  'min(86%, 680px)',
+                            stat_card:         'min(34%, 260px)',
+                            lower_third_pro:   'min(58%, 360px)',
+                            floating_note:     'min(34%, 260px)',
+                            // Side cards must hug their column without crowding the speaker
+                            side_notes:        'min(36%, 280px)',
+                            bullet_stack:      'min(38%, 300px)',
+                            cta_lockup:        'min(66%, 420px)',
+                            quote_pop:         'min(58%, 460px)',
                           };
+                          // Half-width estimate as % of preview — used to clamp x so cards
+                          // never bleed past the frame edge. Bumped side cards to 22 to keep
+                          // them fully inside on narrow 9:16 previews.
                           const halfWidthByTreatment: Record<string, number> = {
-                            masked_typography: 44, kinetic_headline: 44,
-                            stat_card: 18, lower_third_pro: 18, floating_note: 18,
-                            side_notes: 20, bullet_stack: 20,
-                            cta_lockup: 35, quote_pop: 30,
+                            masked_typography: 43, kinetic_headline: 43,
+                            stat_card: 18, lower_third_pro: 30, floating_note: 18,
+                            side_notes: 22, bullet_stack: 22,
+                            cta_lockup: 34, quote_pop: 30,
                           };
                           const innerWrapperWidth = ovTreatment
                             ? (wrapperWidthByTreatment[ovTreatment] || 'min(86%, 520px)')
