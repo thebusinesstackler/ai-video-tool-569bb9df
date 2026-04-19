@@ -111,7 +111,10 @@ serve(async (req) => {
           image: params.imageUrls[0],
           prompt: params.prompt,
           resolution: (params as any).resolution || "480p",
-          duration: duration
+          duration: duration,
+          // Native aspect ratio so vertical platforms (TikTok / Reels / Shorts) render 9:16 directly
+          // instead of getting letterboxed inside a 16:9 frame.
+          aspect_ratio: params.aspectRatio === '16:9' ? '16:9' : '9:16',
         };
 
         // Add negative prompt if provided
