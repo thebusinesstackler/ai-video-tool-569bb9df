@@ -1593,6 +1593,8 @@ const ChatcutAI = () => {
   ) => {
     setOverlays(prev => prev.map(o => o.id === overlayId ? { ...o, videoStatus: 'generating', imageStatus: 'generating' } : o));
     try {
+      // Aspect derives from targetPlatform (single source of truth) — falls back to reelPreview.
+      const platformAspect: '16:9' | '9:16' = targetPlatform === 'youtube-landscape' ? '16:9' : '9:16';
       const { data, error } = await supabase.functions.invoke('generate-animated-graphic', {
         body: {
           text,
@@ -1601,7 +1603,7 @@ const ChatcutAI = () => {
           brandPrimaryColor: brandSettings.primaryColor,
           brandTextColor: brandSettings.textColor,
           brandFont: brandSettings.font,
-          aspectRatio: opts.aspectRatio || (reelPreview ? '9:16' : '16:9'),
+          aspectRatio: opts.aspectRatio || platformAspect,
           duration: opts.duration || 5,
           fullCoverage: !!opts.fullCoverage,
         },
