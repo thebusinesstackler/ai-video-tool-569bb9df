@@ -1011,12 +1011,19 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
     e.target.value = '';
   };
 
-  const generateMotionVideo = async () => {
-    if (!motionStartFrame) {
+  const generateMotionVideo = async (overrides?: {
+    startUrl?: string;
+    endUrl?: string;
+    promptText?: string;
+    startPreview?: string;
+    endPreview?: string;
+  }) => {
+    const usingOverrides = !!overrides?.startUrl;
+    if (!usingOverrides && !motionStartFrame) {
       toast({ title: 'Start frame required', description: 'Please upload at least a start frame image.', variant: 'destructive' });
       return;
     }
-    if (motionModel === 'vidu-start-end' && !motionEndFrame) {
+    if (!usingOverrides && motionModel === 'vidu-start-end' && !motionEndFrame) {
       toast({ title: 'End frame required', description: 'VIDU requires both a start and end frame.', variant: 'destructive' });
       return;
     }
@@ -1024,23 +1031,27 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
 
     setIsMotionGenerating(true);
 
+    const finalPrompt = overrides?.promptText ?? motionPrompt.trim();
+    const startPreviewUrl = overrides?.startPreview ?? motionStartFramePreview!;
+    const endPreviewUrl = overrides?.endPreview ?? motionEndFramePreview;
+
     const userMsg: ChatMessage = {
       id: `user-motion-${Date.now()}`,
       role: 'user',
-      content: motionPrompt.trim() || `Generate a ${motionModel} motion video from keyframes`,
+      content: finalPrompt || `Generate a ${motionModel} motion video from keyframes`,
       attachments: [
-        { type: 'image' as const, url: motionStartFramePreview!, name: 'Start Frame' },
-        ...(motionEndFramePreview ? [{ type: 'image' as const, url: motionEndFramePreview, name: 'End Frame' }] : []),
+        { type: 'image' as const, url: startPreviewUrl, name: 'Start Frame' },
+        ...(endPreviewUrl ? [{ type: 'image' as const, url: endPreviewUrl, name: 'End Frame' }] : []),
       ],
     };
     setMessages(prev => [...prev, userMsg]);
     scrollToBottom('auto');
 
     try {
-      // Upload frames to storage
-      const startUrl = await uploadFileToStorage(motionStartFrame, 'motion-frames');
-      let endUrl: string | undefined;
-      if (motionEndFrame) {
+      // Upload frames to storage (or use override URLs already on storage/CDN)
+      const startUrl = overrides?.startUrl ?? await uploadFileToStorage(motionStartFrame!, 'motion-frames');
+      let endUrl: string | undefined = overrides?.endUrl;
+      if (!endUrl && motionEndFrame) {
         endUrl = await uploadFileToStorage(motionEndFrame, 'motion-frames');
       }
 
@@ -1050,7 +1061,7 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
         .from('video_repo_projects')
         .insert({
           user_id: user.id,
-          prompt: motionPrompt.trim() || 'Motion video from keyframes',
+          prompt: finalPrompt || 'Motion video from keyframes',
           product_image_url: startUrl,
           status: 'generating',
           model: motionModel,
@@ -1067,7 +1078,7 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
       setMessages(prev => [...prev, generatingMsg]);
 
       const taskId = await createWaveSpeedVideo({
-        prompt: motionPrompt.trim() || 'Smooth cinematic transition between keyframes',
+        prompt: finalPrompt || 'Smooth cinematic transition between keyframes',
         model: motionModel,
         startFrameUrl: startUrl,
         endFrameUrl: endUrl,
