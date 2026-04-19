@@ -1079,6 +1079,7 @@ const ChatcutAI = () => {
     setBRollClips([]);
     setTransitions([]);
     setSfxClips([]);
+    setVariantSets([]);
     setVizardClips([]);
     setCaptionSettings({ ...defaultCaptionSettings, enabled: false });
     setThumbnail(null);
@@ -1161,7 +1162,7 @@ const ChatcutAI = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [user, draftId, draftName, videoUrl, transcript, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, messages, toast, transitions, sfxClips, duckEnabled, duckStrength]);
+  }, [user, draftId, draftName, videoUrl, transcript, timelineClips, cuts, musicTracks, overlays, bRollClips, captionSettings, messages, toast, transitions, sfxClips, duckEnabled, duckStrength, targetPlatform, variantSets, showSafeZones]);
 
   const loadDraft = useCallback(async (id: string) => {
     if (!user) return;
@@ -1186,6 +1187,9 @@ const ChatcutAI = () => {
       setSfxClips(Array.isArray(ts.sfxClips) ? ts.sfxClips : []);
       if (typeof ts.duckEnabled === 'boolean') setDuckEnabled(ts.duckEnabled);
       if (typeof ts.duckStrength === 'number') setDuckStrength(ts.duckStrength);
+      if (typeof ts.targetPlatform === 'string') setTargetPlatform(ts.targetPlatform);
+      if (Array.isArray(ts.variantSets)) setVariantSets(ts.variantSets);
+      if (typeof ts.showSafeZones === 'boolean') setShowSafeZones(ts.showSafeZones);
       if (ts.captionSettings) setCaptionSettings(ts.captionSettings);
       if (ts.thumbnail) setThumbnail(ts.thumbnail);
     }
