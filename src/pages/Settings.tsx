@@ -33,7 +33,10 @@ const Settings = () => {
     company_name: '',
     brand_description: '',
     brand_guidelines_url: '',
+    brand_url: '',
+    brand_analysis: null as any,
   });
+  const [isAnalyzingBrand, setIsAnalyzingBrand] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploadingPdf, setIsUploadingPdf] = useState(false);
@@ -49,7 +52,7 @@ const Settings = () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('first_name, last_name, phone, company_name, brand_description, brand_guidelines_url')
+        .select('first_name, last_name, phone, company_name, brand_description, brand_guidelines_url, brand_url, brand_analysis')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -62,6 +65,8 @@ const Settings = () => {
           company_name: data.company_name || '',
           brand_description: data.brand_description || '',
           brand_guidelines_url: (data as any).brand_guidelines_url || '',
+          brand_url: (data as any).brand_url || '',
+          brand_analysis: (data as any).brand_analysis || null,
         });
       }
     } catch (error) {
@@ -260,7 +265,80 @@ const Settings = () => {
                     </Button>
                     <TransferAssetsDialog />
                   </div>
-                </div>
+
+                  <div className="space-y-2 pt-2 border-t border-border/50">
+                    <Label htmlFor="brand_url" className="flex items-center gap-2">
+                      <ExternalLink className="w-4 h-4 text-primary" />
+                      Brand Website (analyzed once)
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Marco will read your site's tone, palette, audience, and recurring phrases — and use them to direct captions, graphics, B-roll, and CTA scenes.
+                    </p>
+                    <div className="flex gap-2">
+                      <Input
+                        id="brand_url"
+                        type="url"
+                        placeholder="https://yourbrand.com"
+                        value={profile.brand_url}
+                        onChange={(e) => setProfile(p => ({ ...p, brand_url: e.target.value }))}
+                      />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        disabled={isAnalyzingBrand || !profile.brand_url}
+                        onClick={async () => {
+                          if (!user || !profile.brand_url) return;
+                          setIsAnalyzingBrand(true);
+                          try {
+                            const { data, error } = await supabase.functions.invoke('analyze-brand-website', {
+                              body: { url: profile.brand_url },
+                            });
+                            if (error) throw error;
+                            const analysis = (data as any)?.analysis;
+                            if (!analysis) throw new Error('No analysis returned');
+                            await supabase.from('profiles').upsert({
+                              user_id: user.id,
+                              brand_url: profile.brand_url,
+                              brand_analysis: analysis,
+                            } as any, { onConflict: 'user_id' });
+                            setProfile(p => ({ ...p, brand_analysis: analysis }));
+                            toast.success(`Analyzed ${analysis.brand_name || 'brand'} ✓`);
+                          } catch (err: any) {
+                            toast.error(err.message || 'Analysis failed');
+                          } finally {
+                            setIsAnalyzingBrand(false);
+                          }
+                        }}
+                      >
+                        {isAnalyzingBrand ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                        Analyze
+                      </Button>
+                    </div>
+                    {profile.brand_analysis && (
+                      <div className="flex flex-wrap gap-1.5 pt-2">
+                        {profile.brand_analysis.brand_tone && (
+                          <span className="text-[11px] px-2 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
+                            tone: {profile.brand_analysis.brand_tone}
+                          </span>
+                        )}
+                        {profile.brand_analysis.target_audience && (
+                          <span className="text-[11px] px-2 py-1 rounded-full bg-secondary/40 text-foreground border border-border">
+                            audience: {profile.brand_analysis.target_audience}
+                          </span>
+                        )}
+                        {profile.brand_analysis.visual_style && (
+                          <span className="text-[11px] px-2 py-1 rounded-full bg-secondary/40 text-foreground border border-border">
+                            style: {profile.brand_analysis.visual_style}
+                          </span>
+                        )}
+                        {Array.isArray(profile.brand_analysis.key_benefits) && profile.brand_analysis.key_benefits.slice(0, 3).map((b: string, i: number) => (
+                          <span key={i} className="text-[11px] px-2 py-1 rounded-full bg-accent/40 text-foreground border border-border">
+                            {b}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
               )}
             </CardContent>
           </Card>
