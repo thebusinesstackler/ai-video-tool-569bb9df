@@ -240,6 +240,33 @@ interface SfxClip {
   pairedOverlayId?: string;
 }
 
+/**
+ * Phase 4: Target platform identifier — drives safe-zone selection so Marco
+ * never places overlays under the TikTok username strip, Reels right-rail, etc.
+ */
+type TargetPlatform = 'tiktok' | 'reels' | 'shorts' | 'youtube' | 'youtube-landscape';
+
+/**
+ * Phase 4: An A/B variant set — multiple alternative versions of an overlay
+ * (e.g. 3 hook variations, 3 CTA placements). Only `activeIndex` is rendered;
+ * the rest are stored as inactive items the user can swap to with one click.
+ */
+interface OverlayVariantSet {
+  id: string;
+  /** What we're varying — drives copy + UI label */
+  kind: 'hook' | 'cta' | 'overlay_position' | 'overlay_text';
+  /** Optional human label e.g. "Hook variations for opening 6s" */
+  label?: string;
+  /** Linked overlays (each a complete OverlayItem). Only `items[activeIndex]` is rendered. */
+  items: Array<{
+    id: string;
+    label: string;          // "Variant A", "Curiosity gap", "Bottom-right CTA", etc.
+    overlay: any;           // OverlayItem snapshot (kept loose to dodge circular type ref)
+  }>;
+  activeIndex: number;
+  createdAt: number;
+}
+
 type TimelineAction = {
   action: string;
   [key: string]: any;
@@ -298,6 +325,14 @@ const ChatcutAI = () => {
   const [captionSettings, setCaptionSettings] = useState<CaptionSettings>({ ...defaultCaptionSettings, enabled: false });
   const [musicTracks, setMusicTracks] = useState<MusicTrack[]>([]);
   const [overlays, setOverlays] = useState<OverlayItem[]>([]);
+  // ── Phase 4 state ───────────────────────────────────────────────────
+  // Target platform drives which UI safe-zones (TikTok username, Reels right-rail, etc.) are
+  // marked off-limits for overlay placement. Defaults to TikTok in reel mode, YouTube otherwise.
+  const [targetPlatform, setTargetPlatform] = useState<TargetPlatform>('tiktok');
+  // Toggleable dashed-rectangle overlay so the user can SEE which zones are blocked.
+  const [showSafeZones, setShowSafeZones] = useState(false);
+  // A/B variant sets — Marco can generate 3 hook/CTA variations and the user one-click-swaps which is live.
+  const [variantSets, setVariantSets] = useState<OverlayVariantSet[]>([]);
   const [bRollClips, setBRollClips] = useState<BRollClip[]>([]);
   // Phase 2: scene transitions Marco can place between cuts (fade, dip, zoom, speed-ramp, whip).
   const [transitions, setTransitions] = useState<Transition[]>([]);
