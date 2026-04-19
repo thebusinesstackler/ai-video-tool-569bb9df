@@ -45,6 +45,7 @@ export type SmartOverlayType =
 export type CommercialTreatment =
   | 'kinetic_headline'
   | 'masked_typography'
+  | 'bold_outline'
   | 'stat_card'
   | 'side_notes'
   | 'bullet_stack'
@@ -535,6 +536,9 @@ export const SmartOverlay: React.FC<SmartOverlayProps> = ({
         break;
       case 'masked_typography':
         body = <MaskedTypography text={text} brandColor={brandColor} family={family} />;
+        break;
+      case 'bold_outline':
+        body = <BoldOutline text={text} subtext={subtext} family={family} />;
         break;
       case 'stat_card':
         body = <StatCard text={text} subtext={subtext} brandColor={brandColor} onBrand={onBrand} family={family} />;
