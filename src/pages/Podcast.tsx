@@ -104,6 +104,8 @@ const Podcast = () => {
     sceneImageUrl?: string;
     error?: string;
     projectId?: string;
+    assignedTwinId?: string | null;
+    assignedTwinName?: string | null;
   }
   const [bulkItems, setBulkItems] = useState<BulkItem[]>([]);
   const [bulkOutput, setBulkOutput] = useState<'video' | 'voiceover'>('video');
@@ -677,16 +679,43 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
   // ===== Bulk: receive plans from director, run queue =====
   const handleBatchPlan = (plans: VideoPlan[]) => {
     if (!plans?.length) return;
-    const items: BulkItem[] = plans.map((p, i) => ({
-      id: `plan-${Date.now()}-${i}`,
-      plan: p,
-      selected: true,
-      status: 'pending',
-      progress: 0,
-    }));
+
+    const findTwinByName = (name?: string) => {
+      if (!name) return null;
+      const norm = name.trim().toLowerCase();
+      return twins.find(t => t.name.trim().toLowerCase() === norm) || null;
+    };
+
+    const items: BulkItem[] = plans.map((p, i) => {
+      // 1) Try the AI-assigned twin name
+      let twin = findTwinByName(p.twinName);
+      // 2) Fallback: rotate through the available twins so every plan gets a different cast
+      if (!twin && twins.length > 0) {
+        twin = twins[i % twins.length];
+      }
+      // 3) Last resort: the user's currently-selected twin (or null)
+      if (!twin) twin = selectedTwin || null;
+
+      return {
+        id: `plan-${Date.now()}-${i}`,
+        plan: p,
+        selected: true,
+        status: 'pending',
+        progress: 0,
+        assignedTwinId: twin?.id || null,
+        assignedTwinName: twin?.name || p.twinName || null,
+      };
+    });
     setBulkItems(items);
     setActiveTab('bulk');
-    toast({ title: `${plans.length} videos queued`, description: 'Review, select, then bulk generate.' });
+
+    const distinctCast = new Set(items.map(i => i.assignedTwinName).filter(Boolean));
+    toast({
+      title: `${plans.length} videos queued`,
+      description: distinctCast.size > 1
+        ? `Cast across ${distinctCast.size} AI twins. Review, then bulk generate.`
+        : 'Review, select, then bulk generate.',
+    });
   };
 
   const updateBulkItem = (id: string, patch: Partial<BulkItem>) => {
@@ -701,8 +730,8 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
       hook: item.plan.hook || null,
       narration: item.plan.narration,
       audience: item.plan.audience || null,
-      twin_id: selectedTwinId,
-      twin_name: selectedTwin?.name || null,
+      twin_id: item.assignedTwinId ?? selectedTwinId,
+      twin_name: item.assignedTwinName ?? selectedTwin?.name ?? null,
       duration: item.plan.duration || parseInt(duration) || 60,
       audio_url: item.audioUrl || null,
       video_url: item.videoUrl || null,
@@ -795,9 +824,22 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
     }
   };
 
+  const resolveItemTwin = (item: BulkItem): AITwin | null => {
+    if (item.assignedTwinId) {
+      const found = twins.find(t => t.id === item.assignedTwinId);
+      if (found) return found;
+    }
+    if (item.assignedTwinName) {
+      const norm = item.assignedTwinName.trim().toLowerCase();
+      const byName = twins.find(t => t.name.trim().toLowerCase() === norm);
+      if (byName) return byName;
+    }
+    return selectedTwin || null;
+  };
+
   const startBulkGeneration = async () => {
-    if (!selectedTwin) {
-      toast({ title: 'Pick a character', description: 'Select an AI Twin first.', variant: 'destructive' });
+    if (twins.length === 0) {
+      toast({ title: 'No AI twins available', description: 'Create at least one AI Twin first.', variant: 'destructive' });
       return;
     }
     const queue = bulkItems.filter(i => i.selected && i.status !== 'done');
@@ -805,10 +847,17 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
       toast({ title: 'Nothing selected', description: 'Tick at least one script.', variant: 'destructive' });
       return;
     }
+    // Verify every queued item has a resolvable twin
+    const missing = queue.find(it => !resolveItemTwin(it));
+    if (missing) {
+      toast({ title: 'Missing cast for an item', description: `"${missing.plan.topic}" has no twin assigned. Pick a default character first.`, variant: 'destructive' });
+      return;
+    }
     setIsBulkRunning(true);
     toast({ title: `Bulk generating ${queue.length} ${bulkOutput === 'video' ? 'videos' : 'voiceovers'}`, description: 'Running sequentially. Stay on this page.' });
     for (const item of queue) {
-      await processBulkItem(item, selectedTwin);
+      const twin = resolveItemTwin(item)!;
+      await processBulkItem(item, twin);
     }
     setIsBulkRunning(false);
     loadHistory();
@@ -816,12 +865,16 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
   };
 
   const retryBulkItem = async (id: string) => {
-    if (!selectedTwin) return;
     const item = bulkItems.find(i => i.id === id);
     if (!item) return;
+    const twin = resolveItemTwin(item);
+    if (!twin) {
+      toast({ title: 'No twin for this plan', description: 'Pick a default character first.', variant: 'destructive' });
+      return;
+    }
     updateBulkItem(id, { status: 'pending', progress: 0, error: undefined });
     setIsBulkRunning(true);
-    await processBulkItem({ ...item, status: 'pending', progress: 0, error: undefined }, selectedTwin);
+    await processBulkItem({ ...item, status: 'pending', progress: 0, error: undefined }, twin);
     setIsBulkRunning(false);
     loadHistory();
   };
@@ -890,6 +943,11 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
               websiteSummary: brandContext.websiteSummary,
               userEmail: user?.email,
             }}
+            availableTwins={twins.map(t => ({
+              name: t.name,
+              gender: t.gender,
+              description: t.face_description || t.description,
+            }))}
           />
         </div>
 
@@ -1277,14 +1335,20 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                     <h1 className="text-2xl font-bold">Bulk Generate</h1>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Ask Marcus to "Plan 10 Videos" → review → select → bulk render with one click.
+                    Ask Marcus to "Plan 10 Videos" → he'll cast a different AI Twin per video → review → bulk render.
                   </p>
                 </div>
 
-                {!selectedTwin && (
+                {twins.length === 0 ? (
+                  <Card className="border-dashed border-destructive/40">
+                    <CardContent className="p-3 text-xs text-muted-foreground">
+                      ⚠️ You need at least one AI Twin to run a bulk content batch.
+                    </CardContent>
+                  </Card>
+                ) : !selectedTwin && bulkItems.some(i => !i.assignedTwinId) && (
                   <Card className="border-dashed border-primary/30">
                     <CardContent className="p-3 text-xs text-muted-foreground">
-                      ⚠️ Pick a character on the <button className="underline text-primary" onClick={() => setActiveTab('talking-head')}>Single tab</button> first.
+                      ⚠️ Some plans have no twin assigned. Pick a default character on the <button className="underline text-primary" onClick={() => setActiveTab('talking-head')}>Single tab</button> as a fallback.
                     </CardContent>
                   </Card>
                 )}
@@ -1334,7 +1398,7 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                         <Button
                           className="w-full h-11 rounded-xl bg-gradient-to-r from-primary to-primary/80"
                           onClick={startBulkGeneration}
-                          disabled={isBulkRunning || !selectedTwin || bulkItems.filter(i => i.selected && i.status !== 'done').length === 0}
+                          disabled={isBulkRunning || twins.length === 0 || bulkItems.filter(i => i.selected && i.status !== 'done').length === 0}
                         >
                           {isBulkRunning ? (
                             <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Running queue...</>
@@ -1363,6 +1427,11 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <span className="text-[10px] font-mono text-muted-foreground">#{idx + 1}</span>
                                   <p className="text-sm font-semibold truncate">{it.plan.topic}</p>
+                                  {it.assignedTwinName && (
+                                    <Badge variant="outline" className="text-[9px] h-4 px-1.5 border-primary/40 text-primary">
+                                      🎭 {it.assignedTwinName}
+                                    </Badge>
+                                  )}
                                   {it.status === 'done' && <Badge className="text-[10px] bg-primary/15 text-primary border-primary/30">Done</Badge>}
                                   {it.status === 'failed' && <Badge variant="destructive" className="text-[10px]">Failed</Badge>}
                                   {it.status !== 'pending' && it.status !== 'done' && it.status !== 'failed' && (

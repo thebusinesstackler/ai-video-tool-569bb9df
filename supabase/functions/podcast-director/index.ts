@@ -17,13 +17,23 @@ interface BrandContext {
   userFirstName?: string;
 }
 
-function buildBrandBriefing(ctx: BrandContext | undefined, character?: string): string {
-  if (!ctx) return "";
+interface AvailableTwin {
+  name: string;
+  gender?: string;
+  description?: string;
+}
+
+function buildBrandBriefing(
+  ctx: BrandContext | undefined,
+  character?: string,
+  availableTwins?: AvailableTwin[],
+): string {
+  if (!ctx && !availableTwins?.length) return "";
 
   const isLifecykel =
-    /lifecykel/i.test(ctx.brandName || "") ||
-    /lifecykel/i.test(ctx.userEmail || "") ||
-    /lifecykel/i.test(ctx.websiteUrl || "");
+    /lifecykel/i.test(ctx?.brandName || "") ||
+    /lifecykel/i.test(ctx?.userEmail || "") ||
+    /lifecykel/i.test(ctx?.websiteUrl || "");
 
   const lifecykelDeepBrief = isLifecykel
     ? `
@@ -46,14 +56,29 @@ LIFECYKEL — DEEP BRAND CONTEXT (you know this brand intimately):
 
   const lines: string[] = [];
   lines.push("=== BRAND CONTEXT (use this on EVERY response without asking) ===");
-  if (ctx.userEmail) lines.push(`User: ${ctx.userEmail}${ctx.userFirstName ? ` (${ctx.userFirstName})` : ""}`);
-  if (ctx.brandName) lines.push(`Brand: ${ctx.brandName}`);
-  if (ctx.websiteUrl) lines.push(`Website: ${ctx.websiteUrl}`);
-  if (ctx.brandDescription) lines.push(`About: ${ctx.brandDescription}`);
-  if (ctx.productLines) lines.push(`Products: ${ctx.productLines}`);
-  if (ctx.audience) lines.push(`Target audience: ${ctx.audience}`);
-  if (ctx.websiteSummary) lines.push(`Recent activity: ${ctx.websiteSummary}`);
+  if (ctx?.userEmail) lines.push(`User: ${ctx.userEmail}${ctx.userFirstName ? ` (${ctx.userFirstName})` : ""}`);
+  if (ctx?.brandName) lines.push(`Brand: ${ctx.brandName}`);
+  if (ctx?.websiteUrl) lines.push(`Website: ${ctx.websiteUrl}`);
+  if (ctx?.brandDescription) lines.push(`About: ${ctx.brandDescription}`);
+  if (ctx?.productLines) lines.push(`Products: ${ctx.productLines}`);
+  if (ctx?.audience) lines.push(`Target audience: ${ctx.audience}`);
+  if (ctx?.websiteSummary) lines.push(`Recent activity: ${ctx.websiteSummary}`);
   if (character) lines.push(`Active on-camera character / AI Twin: ${character}`);
+
+  if (availableTwins && availableTwins.length > 0) {
+    lines.push("");
+    lines.push("=== AVAILABLE AI TWINS (cast across the content batch) ===");
+    availableTwins.forEach((t, i) => {
+      const meta = [t.gender, t.description].filter(Boolean).join(" — ");
+      lines.push(`${i + 1}. "${t.name}"${meta ? ` (${meta})` : ""}`);
+    });
+    lines.push("CASTING RULES for multi-video plans:");
+    lines.push("- Treat the available twins as your CAST. Assign a different twin to each video plan to create variety in the content batch (different faces, different vibes).");
+    lines.push("- Match the twin to the topic/angle when it makes sense (e.g. softer twin for calm/sleep angles, energetic twin for pre-workout angles, gendered casting where appropriate).");
+    lines.push("- If you have fewer twins than plans, ROTATE through them so the same twin is used roughly evenly. Never assign the same twin to more than ⌈plans/twins⌉ slots in a row.");
+    lines.push("- ALWAYS include a `twinName` field in EVERY plan, exactly matching one of the names above (case-sensitive).");
+  }
+
   if (lifecykelDeepBrief) {
     lines.push("");
     lines.push(lifecykelDeepBrief);
@@ -71,11 +96,11 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, brandContext, selectedCharacterName } = await req.json();
+    const { messages, brandContext, selectedCharacterName, availableTwins } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const brandBrief = buildBrandBriefing(brandContext, selectedCharacterName);
+    const brandBrief = buildBrandBriefing(brandContext, selectedCharacterName, availableTwins);
 
     const systemPrompt = `You are **Marco** — the same AI Creative Director that powers the rest of this platform (Reels, Chatcut, Video Repo). You carry the FULL brand and strategy memory across every page. On the Podcast page you specialize in talking-head video planning, scripting, and creative direction.
 
@@ -117,13 +142,14 @@ When the user asks to plan multiple videos ("plan 10 videos", "give me a content
       "hook": "First-line spoken hook (1 sentence, scroll-stopping, 15-25 words)",
       "narration": "Full ~150-word spoken script — natural conversational, short sentences, ends with a CTA. NO stage directions, NO speaker labels. References specific brand products/rituals/audience.",
       "audience": "Who this targets (specific segment, not generic)",
-      "duration": 60
+      "duration": 60,
+      "twinName": "EXACT name of one of the available AI twins from the cast above — REQUIRED if the cast list was provided. Rotate across plans for variety."
     }
   ]
 }
 </VIDEO_PLAN>
 
-Exactly 10 plans. Each must cover a DIFFERENT angle (educational, story, myth-bust, before/after, list, controversial take, behind-the-scenes, FAQ, comparison, prediction). Vary hook types (question, bold claim, stat, story). EVERY plan must reference specific brand products / rituals / audience pains from the brief — no generic content.
+Exactly 10 plans. Each must cover a DIFFERENT angle (educational, story, myth-bust, before/after, list, controversial take, behind-the-scenes, FAQ, comparison, prediction). Vary hook types (question, bold claim, stat, story). EVERY plan must reference specific brand products / rituals / audience pains from the brief — no generic content. If a cast of AI twins was provided, EVERY plan must include a `twinName` and the cast must be rotated across the 10 plans (no twin used more than ⌈10/N⌉ times where N = number of available twins).
 
 Format chat replies in clean markdown. Be enthusiastic but concise. Bullet points for lists.
 
