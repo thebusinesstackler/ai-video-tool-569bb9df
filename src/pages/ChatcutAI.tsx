@@ -2278,6 +2278,16 @@ const ChatcutAI = () => {
             // ── USER INTENT SIGNALS ────────────────────────────────────────
             creatorMode,
             targetPlatform: reelPreview ? 'reels-shorts-tiktok' : 'youtube-landscape',
+            // ── VISION INTEL (Phase 1: Marco's eyes) ───────────────────────
+            // Detected subjects (product/face/text/logo) per keyframe + computed
+            // occlusions (which overlay covers which subject) + contrast flags.
+            // Null when no overlays exist or analysis was skipped/failed.
+            vision: visionResult ? {
+              subjects: visionResult.subjects,
+              occlusions: visionResult.occlusions,
+              contrast: visionResult.contrast,
+              summary: visionResult.summary,
+            } : null,
           },
         }),
       });
