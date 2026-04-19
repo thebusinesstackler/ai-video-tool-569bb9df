@@ -163,11 +163,11 @@ const VideoRepoPro = () => {
   const statusLabel = isExtractingFrames
     ? 'Extracting key frames from your reference video...'
     : isAnalyzing
-      ? 'Researching the reference video and writing your multi-segment script...'
+      ? `Researching the reference video and writing your single-take ${singleDuration}s script...`
       : isStitching
-        ? 'Stitching segments into a seamless 30-second video...'
+        ? 'Finalizing your video...'
         : isGenerating
-          ? generationProgress || 'Generating video segments with Sora 2...'
+          ? generationProgress || `Generating your ${singleDuration}s clip with Sora 2...`
           : null;
 
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
@@ -540,23 +540,16 @@ Be specific, constructive, and actionable. Reference exact moments/frames when p
     }
   };
 
-  // Recreate with same ending — keeps segment 2, regenerates segment 1
+  // Recreate (single-take mode — re-analyzes from the original prompt to make a fresh ${singleDuration}s clip)
   const recreateWithSameEnding = async (project: VideoRepoProject) => {
-    if (!project.segment_urls?.length || project.segment_urls.length < 2) {
-      toast({ title: 'Cannot recreate', description: 'No individual segments found for this project. Generate a new video first.', variant: 'destructive' });
-      return;
-    }
     loadProjectAssets(project);
-    // Parse the video_prompt to get just segment 1's prompt
-    const originalPrompt = project.prompt?.replace(/^\[PRO\]\s*/, '') || 'Analyze reference and generate 30s ad';
-    const keepEndingNote = `\n\n**IMPORTANT — KEEP SAME ENDING**: The second segment (ending) from the previous version will be reused. Only regenerate Segment 1 (the hook/intro) with improvements. The ending segment URL is: ${project.segment_urls[1]}`;
-    
-    setPrompt(originalPrompt + keepEndingNote);
+    const originalPrompt = project.prompt?.replace(/^\[PRO\]\s*/, '') || `Analyze reference and generate ${singleDuration}s ad`;
+    setPrompt(originalPrompt);
     setSelectedProject(null);
     setMainTab('create');
     pendingAutoPromptRef.current = originalPrompt;
     setPendingAutoAnalysis(true);
-    toast({ title: 'Recreating with same ending', description: 'Only the first segment will be regenerated — the ending stays the same.' });
+    toast({ title: 'Recreating', description: `Re-analyzing and generating a fresh ${singleDuration}-second take.` });
   };
 
   useEffect(() => {
@@ -1331,12 +1324,12 @@ Check word count vs ${singleDuration}s duration (~2.5 words/sec = ${wordTarget} 
     }
     setIsEnhancing(true);
     try {
-      const directorBrief = `You are the AI Reel Director for a high-performance UGC ad platform (TheraNovex healthcare & Lifecykel wellness). Rewrite the user's prompt into a richly-detailed 30-second cinematic ad brief. Apply these rules:
+      const directorBrief = `You are the AI Reel Director for a high-performance UGC ad platform (TheraNovex healthcare & Lifecykel wellness). Rewrite the user's prompt into a richly-detailed ${singleDuration}-second cinematic ad brief for ONE continuous Sora-2 take (no stitching, no segments). Apply these rules:
 
 - Movement-First UGC aesthetic: bright natural daylight, unretouched, handheld energy, vibrant color.
-- Structure: Hook (6+ seconds, 15-25 words, psychological trigger) → Problem → Dropper Ritual / product reveal → 3 specific benefits → CTA.
-- Pacing: ~2.5 words/second. Total ~75 words of spoken script across two seamless segments.
-- Cinematography: specify shot type, camera motion, lens feel, lighting, location, wardrobe, and a clear match-cut transition between segment 1 and segment 2.
+- Structure: Hook (first 2-3s, psychological trigger) → Problem → Product reveal → 1-2 specific benefits → CTA — all inside ${singleDuration}s as ONE continuous take.
+- Pacing: ~2.5 words/second. Total ~${Math.round(singleDuration * 2.5)} words of spoken script (max ${Math.round(singleDuration * 2.5) + 5}).
+- Cinematography: specify shot type, camera motion, lens feel, lighting, location, wardrobe, and explicitly describe the FINAL closing frame so the model lands the ending cleanly inside ${singleDuration}s.
 - Keep the user's product, brand voice, and core idea intact — do NOT invent a different product.
 - Output ONLY the rewritten prompt as a single flowing brief (no headings, no bullet labels, no preamble like "Here is..."). Plain text, ready to paste back into the composer.`;
 
@@ -1790,7 +1783,7 @@ Check word count vs ${singleDuration}s duration (~2.5 words/sec = ${wordTarget} 
             <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0 text-[10px] md:text-xs">PRO</Badge>
           </div>
           <p className="text-muted-foreground text-xs md:text-base max-w-2xl mx-auto">
-            Full 30s UGC ads — two segments stitched seamlessly.
+            One clean Sora-2 take ({singleDuration}s) — no stitching, no segments, lands on the closing frame.
           </p>
         </div>
 
@@ -1847,7 +1840,7 @@ Check word count vs ${singleDuration}s duration (~2.5 words/sec = ${wordTarget} 
                     )}
                     {referenceVideoUrl && videoFrames.length > 0 && !statusLabel && (
                       <p className="text-xs text-muted-foreground">
-                        We'll analyze {videoFrames.length} key frames to learn the hook, pacing, and style — then generate a full 30-second ad split into two seamless segments.
+                        We'll analyze {videoFrames.length} key frames to learn the hook, pacing, and style — then generate one continuous {singleDuration}-second clip that lands on a complete closing frame.
                       </p>
                     )}
                     {statusLabel && (
@@ -1910,6 +1903,16 @@ Check word count vs ${singleDuration}s duration (~2.5 words/sec = ${wordTarget} 
                       <SelectContent>
                         <SelectItem value="9:16">📱 9:16</SelectItem>
                         <SelectItem value="16:9">🖥️ 16:9</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={String(singleDuration)} onValueChange={(v) => setSingleDuration(Number(v) as 10 | 15 | 20)}>
+                      <SelectTrigger className="h-8 w-[100px] text-xs rounded-full bg-background" title="Single-take duration (no stitching)">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="10">⏱ 10s</SelectItem>
+                        <SelectItem value="15">⏱ 15s</SelectItem>
+                        <SelectItem value="20">⏱ 20s</SelectItem>
                       </SelectContent>
                     </Select>
                     <Button
