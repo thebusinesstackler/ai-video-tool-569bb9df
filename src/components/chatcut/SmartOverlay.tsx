@@ -273,37 +273,39 @@ const SideNotes: React.FC<{
       background: `linear-gradient(160deg, ${hexA('#0a0a0a', 0.82)}, ${hexA(brandColor, 0.18)})`,
       backdropFilter: 'blur(14px) saturate(140%)',
       WebkitBackdropFilter: 'blur(14px) saturate(140%)',
-      padding: '20px 22px',
-      minWidth: 220,
-      maxWidth: 'min(420px, 86%)',
+      padding: '16px 18px',
+      width: '100%',
+      maxWidth: '100%',
+      boxSizing: 'border-box',
       borderLeft: `4px solid ${brandColor}`,
       boxShadow: `0 18px 50px rgba(0,0,0,0.55), 0 0 0 1px ${hexA('#ffffff', 0.06)}`,
+      overflow: 'hidden',
     }}
   >
     {text && (
-      <div style={{ color: '#fff', fontSize: 13, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.92, marginBottom: 14 }}>
+      <div style={{ color: '#fff', fontSize: 'clamp(10px, 1.6cqw, 13px)', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', opacity: 0.92, marginBottom: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {text}
       </div>
     )}
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2.5">
       {items.slice(0, 5).map((it, i) => (
         <div
           key={i}
-          className="flex items-center gap-3 opacity-0"
-          style={{ animation: `smartOvNote 0.45s cubic-bezier(.2,1,.36,1) ${0.12 + i * 0.12}s forwards` }}
+          className="flex items-center gap-2.5 opacity-0"
+          style={{ animation: `smartOvNote 0.45s cubic-bezier(.2,1,.36,1) ${0.12 + i * 0.12}s forwards`, minWidth: 0 }}
         >
           <span
             className="inline-flex items-center justify-center rounded-full flex-shrink-0"
             style={{
-              width: 26, height: 26,
+              width: 22, height: 22,
               background: brandColor, color: onBrand,
-              fontSize: 13, fontWeight: 900,
+              fontSize: 12, fontWeight: 900,
               boxShadow: `0 4px 12px ${hexA(brandColor, 0.5)}`,
             }}
           >
             {numbered ? i + 1 : '✓'}
           </span>
-          <span style={{ color: '#fff', fontSize: 16, fontWeight: 600, lineHeight: 1.3 }}>{it}</span>
+          <span style={{ color: '#fff', fontSize: 'clamp(12px, 2cqw, 16px)', fontWeight: 600, lineHeight: 1.25, overflowWrap: 'break-word', minWidth: 0, flex: 1 }}>{it}</span>
         </div>
       ))}
     </div>
