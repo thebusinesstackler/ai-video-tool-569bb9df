@@ -124,8 +124,6 @@ const VideoRepoPro = () => {
   const HISTORY_PAGE_SIZE = 9;
   const [aspectRatio, setAspectRatio] = useState<'9:16' | '16:9'>('9:16');
   const [singleDuration, setSingleDuration] = useState<10 | 15 | 20>(20);
-  const [useSoraPro, setUseSoraPro] = useState(false);
-  const [soraProResolution, setSoraProResolution] = useState<'720p' | '1080p'>('1080p');
 
   // AI Script Director chat state
   const [hasAnalysis, setHasAnalysis] = useState(false);
@@ -1228,15 +1226,13 @@ Check word count vs ${singleDuration}s duration (~2.5 words/sec = ${wordTarget} 
     try {
       setGenerationProgress(`Starting ${singleDuration}s generation...`);
 
-      const proParams = useSoraPro ? { resolution: soraProResolution } : {};
-      const segmentModel: 'sora-2' | 'sora-2-pro' = useSoraPro ? 'sora-2-pro' : 'sora-2';
+      const segmentModel: 'sora-2' = 'sora-2';
 
       const taskId = await createWaveSpeedVideo({
         prompt: videoPrompt,
         model: segmentModel,
         aspectRatio,
         duration: singleDuration,
-        ...proParams,
         userId: user?.id,
         source: 'video-repo-pro',
         ...(persistentImageUrl ? { imageUrls: [persistentImageUrl] } : {}),
@@ -1915,29 +1911,6 @@ Check word count vs ${singleDuration}s duration (~2.5 words/sec = ${wordTarget} 
                         <SelectItem value="20">⏱ 20s</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={useSoraPro ? 'default' : 'outline'}
-                      className="h-8 text-xs rounded-full gap-1 px-2.5"
-                      title={useSoraPro
-                        ? `Sora 2 PRO ON — premium tier (${soraProResolution}, physics-aware, native synchronized audio). Higher cost.`
-                        : 'Switch to Sora 2 PRO ⭐ — premium quality with synchronized audio and physics-aware motion'}
-                      onClick={() => setUseSoraPro((v) => !v)}
-                    >
-                      ⭐ {useSoraPro ? 'Sora 2 Pro' : 'Pro'}
-                    </Button>
-                    {useSoraPro && (
-                      <Select value={soraProResolution} onValueChange={(v) => setSoraProResolution(v as '720p' | '1080p')}>
-                        <SelectTrigger className="h-8 w-[100px] text-xs rounded-full bg-background" title="Sora 2 Pro resolution">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="720p">720p</SelectItem>
-                          <SelectItem value="1080p">1080p</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
                     <Button
                       type="button"
                       variant={voiceChatOpen ? 'default' : 'outline'}
