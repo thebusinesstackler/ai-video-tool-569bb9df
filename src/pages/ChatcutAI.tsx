@@ -3645,7 +3645,36 @@ const ChatcutAI = () => {
                           const stack = stackIndexById.get(ov.id);
                           const stackOffsetY = stack && stack.total > 1 ? stack.idx * 9 : 0;
                           const isStacked = !!(stack && stack.total > 1);
-                          const adjustedTop = Math.min(95, pos.y + stackOffsetY);
+
+                          // ── Treatment-aware sizing & safe-zone clamping ──
+                          // Each motion-graphic treatment has a different natural width. We use
+                          // these estimates to (a) cap the wrapper so cards don't sprawl, and
+                          // (b) clamp pos.x so wide cards don't get half-pushed off-screen.
+                          const ovTreatment = (ov.treatment as string | undefined);
+                          const wrapperWidthByTreatment: Record<string, string> = {
+                            masked_typography: 'min(88%, 680px)',
+                            kinetic_headline:  'min(88%, 680px)',
+                            stat_card:         'min(36%, 280px)',
+                            lower_third_pro:   'min(36%, 280px)',
+                            floating_note:     'min(36%, 280px)',
+                            side_notes:        'min(40%, 320px)',
+                            bullet_stack:      'min(40%, 320px)',
+                            cta_lockup:        'min(70%, 420px)',
+                            quote_pop:         'min(60%, 480px)',
+                          };
+                          const halfWidthByTreatment: Record<string, number> = {
+                            masked_typography: 44, kinetic_headline: 44,
+                            stat_card: 18, lower_third_pro: 18, floating_note: 18,
+                            side_notes: 20, bullet_stack: 20,
+                            cta_lockup: 35, quote_pop: 30,
+                          };
+                          const innerWrapperWidth = ovTreatment
+                            ? (wrapperWidthByTreatment[ovTreatment] || 'min(86%, 520px)')
+                            : 'min(86%, 520px)';
+                          const halfW = ovTreatment ? (halfWidthByTreatment[ovTreatment] ?? 25) : 25;
+                          const clampedX = Math.max(halfW + 4, Math.min(96 - halfW, pos.x));
+                          const clampedYBase = Math.max(8, Math.min(92, pos.y));
+                          const adjustedTop = Math.min(94, clampedYBase + stackOffsetY);
                           return (
                             <div
                               key={ov.id}
@@ -3655,7 +3684,7 @@ const ChatcutAI = () => {
                                 draggingOverlayId === ov.id && "opacity-80 ring-2 ring-amber-400 rounded-lg",
                                 isFull && "inset-0 flex items-center justify-center"
                               )}
-                              style={isFull ? {} : { left: `${pos.x}%`, top: `${adjustedTop}%`, transform: 'translate(-50%, -50%)' }}
+                              style={isFull ? {} : { left: `${clampedX}%`, top: `${adjustedTop}%`, transform: 'translate(-50%, -50%)' }}
                               onMouseDown={(e) => handleOverlayMouseDown(e, ov.id)}
                               onDoubleClick={(e) => {
                                 e.stopPropagation();
@@ -3709,8 +3738,8 @@ const ChatcutAI = () => {
                                 <div
                                   className="pointer-events-none"
                                   style={{
-                                    maxWidth: isFull ? undefined : 'min(86vw, 520px)',
-                                    width: 'max-content',
+                                    width: isFull ? undefined : innerWrapperWidth,
+                                    maxWidth: isFull ? undefined : '94%',
                                     display: 'flex',
                                     justifyContent: 'center',
                                   }}
