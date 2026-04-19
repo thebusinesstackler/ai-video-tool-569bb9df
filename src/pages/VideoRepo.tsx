@@ -167,7 +167,9 @@ const VideoRepo = () => {
   const [isImportingFromUrl, setIsImportingFromUrl] = useState(false);
   const importVideoInputRef = useRef<HTMLInputElement>(null);
 
-  const hasComposerInput = Boolean(prompt.trim() || referenceVideoUrl || productImageUrl);
+  const hasComposerInput = inputMode === 't2v'
+    ? Boolean(prompt.trim())
+    : Boolean(prompt.trim() || referenceVideoUrl || productImageUrl);
   const hasFollowUpInput = Boolean(followUpPrompt.trim() || followUpImageUrl);
   const conversationComplete = messages.some(m => m.videoResult) || messages.some(m => m.content.includes('```video-prompt'));
   const showFollowUpComposer = conversationComplete && !isAnalyzing && !isGenerating;
