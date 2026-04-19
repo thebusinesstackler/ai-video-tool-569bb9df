@@ -544,30 +544,41 @@ ${selectedProductCtx.targetAudience ? `- Target audience: ${selectedProductCtx.t
 The attached image is the EXACT hero product. The video model MUST keep label text, color, bottle/box shape, cap, branding, and proportions PIXEL-IDENTICAL to the reference image. Do NOT redesign, restyle, recolor, or invent variants. Do NOT change the label typography. The product on screen must be visually indistinguishable from the reference.`
         : '';
 
+      const archetypeBlock = buildArchetypeBlock(contentStyle);
+      const archetype = CONTENT_ARCHETYPES[contentStyle];
+      const noDialogue = archetype.noDialogue === true;
+      const disableHookBank = archetype.disableHookBank === true;
+      const disableCTA = archetype.disableCTA === true;
+
       const analysisInstruction = `User request: "${userMsg.content}"
 
 ${videoFrames.length > 0 ? `Reference video: "${referenceVideoName}" — I've provided ${videoFrames.length} key frames above. Study them carefully.` : ''}
-${productImageUrl ? 'Product image provided above — incorporate this product naturally.' : ''}${productContextBlock}${productFidelityBlock}
+${productImageUrl ? 'Product image provided above — incorporate this product naturally.' : ''}${productContextBlock}${productFidelityBlock}${archetypeBlock}
 
-Target duration: ${soraDuration} seconds. The script and action MUST fully fill this duration with a complete three-act arc (Hook → Body → Payoff/CTA) — no fade-outs before the end, no dead air.
+Target duration: ${soraDuration} seconds. The script and action MUST fully fill this duration with a complete arc that respects the ARCHETYPE LOCK above — no fade-outs before the end, no dead air.
 
 Provide:
-1. **Reference Analysis**: What you observed in the reference frames — hook type, pacing, camera style, talent energy, visual effects
-2. **Hook Strategy**: How the first 1.5–3 seconds will stop the scroll
-3. **Scene-by-Scene Script**: Timed beats (0-3s, 3-8s, etc.) summing to exactly ${soraDuration}s. Voiceover paced at ~2.5 words/second (~${Math.round(soraDuration * 2.5)} words total).
-4. **ACTION MANIFEST** — a literal bullet list of countable physical actions the video model MUST execute exactly. Be specific with COUNTS and TARGETS. For dropper/tincture products: ALWAYS specify "squeeze dropper 3-5 times — multiple visible drops fall into a [water glass / coffee mug / tea cup / smoothie / juice]" — NEVER just "a dropper in water." Pick a beverage that fits the scene (water, coffee, tea, smoothie, juice) and name it explicitly. Other examples: "hand lifts glass once," "stir spoon clockwise twice." Format:
+1. **Reference Analysis**: ${contentStyle === 'auto' ? 'Begin with "ARCHETYPE: [chosen archetype name]" and a 1-line reason. Then describe' : `Confirm "ARCHETYPE: ${archetype.label}" then describe`} what you observed in the reference frames (if any) — hook type, pacing, camera style, talent energy.
+${disableHookBank ? '' : '2. **Hook Strategy**: How the first 1.5–3 seconds will stop the scroll, written to the archetype\'s opening rule (NOT a generic "I used to feel…" opener).'}
+${noDialogue
+  ? `${disableHookBank ? '2' : '3'}. **SOUND DESIGN MANIFEST**: Timed beats (0-3s, 3-8s, etc.) summing to exactly ${soraDuration}s. List every sound + texture (NO spoken words). Example: "0–2s: glass placed on counter (clink), 2–4s: dropper squeeze (3 distinct squeezes), 4–6s: drops hitting liquid (plip, plip, plip)."`
+  : `${disableHookBank ? '2' : '3'}. **Scene-by-Scene Script**: Timed beats (0-3s, 3-8s, etc.) summing to exactly ${soraDuration}s. Voiceover paced at ~2.5 words/second (~${Math.round(soraDuration * 2.5)} words total). Write spoken lines in the archetype's voice — NOT polished ad copy. Use contractions, real diction, allowed filler.`}
+${disableHookBank ? '3' : '4'}. **PERFORMANCE DIRECTION** — required labeled lines for the actor (skip if archetype is ASMR with no actor face): BREATH:, EYES:, HANDS:, POSTURE:, MICRO-EXPRESSION:, PACING:, EMOTIONAL ARC:. Match the archetype's acting rules above.
+${disableHookBank ? '4' : '5'}. **CAMERA INTELLIGENCE** — labeled lines: LENS FEEL:, ENERGY: (handheld/locked/slider/etc), CUT PACING:, PUSH-IN:, FOCUS:. Match the archetype's camera direction above.
+${disableHookBank ? '5' : '6'}. **ACTION MANIFEST** — a literal bullet list of countable physical actions the video model MUST execute exactly. Be specific with COUNTS and TARGETS. For dropper/tincture products: ALWAYS specify "squeeze dropper 3-5 times — multiple visible drops fall into a [water glass / coffee mug / tea cup / smoothie / juice]" — NEVER just "a dropper in water." Pick a beverage that fits the scene (water, coffee, tea, smoothie, juice) and name it explicitly. Other examples: "hand lifts glass once," "stir spoon clockwise twice." Format:
 \`\`\`
 ACTION MANIFEST (execute exactly):
 - [action 1 with explicit count/direction]
 - [action 2]
 \`\`\`
-5. **Product Integration**: How and when the product appears (must match reference image exactly)
-6. **CTA Strategy**: Final 2-3 seconds payoff line + on-screen text
+${disableHookBank ? '6' : '7'}. **CONTINUITY ANCHOR** (only if 2 segments): list things that MUST match across clips — same shirt, same hand position, same product placement, same lighting angle.
+${disableHookBank ? '7' : '8'}. **Product Integration**: How and when the product appears, per the archetype's product-integration rule (must match reference image exactly if attached).
+${disableCTA ? '' : `${disableHookBank ? '8' : '9'}. **CTA / Closing**: Final 2-3 seconds payoff line + on-screen text. BANNED overlays: "Revitalize Your Day", "Try It Today", "Transform Your Life". Use ONE of: a specific number ("11 days. No fog."), a direct test ("Try it for a week."), a name-drop ("${selectedProductCtx?.productName || 'Brand name'}"), or a felt benefit ("Clear by 3pm.").`}
 
 Then provide a final **VIDEO PROMPT** block:
 
 \`\`\`video-prompt
-[180–280 word cinematic directive covering: environment, character, action choreography (literal counts from ACTION MANIFEST — non-negotiable), camera movement, lighting, product placement (pixel-identical to reference if attached), pacing, sound design, final-frame description. Explicitly state "Follow the ACTION MANIFEST literally — counts like 'two drops' are non-negotiable." End with the closing shot description so the ${soraDuration}s video ends on a complete payoff, not a cut-off.]
+[180–280 word cinematic directive that EXECUTES the ARCHETYPE LOCK above. Cover: environment, character, action choreography (literal counts from ACTION MANIFEST — non-negotiable), camera movement (per archetype), lighting, product placement (pixel-identical to reference if attached), pacing, sound design, performance direction (per archetype), final-frame description. Explicitly state "Follow the ACTION MANIFEST literally — counts are non-negotiable." End with the closing shot description so the ${soraDuration}s video ends on a complete payoff, not a cut-off.]
 \`\`\``;
 
       contentParts.push({ type: 'text', text: analysisInstruction });
