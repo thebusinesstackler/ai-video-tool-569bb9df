@@ -114,6 +114,7 @@ const VideoRepo = () => {
   const [selectedProductCtx, setSelectedProductCtx] = useState<SelectedProductContext | null>(null);
   const [inputMode, setInputMode] = useState<'i2v' | 't2v'>('i2v');
   const [contentStyle, setContentStyle] = useState<ContentArchetypeId>('auto');
+  const [brandProfile, setBrandProfile] = useState<{ company_name: string | null; brand_url: string | null; brand_description: string | null } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -218,6 +219,19 @@ const VideoRepo = () => {
   useEffect(() => {
     if (user) fetchHistory();
   }, [user, fetchHistory]);
+
+  // Fetch brand profile (company name, URL, description) for brand-aware prompts
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('company_name, brand_url, brand_description')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (data) setBrandProfile(data);
+    })();
+  }, [user]);
 
   const fileToDataUrl = (file: File): Promise<string> => {
     return new Promise((resolve) => {
