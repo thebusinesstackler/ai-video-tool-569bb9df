@@ -2338,6 +2338,19 @@ Check word count vs ${singleDuration}s duration (~2.5 words/sec = ${wordTarget} 
                               <TooltipContent>Download</TooltipContent>
                             </Tooltip>
                           )}
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10 ml-auto"
+                                onClick={(e) => deleteProject(project, e)}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Delete</TooltipContent>
+                          </Tooltip>
                         </div>
                       </CardContent>
                     </Card>
