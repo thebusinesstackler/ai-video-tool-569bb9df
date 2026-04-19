@@ -2253,9 +2253,16 @@ const ChatcutAI = () => {
           const valid: TargetPlatform[] = ['tiktok', 'reels', 'shorts', 'youtube', 'youtube-landscape'];
           const next = valid.includes(act.platform) ? act.platform : 'tiktok';
           setTargetPlatform(next as TargetPlatform);
-          if (next !== 'youtube' && next !== 'youtube-landscape' && !reelPreview) setReelPreview(true);
-          if ((next === 'youtube' || next === 'youtube-landscape') && reelPreview) setReelPreview(false);
-          toast({ title: `📱 Platform → ${next}`, description: `Safe zones updated for ${next} layout.` });
+          // Always link reel preview to platform: vertical platforms force 9:16 preview.
+          if (next === 'youtube-landscape') setReelPreview(false);
+          else setReelPreview(true);
+          const hasMismatchedBroll = bRollClips.length > 0;
+          toast({
+            title: `📱 Platform → ${next}`,
+            description: hasMismatchedBroll
+              ? `Aspect ratio + safe zones updated. Existing B-roll will letterbox — use "Regenerate B-roll for platform" if you want native ${next === 'youtube-landscape' ? '16:9' : '9:16'} clips.`
+              : `Aspect ratio + safe zones updated for ${next}.`,
+          });
           break;
         }
         case 'toggle_safe_zones': {
@@ -4209,8 +4216,8 @@ const ChatcutAI = () => {
                                   playsInline
                                   className="object-contain rounded-lg pointer-events-none"
                                   style={isFull
-                                    ? { width: '100%', height: '100%', objectFit: 'cover', borderRadius: 0 }
-                                    : { maxWidth: `${Math.min(scale * 22, 92)}vw`, maxHeight: `${Math.min(scale * 14, 82)}vh` }
+                                    ? { width: '100%', height: '100%', objectFit: 'contain', borderRadius: 0, background: 'rgba(0,0,0,0.4)' }
+                                    : { maxWidth: `${Math.min(scale * 22, 92)}vw`, maxHeight: `${Math.min(scale * 14, 82)}vh`, objectFit: 'contain' }
                                   }
                                 />
                               ) : useDOM ? (
