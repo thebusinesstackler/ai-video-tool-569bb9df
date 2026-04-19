@@ -234,6 +234,74 @@ const MaskedTypography: React.FC<{
   );
 };
 
+/**
+ * BoldOutline — the "MrBeast / TikTok hook" treatment.
+ * Heavy white display sans with a thick black stroke + drop shadow. Word-stacked
+ * (each word on its own line) so it reads like the on-screen text on Video Repo's
+ * keyframes (e.g. "MY / MORNING / SECRET").
+ */
+const BoldOutline: React.FC<{
+  text: string; subtext?: string; family: string;
+}> = ({ text, subtext, family }) => {
+  const words = (text || '').trim().split(/\s+/).filter(Boolean);
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-start',
+        gap: '0.02em',
+        fontFamily: family,
+        fontWeight: 900,
+        textTransform: 'uppercase',
+        color: '#ffffff',
+        lineHeight: 0.92,
+        letterSpacing: '-0.01em',
+        textShadow: [
+          '-3px -3px 0 #000', '3px -3px 0 #000', '-3px 3px 0 #000', '3px 3px 0 #000',
+          '0 -3px 0 #000', '0 3px 0 #000', '-3px 0 0 #000', '3px 0 0 #000',
+          '0 6px 12px rgba(0,0,0,0.45)',
+        ].join(', '),
+        animation: 'smartOvBoldOutline 0.5s cubic-bezier(.2,1,.36,1) forwards',
+        maxWidth: '92%',
+        wordBreak: 'keep-all',
+      }}
+    >
+      {words.map((w, i) => (
+        <span
+          key={i}
+          style={{
+            fontSize: 'clamp(38px, 11cqw, 128px)',
+            display: 'inline-block',
+            animation: `smartOvBoldOutlinePop 0.4s cubic-bezier(.2,1,.36,1) ${i * 0.07}s both`,
+          }}
+        >
+          {w}
+        </span>
+      ))}
+      {subtext ? (
+        <span
+          style={{
+            marginTop: '0.4em',
+            fontSize: 'clamp(16px, 3cqw, 32px)',
+            fontWeight: 700,
+            opacity: 0.95,
+          }}
+        >
+          {subtext}
+        </span>
+      ) : null}
+      <style>{`
+        @keyframes smartOvBoldOutline { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes smartOvBoldOutlinePop {
+          from { opacity: 0; transform: translateY(8px) scale(0.96); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+      `}</style>
+    </div>
+  );
+};
+
 const StatCard: React.FC<{
   text: string; subtext?: string; brandColor: string; onBrand: string; family: string;
 }> = ({ text, subtext, brandColor, onBrand, family }) => {
