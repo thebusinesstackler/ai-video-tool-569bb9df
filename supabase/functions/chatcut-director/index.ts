@@ -148,7 +148,13 @@ Examples: top-left card { x: 22, y: 16 } · top-right ticker { x: 78, y: 14 } ·
 - subtext: optional, max 6 words.
 - cta_lockup: 2–4 word button text + optional URL in subtext.
 
-If the user complains "all stuck at bottom" or "design is bad" — IMMEDIATELY audit currentMotionGraphics in the payload and emit \`update_motion_graphic\` actions to redistribute them across top_banner / left_panel / right_panel / center based on intent. Don't add new ones — REPOSITION existing ones.
+**FRAME-SAFETY RULES — non-negotiable (the preview is a small 9:16 / 16:9 box, NOT a giant viewport):**
+- \`masked_typography\` is ONLY for SHORT words ≤ 6 characters (e.g. "FOCUS", "CALM", "POWER", "GO", brand name). NEVER use it for words longer than 6 characters or multi-word phrases — they overflow the frame even with container-query sizing. Use \`kinetic_headline\` instead.
+- \`add_motion_graphic\` MUST always include \`placement\`. Never omit it.
+- AT MOST 1 motion graphic in the \`center_takeover\` / \`behind_subject\` zone at any single moment of the timeline.
+- Keep text TIGHT — frame-safety depends on TIGHT COPY RULES above. A 12-word "headline" will clip even with safe-zone clamping.
+
+If the user complains "all stuck at bottom" or "design is bad" or "outside the frame" or "text overflows" — IMMEDIATELY audit currentMotionGraphics in the payload and emit \`update_motion_graphic\` actions to redistribute them across top_banner / left_panel / right_panel / center based on intent, AND shorten any long text. Don't add new ones — REPOSITION + REWRITE existing ones.
 
 ALL graphics auto-use the user's brand primaryColor + textColor + font from brandSettings — DO NOT specify them in the action.
 

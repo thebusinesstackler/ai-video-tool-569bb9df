@@ -115,22 +115,22 @@ const fontStack = (font?: string) =>
 
 /** Map semantic placement → absolute CSS positioning (safe-zone padded). */
 function placementStyle(p?: CommercialPlacement): React.CSSProperties {
+  // Note: max-width values use cqw so they scale to the preview container, not the viewport.
   switch (p) {
     case 'behind_subject':
-      // Spread across centre-back; renderer uses pointer-events-none + low z within parent
-      return { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' };
+      return { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6%' };
     case 'left_panel':
-      return { position: 'absolute', left: '6%', top: '50%', transform: 'translateY(-50%)', maxWidth: '38%' };
+      return { position: 'absolute', left: '6%', top: '50%', transform: 'translateY(-50%)', maxWidth: '40cqw' };
     case 'right_panel':
-      return { position: 'absolute', right: '6%', top: '50%', transform: 'translateY(-50%)', maxWidth: '38%' };
+      return { position: 'absolute', right: '6%', top: '50%', transform: 'translateY(-50%)', maxWidth: '40cqw' };
     case 'lower_third':
-      return { position: 'absolute', left: '50%', bottom: '8%', transform: 'translateX(-50%)', maxWidth: '88%' };
+      return { position: 'absolute', left: '50%', bottom: '8%', transform: 'translateX(-50%)', maxWidth: '88cqw' };
     case 'center_takeover':
       return { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8%' };
     case 'top_banner':
-      return { position: 'absolute', left: '50%', top: '8%', transform: 'translateX(-50%)', maxWidth: '88%' };
+      return { position: 'absolute', left: '50%', top: '8%', transform: 'translateX(-50%)', maxWidth: '88cqw' };
     case 'floating_note':
-      return { position: 'absolute', right: '6%', top: '14%', transform: 'rotate(-2deg)', maxWidth: '34%' };
+      return { position: 'absolute', right: '6%', top: '14%', transform: 'rotate(-2deg)', maxWidth: '36cqw' };
     default:
       return {};
   }
@@ -145,20 +145,21 @@ const KineticHeadline: React.FC<{
 }> = ({ text, subtext, brandColor, onBrand, family }) => {
   const words = (text || '').split(/\s+/).filter(Boolean);
   return (
-    <div className="text-center" style={{ fontFamily: family }}>
-      <div className="flex flex-wrap items-baseline justify-center gap-x-3 gap-y-1">
+    <div className="text-center" style={{ fontFamily: family, maxWidth: '90%', overflow: 'hidden' }}>
+      <div className="flex flex-wrap items-baseline justify-center gap-x-3 gap-y-1" style={{ maxWidth: '100%' }}>
         {words.map((w, i) => (
           <span
             key={i}
             className="inline-block opacity-0"
             style={{
-              fontSize: 'clamp(28px, 6vw, 78px)',
+              fontSize: 'clamp(20px, 5.5cqw, 56px)',
               fontWeight: 900,
               letterSpacing: '-0.02em',
               lineHeight: 1.05,
               color: '#ffffff',
               textShadow: `0 4px 24px ${hexA(brandColor, 0.5)}, 0 1px 0 rgba(0,0,0,0.4)`,
               animation: `smartOvKinetic 0.55s cubic-bezier(.2,1,.36,1) ${0.08 * i + 0.05}s forwards`,
+              wordBreak: 'keep-all',
             }}
           >
             {w}
@@ -206,17 +207,20 @@ const MaskedTypography: React.FC<{
       <div
         style={{
           fontFamily: family,
-          fontSize: 'clamp(80px, 22vw, 320px)',
+          fontSize: 'clamp(48px, 14cqw, 180px)',
           fontWeight: 900,
           letterSpacing: '-0.04em',
           lineHeight: 0.85,
           color: brandColor,
           textTransform: 'uppercase',
           mixBlendMode: 'screen',
-          opacity: 0.9,
+          opacity: 0.6,
           textAlign: 'center',
           textShadow: `0 0 60px ${hexA(brandColor, 0.5)}`,
           animation: 'smartOvMasked 0.7s cubic-bezier(.2,1,.36,1) forwards',
+          maxWidth: '90%',
+          wordBreak: 'keep-all',
+          overflow: 'hidden',
         }}
       >
         {text}
@@ -240,13 +244,14 @@ const StatCard: React.FC<{
         background: hexA(brandColor, 0.92),
         color: onBrand,
         padding: '22px 30px',
-        minWidth: 200,
+        minWidth: 180,
+        maxWidth: 'min(420px, 86%)',
         boxShadow: `0 18px 50px ${hexA(brandColor, 0.45)}, 0 1px 0 rgba(255,255,255,0.18) inset`,
         backdropFilter: 'blur(10px)',
         animation: 'smartOvStat 0.6s cubic-bezier(.2,1,.36,1)',
       }}
     >
-      <div style={{ fontSize: 'clamp(40px, 7vw, 78px)', fontWeight: 900, lineHeight: 1, letterSpacing: '-0.03em' }}>{big}</div>
+      <div style={{ fontSize: 'clamp(32px, 6cqw, 78px)', fontWeight: 900, lineHeight: 1, letterSpacing: '-0.03em' }}>{big}</div>
       {small && (
         <div style={{ fontSize: 14, fontWeight: 700, opacity: 0.92, marginTop: 6, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{small}</div>
       )}
@@ -269,7 +274,8 @@ const SideNotes: React.FC<{
       backdropFilter: 'blur(14px) saturate(140%)',
       WebkitBackdropFilter: 'blur(14px) saturate(140%)',
       padding: '20px 22px',
-      minWidth: 260,
+      minWidth: 220,
+      maxWidth: 'min(420px, 86%)',
       borderLeft: `4px solid ${brandColor}`,
       boxShadow: `0 18px 50px rgba(0,0,0,0.55), 0 0 0 1px ${hexA('#ffffff', 0.06)}`,
     }}
@@ -340,7 +346,8 @@ const CtaLockup: React.FC<{
         background: `linear-gradient(135deg, ${brandColor}, ${hexA(brandColor, 0.82)})`,
         color: onBrand,
         padding: '20px 48px',
-        fontSize: 'clamp(22px, 3.4vw, 34px)',
+        maxWidth: 'min(420px, 86%)',
+        fontSize: 'clamp(20px, 3.2cqw, 34px)',
         fontWeight: 900,
         letterSpacing: '0.02em',
         boxShadow: `0 22px 60px ${hexA(brandColor, 0.6)}, 0 1px 0 rgba(255,255,255,0.22) inset, 0 0 0 1px ${hexA('#ffffff', 0.14)}`,
@@ -409,9 +416,9 @@ const FloatingNote: React.FC<{
 const BulletStack: React.FC<{
   text?: string; items: string[]; brandColor: string; onBrand: string; family: string;
 }> = ({ text, items, brandColor, onBrand, family }) => (
-  <div className="text-left" style={{ fontFamily: family, maxWidth: 720 }}>
+  <div className="text-left" style={{ fontFamily: family, maxWidth: 'min(720px, 90%)', width: '100%' }}>
     {text && (
-      <div style={{ color: '#fff', fontSize: 'clamp(20px, 3.2vw, 36px)', fontWeight: 900, marginBottom: 18, letterSpacing: '-0.01em', textShadow: '0 2px 12px rgba(0,0,0,0.5)' }}>
+      <div style={{ color: '#fff', fontSize: 'clamp(18px, 3.6cqw, 36px)', fontWeight: 900, marginBottom: 18, letterSpacing: '-0.01em', textShadow: '0 2px 12px rgba(0,0,0,0.5)' }}>
         {text}
       </div>
     )}
@@ -433,7 +440,7 @@ const BulletStack: React.FC<{
           >
             {i + 1}
           </span>
-          <span style={{ color: '#fff', fontSize: 'clamp(16px, 2vw, 22px)', fontWeight: 700, lineHeight: 1.25 }}>{it}</span>
+          <span style={{ color: '#fff', fontSize: 'clamp(14px, 2.4cqw, 22px)', fontWeight: 700, lineHeight: 1.25 }}>{it}</span>
         </div>
       ))}
     </div>
