@@ -679,16 +679,43 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
   // ===== Bulk: receive plans from director, run queue =====
   const handleBatchPlan = (plans: VideoPlan[]) => {
     if (!plans?.length) return;
-    const items: BulkItem[] = plans.map((p, i) => ({
-      id: `plan-${Date.now()}-${i}`,
-      plan: p,
-      selected: true,
-      status: 'pending',
-      progress: 0,
-    }));
+
+    const findTwinByName = (name?: string) => {
+      if (!name) return null;
+      const norm = name.trim().toLowerCase();
+      return twins.find(t => t.name.trim().toLowerCase() === norm) || null;
+    };
+
+    const items: BulkItem[] = plans.map((p, i) => {
+      // 1) Try the AI-assigned twin name
+      let twin = findTwinByName(p.twinName);
+      // 2) Fallback: rotate through the available twins so every plan gets a different cast
+      if (!twin && twins.length > 0) {
+        twin = twins[i % twins.length];
+      }
+      // 3) Last resort: the user's currently-selected twin (or null)
+      if (!twin) twin = selectedTwin || null;
+
+      return {
+        id: `plan-${Date.now()}-${i}`,
+        plan: p,
+        selected: true,
+        status: 'pending',
+        progress: 0,
+        assignedTwinId: twin?.id || null,
+        assignedTwinName: twin?.name || p.twinName || null,
+      };
+    });
     setBulkItems(items);
     setActiveTab('bulk');
-    toast({ title: `${plans.length} videos queued`, description: 'Review, select, then bulk generate.' });
+
+    const distinctCast = new Set(items.map(i => i.assignedTwinName).filter(Boolean));
+    toast({
+      title: `${plans.length} videos queued`,
+      description: distinctCast.size > 1
+        ? `Cast across ${distinctCast.size} AI twins. Review, then bulk generate.`
+        : 'Review, select, then bulk generate.',
+    });
   };
 
   const updateBulkItem = (id: string, patch: Partial<BulkItem>) => {
