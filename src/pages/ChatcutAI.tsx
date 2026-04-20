@@ -2804,6 +2804,13 @@ const ChatcutAI = () => {
             hasImage: !!p.primary_image,
           })),
           savedFramesCount: savedBrollFrames.length,
+          // Send actual saved frames (id + label + thumb) so Marco can pin them himself
+          // by emitting add_broll with savedFrameId — no user pinning required.
+          savedFrames: savedBrollFrames.slice(0, 24).map((f) => ({
+            id: f.id,
+            label: (f.prompt || 'Saved frame').slice(0, 80),
+            thumbUrl: f.image_url,
+          })),
           videoFrames,
           brandVocabulary,
           savedSourceClips: savedBrollClips.slice(0, 12).map((c) => {
@@ -2821,6 +2828,25 @@ const ChatcutAI = () => {
               ready: (b.videoStatus === 'ready') || (b.imageStatus === 'ready'),
               overlaps: overlapIdsByTrack.broll.has(b.id),
             })),
+            // Pre-computed BLANK windows on the B-Roll track (≥2s of empty space).
+            // Marco MUST use these to fill gaps without the user pinning each window.
+            brollGaps: (() => {
+              const gaps: { start: number; end: number; duration: number }[] = [];
+              const occupied = bRollClips
+                .map((b) => ({ s: b.start, e: b.start + b.duration }))
+                .sort((a, b) => a.s - b.s);
+              let cursor = 0;
+              for (const r of occupied) {
+                if (r.s > cursor + 1.5) {
+                  gaps.push({ start: +cursor.toFixed(2), end: +r.s.toFixed(2), duration: +(r.s - cursor).toFixed(2) });
+                }
+                cursor = Math.max(cursor, r.e);
+              }
+              if (duration > cursor + 1.5) {
+                gaps.push({ start: +cursor.toFixed(2), end: +duration.toFixed(2), duration: +(duration - cursor).toFixed(2) });
+              }
+              return gaps;
+            })(),
             currentOverlays: overlays.map((o) => ({
               id: o.id,
               type: o.type,
