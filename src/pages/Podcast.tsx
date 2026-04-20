@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -110,6 +110,7 @@ const Podcast = () => {
   const [bulkItems, setBulkItems] = useState<BulkItem[]>([]);
   const [bulkOutput, setBulkOutput] = useState<'video' | 'voiceover'>('video');
   const [isBulkRunning, setIsBulkRunning] = useState(false);
+  const bulkStopRef = useRef(false);
   const [activeTab, setActiveTab] = useState<string>('talking-head');
 
   // ===== History =====
@@ -798,6 +799,7 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
       const maxAttempts = 150;
       let finalUrl: string | undefined;
       while (attempts < maxAttempts) {
+        if (bulkStopRef.current) throw new Error('Stopped by user');
         attempts++;
         await new Promise(r => setTimeout(r, 3000));
         const { data: status } = await supabase.functions.invoke('wavespeed-video', {
@@ -853,15 +855,32 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
       toast({ title: 'Missing cast for an item', description: `"${missing.plan.topic}" has no twin assigned. Pick a default character first.`, variant: 'destructive' });
       return;
     }
+    bulkStopRef.current = false;
     setIsBulkRunning(true);
-    toast({ title: `Bulk generating ${queue.length} ${bulkOutput === 'video' ? 'videos' : 'voiceovers'}`, description: 'Running sequentially. Stay on this page.' });
+    toast({ title: `Bulk generating ${queue.length} ${bulkOutput === 'video' ? 'videos' : 'voiceovers'}`, description: 'Running sequentially. You can stop at any time.' });
+    let stopped = false;
     for (const item of queue) {
+      if (bulkStopRef.current) {
+        stopped = true;
+        updateBulkItem(item.id, { status: 'failed', error: 'Stopped by user' });
+        continue;
+      }
       const twin = resolveItemTwin(item)!;
       await processBulkItem(item, twin);
     }
     setIsBulkRunning(false);
+    bulkStopRef.current = false;
     loadHistory();
-    toast({ title: '✅ Bulk run complete', description: 'Check History tab to edit & re-render.' });
+    toast({
+      title: stopped ? '⏹ Bulk run stopped' : '✅ Bulk run complete',
+      description: stopped ? 'Remaining items were skipped.' : 'Check History tab to edit & re-render.',
+    });
+  };
+
+  const stopBulkGeneration = () => {
+    if (!isBulkRunning) return;
+    bulkStopRef.current = true;
+    toast({ title: 'Stopping…', description: 'Will halt after the current step finishes.' });
   };
 
   const retryBulkItem = async (id: string) => {
@@ -1395,17 +1414,29 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                             </Button>
                           </div>
                         </div>
-                        <Button
-                          className="w-full h-11 rounded-xl bg-gradient-to-r from-primary to-primary/80"
-                          onClick={startBulkGeneration}
-                          disabled={isBulkRunning || twins.length === 0 || bulkItems.filter(i => i.selected && i.status !== 'done').length === 0}
-                        >
-                          {isBulkRunning ? (
-                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Running queue...</>
-                          ) : (
-                            <><Sparkles className="w-4 h-4 mr-2" /> Bulk generate {bulkItems.filter(i => i.selected && i.status !== 'done').length} {bulkOutput === 'video' ? 'videos' : 'voiceovers'}</>
+                        <div className="flex gap-2">
+                          <Button
+                            className="flex-1 h-11 rounded-xl bg-gradient-to-r from-primary to-primary/80"
+                            onClick={startBulkGeneration}
+                            disabled={isBulkRunning || twins.length === 0 || bulkItems.filter(i => i.selected && i.status !== 'done').length === 0}
+                          >
+                            {isBulkRunning ? (
+                              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Running queue...</>
+                            ) : (
+                              <><Sparkles className="w-4 h-4 mr-2" /> Bulk generate {bulkItems.filter(i => i.selected && i.status !== 'done').length} {bulkOutput === 'video' ? 'videos' : 'voiceovers'}</>
+                            )}
+                          </Button>
+                          {isBulkRunning && (
+                            <Button
+                              variant="destructive"
+                              className="h-11 rounded-xl"
+                              onClick={stopBulkGeneration}
+                              disabled={bulkStopRef.current}
+                            >
+                              <X className="w-4 h-4 mr-1" /> Stop
+                            </Button>
                           )}
-                        </Button>
+                        </div>
                       </CardContent>
                     </Card>
 
