@@ -82,7 +82,7 @@ interface VideoRepoProject {
   segment_urls?: string[] | null;
   thumbnail_url?: string | null;
   tagged_product?: string | null;
-  source?: 'video_repo' | 'podcast' | 'chatcut';
+  source?: 'video_repo' | 'podcast' | 'chatcut' | 'reels';
 }
 
 const statusColors: Record<string, string> = {
@@ -217,7 +217,7 @@ const VideoRepoPro = () => {
     if (!user) return;
     setIsLoadingHistory(true);
     try {
-      const [repoRes, podcastRes, chatcutRes] = await Promise.all([
+      const [repoRes, podcastRes, chatcutRes, reelsRes] = await Promise.all([
         supabase
           .from('video_repo_projects')
           .select('*')
@@ -233,6 +233,12 @@ const VideoRepoPro = () => {
         supabase
           .from('chatcut_drafts')
           .select('id,user_id,name,video_url,created_at,updated_at')
+          .eq('user_id', user.id)
+          .not('video_url', 'is', null)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('reels')
+          .select('id,user_id,topic,video_url,thumbnail_url,created_at,updated_at')
           .eq('user_id', user.id)
           .not('video_url', 'is', null)
           .order('created_at', { ascending: false }),
@@ -278,7 +284,25 @@ const VideoRepoPro = () => {
         source: 'chatcut' as const,
       }));
 
-      const merged = [...repoRows, ...podcastRows, ...chatcutRows].sort((a, b) => {
+      const reelsRows: VideoRepoProject[] = (reelsRes.data || []).map((r: any) => ({
+        id: `reels:${r.id}`,
+        user_id: r.user_id,
+        prompt: r.topic || null,
+        reference_video_url: null,
+        product_image_url: null,
+        analysis_text: null,
+        generated_video_url: r.video_url,
+        video_prompt: null,
+        status: 'completed',
+        created_at: r.created_at,
+        updated_at: r.updated_at,
+        is_favorite: false,
+        custom_name: r.topic ? `🎬 ${r.topic}` : '🎬 Reel',
+        thumbnail_url: r.thumbnail_url || null,
+        source: 'reels' as const,
+      }));
+
+      const merged = [...repoRows, ...podcastRows, ...chatcutRows, ...reelsRows].sort((a, b) => {
         if ((b.is_favorite ? 1 : 0) !== (a.is_favorite ? 1 : 0)) return (b.is_favorite ? 1 : 0) - (a.is_favorite ? 1 : 0);
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
@@ -504,6 +528,9 @@ Be honest, specific, and actionable. Use markdown.`,
     } else if (project.source === 'chatcut') {
       const realId = project.id.replace(/^chatcut:/, '');
       ({ error } = await supabase.from('chatcut_drafts').delete().eq('id', realId));
+    } else if (project.source === 'reels') {
+      const realId = project.id.replace(/^reels:/, '');
+      ({ error } = await supabase.from('reels').delete().eq('id', realId));
     } else {
       ({ error } = await supabase.from('video_repo_projects').delete().eq('id', project.id));
     }
