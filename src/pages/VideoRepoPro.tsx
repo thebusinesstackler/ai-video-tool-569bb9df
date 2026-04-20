@@ -2152,7 +2152,7 @@ Output the VEO3-optimized prompt now.`
           </p>
         </div>
 
-        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'create' | 'history' | 'calendar')} className="flex-1 flex flex-col min-h-0">
+        <Tabs value={mainTab} onValueChange={(v) => { setMainTab(v as 'create' | 'history' | 'library' | 'calendar'); if (v === 'library' || v === 'history') fetchHistory(); }} className="flex-1 flex flex-col min-h-0">
           <div className="flex justify-center px-4">
             <TabsList>
               <TabsTrigger value="create" className="gap-1.5">
