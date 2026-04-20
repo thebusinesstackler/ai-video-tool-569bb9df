@@ -18,6 +18,18 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Mic, Loader2, Play, Download, User, Clock, RotateCcw, Sparkles, Wand2, Check, Globe, Upload, X, Headphones, Layers, History, Trash2, CheckSquare, Square, RefreshCw } from 'lucide-react';
 import type { AITwin } from '@/types/aiTwin';
+import { PodcastAspectRatioPicker, type PodcastAspectRatio } from '@/components/PodcastAspectRatioPicker';
+
+const ASPECT_FRAMING: Record<PodcastAspectRatio, string> = {
+  '9:16': 'VERTICAL 9:16 portrait framing for TikTok/Reels/Shorts. Subject head-and-shoulders centered with generous headroom, full vertical composition.',
+  '16:9': 'HORIZONTAL 16:9 landscape framing for YouTube/web. Subject head-and-shoulders centered with cinematic widescreen composition.',
+  '1:1': 'SQUARE 1:1 framing for Instagram feed. Subject head-and-shoulders centered, balanced square composition.',
+};
+const ASPECT_CSS: Record<PodcastAspectRatio, string> = {
+  '9:16': 'aspect-[9/16] max-w-xs',
+  '16:9': 'aspect-video max-w-2xl',
+  '1:1': 'aspect-square max-w-md',
+};
 
 interface BrandContext {
   brandName?: string;
@@ -111,6 +123,7 @@ const Podcast = () => {
   const [bulkOutput, setBulkOutput] = useState<'video' | 'voiceover'>('video');
   const [isBulkRunning, setIsBulkRunning] = useState(false);
   const bulkStopRef = useRef(false);
+  const [aspectRatio, setAspectRatio] = useState<PodcastAspectRatio>('9:16');
   const [activeTab, setActiveTab] = useState<string>('talking-head');
 
   // ===== History =====
@@ -585,6 +598,7 @@ Return ONLY a JSON object:
 CHARACTER: ${selectedTwin.face_description || selectedTwin.name}
 GENDER: ${selectedTwin.gender || 'unspecified'}
 CAMERA: iPhone front-facing camera, slight low angle, arm's length distance
+ASPECT RATIO: ${aspectRatio} — ${ASPECT_FRAMING[aspectRatio]}
 SETTING & STYLE: ${visualDesc || 'Casual real environment — home office or living room, natural window light'}
 EXPRESSION: Mid-sentence speaking, relaxed and authentic, looking directly at camera${productLine}
 QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, NO watermarks.`;
@@ -600,7 +614,7 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
           imageUrls: [sceneImg],
           audioUrl: ttsUrl,
           prompt: `Real person talking naturally on iPhone front camera. Wide fluid mouth movements with visible jaw and lip motion. Natural head movements — slight tilts, nods, eyebrow raises. Subtle handheld camera micro-shake. Casual, authentic energy. NOT cinematic, NOT polished — raw and real like an iPhone selfie video.`,
-          aspectRatio: '9:16',
+          aspectRatio,
         }
       });
       if (videoErr) throw videoErr;
@@ -770,6 +784,7 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
 CHARACTER: ${twin.face_description || twin.name}
 GENDER: ${twin.gender || 'unspecified'}
 CAMERA: iPhone front-facing, slight low angle, arm's length
+ASPECT RATIO: ${aspectRatio} — ${ASPECT_FRAMING[aspectRatio]}
 SETTING: ${visualDesc}
 EXPRESSION: Mid-sentence speaking, relaxed and authentic, looking directly at camera
 QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermarks.`;
@@ -785,7 +800,7 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
           imageUrls: [sceneImg],
           audioUrl: ttsUrl,
           prompt: `Real person talking naturally on iPhone front camera. Wide fluid mouth movements. Natural head movements — slight tilts, nods, eyebrow raises. Subtle handheld micro-shake. Casual, authentic energy.`,
-          aspectRatio: '9:16',
+          aspectRatio,
         }
       });
       if (videoErr) throw videoErr;
@@ -1006,7 +1021,7 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
             {videoUrl ? (
               <Card className="border-primary/20">
                 <CardContent className="p-5 space-y-4">
-                  <VideoPlayer videoUrl={videoUrl} title="Podcast Talking Head" className="rounded-xl w-full max-w-xs mx-auto aspect-[9/16]" />
+                  <VideoPlayer videoUrl={videoUrl} title="Podcast Talking Head" className={`rounded-xl w-full mx-auto ${ASPECT_CSS[aspectRatio]}`} />
                   <div className="flex gap-2 justify-center">
                     <Button variant="outline" size="sm" asChild>
                       <a href={videoUrl} download target="_blank" rel="noopener noreferrer">
@@ -1304,6 +1319,8 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                   )}
                 </div>
 
+                <PodcastAspectRatioPicker value={aspectRatio} onChange={setAspectRatio} />
+
                 {(() => {
                   const activeVar = variations.find(v => v.id === activeVariationId) || null;
                   const hasInput = activeVar ? true : !!message.trim();
@@ -1386,6 +1403,9 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                     {/* Output type + actions */}
                     <Card>
                       <CardContent className="p-3 space-y-3">
+                        {bulkOutput === 'video' && (
+                          <PodcastAspectRatioPicker value={aspectRatio} onChange={setAspectRatio} />
+                        )}
                         <div className="flex items-center justify-between gap-2 flex-wrap">
                           <div className="flex gap-1">
                             <button
