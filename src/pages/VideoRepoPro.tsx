@@ -293,8 +293,14 @@ const VideoRepoPro = () => {
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [editNameValue, setEditNameValue] = useState('');
 
+  const isImported = (project: VideoRepoProject) => project.source && project.source !== 'video_repo';
+
   const toggleFavorite = async (project: VideoRepoProject, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isImported(project)) {
+      toast({ title: 'Read-only', description: 'Favorites are only available for videos created in Video Repo.' });
+      return;
+    }
     const newVal = !project.is_favorite;
     setHistoryProjects(prev => prev.map(p => p.id === project.id ? { ...p, is_favorite: newVal } : p));
     const { error } = await supabase.from('video_repo_projects').update({ is_favorite: newVal } as any).eq('id', project.id);
@@ -385,6 +391,9 @@ const VideoRepoPro = () => {
       setLibraryThumbs(prev => ({ ...prev, [project.id]: dataUrl! }));
 
       // Persist to storage so subsequent visits skip the decode entirely
+      // Skip persistence for imported rows (podcast/chatcut) — they aren't in video_repo_projects.
+      if (isImported(project)) return;
+
       try {
         const res = await fetch(dataUrl);
         const blob = await res.blob();
@@ -487,12 +496,22 @@ Be honest, specific, and actionable. Use markdown.`,
     const prev = historyProjects;
     setHistoryProjects(prev.filter(p => p.id !== project.id));
     if (selectedProject?.id === project.id) setSelectedProject(null);
-    const { error } = await supabase.from('video_repo_projects').delete().eq('id', project.id);
+
+    let error: any = null;
+    if (project.source === 'podcast') {
+      const realId = project.id.replace(/^podcast:/, '');
+      ({ error } = await supabase.from('podcast_projects').delete().eq('id', realId));
+    } else if (project.source === 'chatcut') {
+      const realId = project.id.replace(/^chatcut:/, '');
+      ({ error } = await supabase.from('chatcut_drafts').delete().eq('id', realId));
+    } else {
+      ({ error } = await supabase.from('video_repo_projects').delete().eq('id', project.id));
+    }
     if (error) {
       setHistoryProjects(prev);
       toast({ title: 'Delete failed', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Deleted', description: 'Video removed from history.' });
+      toast({ title: 'Deleted', description: 'Video removed from library.' });
     }
   };
 
