@@ -1021,7 +1021,7 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
             {videoUrl ? (
               <Card className="border-primary/20">
                 <CardContent className="p-5 space-y-4">
-                  <VideoPlayer videoUrl={videoUrl} title="Podcast Talking Head" className="rounded-xl w-full max-w-xs mx-auto aspect-[9/16]" />
+                  <VideoPlayer videoUrl={videoUrl} title="Podcast Talking Head" className={`rounded-xl w-full mx-auto ${ASPECT_CSS[aspectRatio]}`} />
                   <div className="flex gap-2 justify-center">
                     <Button variant="outline" size="sm" asChild>
                       <a href={videoUrl} download target="_blank" rel="noopener noreferrer">
