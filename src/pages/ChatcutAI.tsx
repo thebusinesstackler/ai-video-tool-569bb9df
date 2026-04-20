@@ -1438,20 +1438,26 @@ const ChatcutAI = () => {
 
 
   // Add B-roll from an EXISTING image (saved frame, product image, or upload) — skips image gen, animates directly
-  const addBRollFromImage = useCallback((imageUrl: string, label: string, prompt?: string, startAt?: number) => {
+  const addBRollFromImage = useCallback((imageUrl: string, label: string, prompt?: string, startAt?: number, opts?: { staticOnly?: boolean; duration?: number }) => {
     const brollId = crypto.randomUUID();
+    const dur = opts?.duration ?? 3;
+    const staticOnly = !!opts?.staticOnly;
     const broll: BRollClip = {
       id: brollId,
       name: label,
       prompt: prompt || `Subtle natural motion that fits this scene: ${label}`,
       start: startAt ?? currentTime,
-      duration: 3,
+      duration: dur,
       imageUrl,
       imageStatus: 'ready',
-      videoStatus: 'generating',
+      videoStatus: staticOnly ? undefined : 'generating',
     };
     setBRollClips(prev => [...prev, broll]);
-    toast({ title: 'B-Roll added', description: `"${label}" — animating into 3s clip...` });
+    toast({
+      title: 'B-Roll added',
+      description: staticOnly ? `"${label}" — static cutaway (${dur}s)` : `"${label}" — animating into ${dur}s clip...`,
+    });
+    if (staticOnly) return;
     (async () => {
       try {
         const platformAspect: '16:9' | '9:16' = targetPlatform === 'youtube-landscape' ? '16:9' : '9:16';
