@@ -1403,6 +1403,9 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                     {/* Output type + actions */}
                     <Card>
                       <CardContent className="p-3 space-y-3">
+                        {bulkOutput === 'video' && (
+                          <PodcastAspectRatioPicker value={aspectRatio} onChange={setAspectRatio} />
+                        )}
                         <div className="flex items-center justify-between gap-2 flex-wrap">
                           <div className="flex gap-1">
                             <button
