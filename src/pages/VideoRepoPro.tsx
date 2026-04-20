@@ -1858,10 +1858,13 @@ Output the VEO3-optimized prompt now.`
                       <div key={idx} className="space-y-2">
                         <p className="text-[11px] font-medium text-muted-foreground">Segment {idx + 1}</p>
                         <video src={segUrl} controls className="w-full rounded-lg max-h-[280px] object-contain bg-black" preload="metadata" playsInline />
-                        <Button size="sm" variant="secondary" className="w-full h-8 text-xs" asChild>
-                          <a href={segUrl} download target="_blank" rel="noopener noreferrer">
-                            <Download className="w-3 h-3 mr-1" /> Download Segment {idx + 1}
-                          </a>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="w-full h-8 text-xs"
+                          onClick={() => downloadAsMp4(segUrl, `${selectedProject.custom_name || 'video'}-segment-${idx + 1}.mp4`)}
+                        >
+                          <Download className="w-3 h-3 mr-1" /> Download Segment {idx + 1}
                         </Button>
                         <Button
                           size="sm"
