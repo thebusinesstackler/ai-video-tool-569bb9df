@@ -1,0 +1,4 @@
+ALTER TABLE public.video_repo_projects 
+  ADD COLUMN IF NOT EXISTS engine TEXT,
+  ADD COLUMN IF NOT EXISTS flow_mode BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS flow_shot_count INTEGER;

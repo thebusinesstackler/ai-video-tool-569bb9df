@@ -52,6 +52,7 @@ import { FrameExtractorDialog } from '@/components/FrameExtractorDialog';
 import { ProductPickerDialog, type SelectedProductContext } from '@/components/ProductPickerDialog';
 import { MarcoVoiceChat } from '@/components/MarcoVoiceChat';
 import { StylePicker, AlternativeAngles, STYLE_OPTIONS } from '@/components/StyleAnglePicker';
+import { VideoRepoEngineSelector, type VideoEngine } from '@/components/VideoRepoEngineSelector';
 
 interface ChatMessage {
   id: string;
@@ -127,6 +128,23 @@ const VideoRepoPro = () => {
   const [singleDuration, setSingleDuration] = useState<10 | 15 | 20>(20);
   // Which video model to use for the NEXT generation. Default Sora-2; "Recreate with VEO3" sets this to 'veo3'.
   const [nextGenerationModel, setNextGenerationModel] = useState<'sora-2' | 'veo3'>('sora-2');
+  // Google Flow (multi-shot Veo 3): chains 2-6 sequential 8s clips into one stitched video.
+  const [flowMode, setFlowMode] = useState(false);
+  const [flowShots, setFlowShots] = useState<number>(3);
+  // UI engine picker (mirrors nextGenerationModel + future wan-2.5 routing).
+  const selectedEngine: VideoEngine = nextGenerationModel === 'veo3' ? 'veo3' : nextGenerationModel as VideoEngine;
+  const handleEngineChange = (e: VideoEngine) => {
+    if (e === 'veo3') setNextGenerationModel('veo3');
+    else if (e === 'sora-2') {
+      setNextGenerationModel('sora-2');
+      setFlowMode(false);
+    } else {
+      // wan-2.5 falls back to sora-2 routing for now; flag retained for future expansion
+      setNextGenerationModel('sora-2');
+      setFlowMode(false);
+      toast({ title: 'Wan 2.5 coming soon', description: 'Defaulting to Sora-2 for now.' });
+    }
+  };
 
   // AI Script Director chat state
   const [hasAnalysis, setHasAnalysis] = useState(false);
@@ -1248,6 +1266,189 @@ Check word count vs ${singleDuration}s duration (~2.5 words/sec = ${wordTarget} 
     // VEO3 produces 8-second native clips; Sora-2 honors singleDuration (10/15/20s).
     const effectiveDuration = segmentModel === 'veo3' ? 8 : singleDuration;
 
+    // ============================================================
+    // GOOGLE FLOW MODE — multi-shot Veo 3 chained into one video
+    // ============================================================
+    if (segmentModel === 'veo3' && flowMode) {
+      const shotCount = Math.max(2, Math.min(6, flowShots));
+      const totalSec = shotCount * 8;
+      const narrationMatch = analysisText.match(/```narration\n([\s\S]*?)```/);
+      const fullNarration = narrationMatch ? narrationMatch[1].trim() : videoPrompt;
+
+      setIsGenerating(true);
+      const flowMsg: ChatMessage = {
+        id: `assistant-flow-${Date.now()}`,
+        role: 'assistant',
+        content: `🎬 **Google Flow Mode** — generating ${shotCount} sequential Veo 3 shots (${totalSec}s total) with locked character + setting, then auto-stitching into one continuous video.`,
+      };
+      setMessages((prev) => [...prev, flowMsg]);
+
+      try {
+        // 1) Build the Flow plan (Bible + per-shot prompts)
+        setGenerationProgress(`Planning ${shotCount}-shot Flow with shared Bible...`);
+        const { data: planData, error: planError } = await supabase.functions.invoke('generate-flow-bible', {
+          body: {
+            script: fullNarration,
+            shotCount,
+            aspectRatio,
+            referenceContext: videoPrompt.slice(0, 3500),
+          },
+        });
+        if (planError) throw new Error(planError.message || 'Flow planning failed');
+        if (!planData?.shots?.length) throw new Error('Flow plan returned no shots');
+
+        const shots = planData.shots as { shotNumber: number; prompt: string; dialogue: string }[];
+        console.log('[VideoRepoPro] Flow plan ready:', planData.bible, shots.length, 'shots');
+
+        // 2) Kick off all shots in parallel via Veo 3
+        setGenerationProgress(`Launching ${shots.length} Veo 3 shots in parallel...`);
+        const taskIds = await Promise.all(
+          shots.map((s) =>
+            createWaveSpeedVideo({
+              prompt: s.prompt,
+              model: 'veo3',
+              aspectRatio,
+              duration: 8,
+              userId: user?.id,
+              source: 'video-repo-pro-flow',
+              sceneNumber: s.shotNumber,
+              ...(persistentImageUrl && s.shotNumber === 1 ? { imageUrls: [persistentImageUrl] } : {}),
+            }).then((taskId) => ({ shotNumber: s.shotNumber, taskId }))
+          )
+        );
+
+        // 3) Poll all shots until completion
+        const completed: Record<number, string> = {};
+        const maxAttempts = 150;
+        let attempts = 0;
+        while (Object.keys(completed).length < taskIds.length && attempts < maxAttempts) {
+          await new Promise((r) => setTimeout(r, 5000));
+          await Promise.all(
+            taskIds.map(async (t) => {
+              if (completed[t.shotNumber]) return;
+              try {
+                const job = await getWaveSpeedVideoJob(t.taskId);
+                if (job?.status === 'completed' && job.videoUrl) {
+                  completed[t.shotNumber] = job.videoUrl;
+                } else if (job?.status === 'failed') {
+                  throw new Error(`Shot ${t.shotNumber} failed: ${job.error || 'unknown'}`);
+                }
+              } catch (err) {
+                console.error(`[Flow] Shot ${t.shotNumber} poll error`, err);
+              }
+            })
+          );
+          attempts++;
+          const done = Object.keys(completed).length;
+          setGenerationProgress(`Veo 3 Flow: ${done}/${taskIds.length} shots ready (${Math.round((attempts / maxAttempts) * 100)}%)...`);
+        }
+
+        const orderedClips = taskIds
+          .map((t) => completed[t.shotNumber])
+          .filter((u): u is string => !!u);
+
+        if (orderedClips.length === 0) {
+          throw new Error('No Flow shots completed in time.');
+        }
+
+        // 4) Auto-stitch via Creatomate
+        setIsStitching(true);
+        setGenerationProgress(`Stitching ${orderedClips.length} shots into one video...`);
+
+        let finalUrl: string | null = null;
+        try {
+          const clips = orderedClips.map((url) => ({ url, duration: 8 }));
+          const { data: stitchData, error: stitchError } = await supabase.functions.invoke('creatomate-stitch', {
+            body: { clips, transition: 'crossfade' },
+          });
+          if (stitchError) throw stitchError;
+
+          if (stitchData?.success && stitchData?.renderId) {
+            const renderStart = Date.now();
+            while (Date.now() - renderStart < 300_000) {
+              const { data: status } = await supabase.functions.invoke('creatomate-status', {
+                body: { renderId: stitchData.renderId },
+              });
+              if (status?.status === 'succeeded' && status?.url) {
+                finalUrl = status.url;
+                break;
+              }
+              if (status?.status === 'failed') break;
+              await new Promise((r) => setTimeout(r, 3000));
+            }
+          }
+        } catch (stitchErr) {
+          console.warn('[Flow] Cloud stitch failed, falling back to first clip:', stitchErr);
+        }
+
+        if (!finalUrl) finalUrl = orderedClips[0];
+
+        // 5) Save to history
+        if (projectId) {
+          await supabase.from('video_repo_projects').update({
+            generated_video_url: finalUrl,
+            status: 'completed',
+            segment_urls: orderedClips,
+            model: 'veo3',
+            engine: 'veo3',
+            flow_mode: true,
+            flow_shot_count: orderedClips.length,
+            video_prompt: shots.map((s) => `Shot ${s.shotNumber}: ${s.dialogue}`).join('\n'),
+          } as any).eq('id', projectId);
+        }
+
+        if (user) {
+          await supabase.from('generated_images').insert({
+            user_id: user.id,
+            image_url: finalUrl,
+            prompt: `[PRO Flow ${orderedClips.length}×8s VEO3] ${(shots[0]?.dialogue || '').substring(0, 100)}...`,
+            source: 'video-repo-pro-flow',
+            reference_image_url: persistentImageUrl,
+          });
+        }
+
+        setIsGenerating(false);
+        setIsStitching(false);
+        setGenerationProgress('');
+
+        const flowResultMsg: ChatMessage = {
+          id: `flow-result-${Date.now()}`,
+          role: 'assistant',
+          content: `✅ **Veo 3 · Flow · ${orderedClips.length} shots** ready! Stitched into one ${orderedClips.length * 8}s video.\n\n💾 Saved to your **History** tab. Each individual shot is also preserved so you can re-roll any single one.`,
+          videoResults: [
+            { url: finalUrl, label: `Final Flow video (${orderedClips.length}×8s)` },
+            ...orderedClips.map((u, i) => ({ url: u, label: `Shot ${i + 1}` })),
+          ],
+        };
+        setMessages((prev) => prev.filter((m) => m.id !== flowMsg.id).concat(flowResultMsg));
+        await fetchHistory();
+        // Reset to default after run
+        setNextGenerationModel('sora-2');
+        setFlowMode(false);
+        toast({ title: '🎬 Flow video saved', description: `${orderedClips.length} Veo 3 shots stitched into one ${orderedClips.length * 8}s video.` });
+        return;
+      } catch (flowErr: any) {
+        console.error('[VideoRepoPro] Flow Mode failed:', flowErr);
+        if (projectId) {
+          await supabase.from('video_repo_projects').update({ status: 'failed' }).eq('id', projectId);
+        }
+        const errMsg: ChatMessage = {
+          id: `flow-error-${Date.now()}`,
+          role: 'assistant',
+          content: `⚠️ Flow Mode error: ${flowErr.message}\n\nYou can retry, or switch off Flow Mode to generate a single 8s Veo 3 clip instead.`,
+          retryable: true,
+        };
+        setMessages((prev) => prev.filter((m) => m.id !== flowMsg.id).concat(errMsg));
+        setIsGenerating(false);
+        setIsStitching(false);
+        setGenerationProgress('');
+        return;
+      }
+    }
+    // ============================================================
+    // END FLOW MODE — falls through to single-shot pipeline below
+    // ============================================================
+
     // --- VEO3 Prompt Rewriter ---
     // VEO3 supports native synchronized audio + dialogue. Rewrite the Sora-style cinematic prompt
     // into a VEO3-native prompt with explicit spoken dialogue, ambient audio, and 8-second structure.
@@ -2026,6 +2227,16 @@ Output the VEO3-optimized prompt now.`
                           {isDownloadingUrl ? '...' : 'Import'}
                         </Button>
                       )}
+                    </div>
+                    <div className="w-full">
+                      <VideoRepoEngineSelector
+                        engine={selectedEngine}
+                        onEngineChange={handleEngineChange}
+                        flowMode={flowMode}
+                        onFlowModeChange={setFlowMode}
+                        flowShots={flowShots}
+                        onFlowShotsChange={setFlowShots}
+                      />
                     </div>
                     <Select value={aspectRatio} onValueChange={(v) => setAspectRatio(v as '9:16' | '16:9')}>
                       <SelectTrigger className="h-8 w-[110px] text-xs rounded-full bg-background">

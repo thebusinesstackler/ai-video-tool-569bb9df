@@ -1156,7 +1156,10 @@ export type Database = {
           category: string | null
           created_at: string
           custom_name: string | null
+          engine: string | null
           external_task_id: string | null
+          flow_mode: boolean
+          flow_shot_count: number | null
           generated_video_url: string | null
           id: string
           is_favorite: boolean
@@ -1175,7 +1178,10 @@ export type Database = {
           category?: string | null
           created_at?: string
           custom_name?: string | null
+          engine?: string | null
           external_task_id?: string | null
+          flow_mode?: boolean
+          flow_shot_count?: number | null
           generated_video_url?: string | null
           id?: string
           is_favorite?: boolean
@@ -1194,7 +1200,10 @@ export type Database = {
           category?: string | null
           created_at?: string
           custom_name?: string | null
+          engine?: string | null
           external_task_id?: string | null
+          flow_mode?: boolean
+          flow_shot_count?: number | null
           generated_video_url?: string | null
           id?: string
           is_favorite?: boolean
