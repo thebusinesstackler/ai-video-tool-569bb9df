@@ -314,7 +314,7 @@ Be honest, specific, and actionable. Use markdown.`,
     }
   };
 
-
+  const deleteProject = async (project: VideoRepoProject, e: React.MouseEvent) => {
     e.stopPropagation();
     const label = project.custom_name || project.prompt?.slice(0, 60) || 'this video';
     if (!confirm(`Delete "${label}"? This cannot be undone.`)) return;
