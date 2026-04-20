@@ -3161,6 +3161,23 @@ Output the VEO3-optimized prompt now.`
                             </button>
                           </div>
                           <CardContent className="p-3 space-y-2">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {(() => {
+                                const src = project.source || 'video_repo';
+                                const meta: Record<string, { label: string; cls: string }> = {
+                                  video_repo: { label: 'Video Repo', cls: 'bg-primary/10 text-primary border-primary/20' },
+                                  podcast: { label: 'Podcast', cls: 'bg-purple-500/10 text-purple-600 border-purple-500/20' },
+                                  chatcut: { label: 'Chatcut', cls: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
+                                  reels: { label: 'Reel', cls: 'bg-pink-500/10 text-pink-600 border-pink-500/20' },
+                                };
+                                const m = meta[src] || meta.video_repo;
+                                return (
+                                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${m.cls}`}>
+                                    {m.label}
+                                  </span>
+                                );
+                              })()}
+                            </div>
                             <p className="text-sm font-medium line-clamp-2 min-h-[2.5rem]" title={label}>
                               {label}
                             </p>
