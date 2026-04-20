@@ -1494,6 +1494,103 @@ const ChatcutAI = () => {
     })();
   }, [currentTime, toast, pollBRollVideo, targetPlatform]);
 
+  // 🎞 MANUS SLIDES — kick off async generation, poll until ready, drop each slide as STATIC B-roll.
+  // Distributes the slides evenly across the timeline (or sequentially from `startAt`),
+  // each pinned to the B-roll track for `perSlideDur` seconds. The PiP twin sits on top.
+  const generateSlidesFromManus = useCallback(async (opts: {
+    prompt: string;
+    slideCount: number;
+    style?: string;
+    perSlideDur: number;
+    startAt: number;             // first slide starts here
+    distribute?: 'sequential' | 'evenly_across_video';
+  }) => {
+    if (!opts.prompt.trim()) {
+      toast({ title: 'Slide prompt required', description: 'Tell Marco what the deck should be about.', variant: 'destructive' });
+      return;
+    }
+    setSlidesGenerating(true);
+    slidesPollRef.current.stop = false;
+    toast({
+      title: '🎞 Generating slides via Manus',
+      description: `~1–4 min — keep editing while ${opts.slideCount} slides render in the background.`,
+    });
+    try {
+      const { data: kickoff, error: kickErr } = await supabase.functions.invoke('generate-manus-slides', {
+        body: {
+          prompt: opts.prompt,
+          slideCount: opts.slideCount,
+          style: opts.style,
+        },
+      });
+      if (kickErr || !kickoff?.taskId) {
+        throw new Error(kickErr?.message || kickoff?.error || 'Failed to start slide generation');
+      }
+      const taskId: string = kickoff.taskId;
+
+      // Poll every 10s up to ~8 minutes
+      const POLL_MS = 10_000;
+      const MAX_POLLS = 50;
+      let slideUrls: string[] | null = null;
+      for (let i = 0; i < MAX_POLLS; i++) {
+        if (slidesPollRef.current.stop) {
+          toast({ title: 'Slide generation cancelled' });
+          return;
+        }
+        await new Promise((r) => setTimeout(r, POLL_MS));
+        const { data: poll, error: pollErr } = await supabase.functions.invoke('check-manus-slides', {
+          body: { taskId },
+        });
+        if (pollErr) {
+          console.warn('[slides] poll error', pollErr);
+          continue;
+        }
+        if (poll?.error && poll?.ready === false && poll?.status !== 'running') {
+          throw new Error(poll.error);
+        }
+        if (poll?.ready && Array.isArray(poll.slideUrls) && poll.slideUrls.length > 0) {
+          slideUrls = poll.slideUrls;
+          break;
+        }
+      }
+      if (!slideUrls) throw new Error('Slide generation timed out (>8 min). Check Manus directly.');
+
+      // Distribute slides on the B-roll track. Sequential = back-to-back from startAt.
+      // Evenly = spread across the remaining timeline so each slide gets equal screen time.
+      const dur = Math.max(1, opts.perSlideDur);
+      const startAt = Math.max(0, opts.startAt);
+      const totalNeeded = slideUrls.length * dur;
+      const remaining = Math.max(totalNeeded, duration - startAt);
+      const useEven = (opts.distribute === 'evenly_across_video') && duration > startAt + totalNeeded;
+      const stride = useEven ? remaining / slideUrls.length : dur;
+
+      slideUrls.forEach((url, idx) => {
+        const slideStart = +(startAt + idx * stride).toFixed(2);
+        addBRollFromImage(
+          url,
+          `Slide ${idx + 1}/${slideUrls!.length}`,
+          `AI-generated slide: ${opts.prompt}`,
+          slideStart,
+          { staticOnly: true, duration: dur },
+        );
+      });
+      toast({
+        title: `✅ ${slideUrls.length} slides added to B-Roll`,
+        description: `Pinned from ${startAt.toFixed(1)}s, ${dur}s each. Your PiP twin sits on top.`,
+      });
+    } catch (e) {
+      console.error('[slides] failed', e);
+      toast({
+        title: 'Slide generation failed',
+        description: e instanceof Error ? e.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setSlidesGenerating(false);
+    }
+  }, [toast, addBRollFromImage, duration]);
+
+
   // Add B-roll from an EXISTING video clip (e.g., extracted source clip) — uses it directly, no Wan animation.
   // Auto-snaps the start time forward to avoid overlapping any existing b-roll on the track.
   const addBRollFromVideoClip = useCallback((opts: { videoUrl: string; label: string; durationSec?: number; startAt?: number; sourceStart?: number; sourceUrl?: string }) => {
