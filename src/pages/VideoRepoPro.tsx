@@ -729,6 +729,31 @@ Be specific, constructive, and actionable. Reference exact moments/frames when p
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const downloadAsMp4 = async (url: string, filename: string) => {
+    try {
+      toast({ title: 'Preparing download...', description: 'Fetching video file.' });
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const blob = await resp.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = filename.endsWith('.mp4') ? filename : `${filename}.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } catch (e: any) {
+      console.error('[downloadAsMp4]', e);
+      toast({
+        title: 'Download failed',
+        description: 'Opening video in a new tab — right-click and choose "Save Video As" to save as .mp4.',
+        variant: 'destructive',
+      });
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   const handleUrlImport = async () => {
     const trimmed = urlInput.trim();
     if (!trimmed || isDownloadingUrl) return;
