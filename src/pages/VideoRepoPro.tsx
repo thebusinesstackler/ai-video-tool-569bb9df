@@ -80,6 +80,7 @@ interface VideoRepoProject {
   is_favorite?: boolean;
   custom_name?: string | null;
   segment_urls?: string[] | null;
+  thumbnail_url?: string | null;
 }
 
 const statusColors: Record<string, string> = {
