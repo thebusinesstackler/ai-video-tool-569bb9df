@@ -81,6 +81,8 @@ interface VideoRepoProject {
   custom_name?: string | null;
   segment_urls?: string[] | null;
   thumbnail_url?: string | null;
+  tagged_product?: string | null;
+  review_notes?: string | null;
 }
 
 const statusColors: Record<string, string> = {
@@ -100,6 +102,9 @@ const VideoRepoPro = () => {
   const [libraryPlayingId, setLibraryPlayingId] = useState<string | null>(null);
   const [libraryThumbs, setLibraryThumbs] = useState<Record<string, string>>({});
   const [libraryAspects, setLibraryAspects] = useState<Record<string, number>>({}); // width/height ratio
+  const [libraryProductFilter, setLibraryProductFilter] = useState<string>('all'); // 'all' | 'untagged' | product name
+  const [librarySortBy, setLibrarySortBy] = useState<'newest' | 'oldest' | 'product' | 'favorites'>('newest');
+  const [productOptions, setProductOptions] = useState<string[]>([]);
   const thumbInFlightRef = useRef<Set<string>>(new Set());
   const [reviewProject, setReviewProject] = useState<VideoRepoProject | null>(null);
   const [reviewNotes, setReviewNotes] = useState('');
