@@ -99,6 +99,7 @@ const VideoRepoPro = () => {
   const [libraryFavoritesOnly, setLibraryFavoritesOnly] = useState(false);
   const [libraryPlayingId, setLibraryPlayingId] = useState<string | null>(null);
   const [libraryThumbs, setLibraryThumbs] = useState<Record<string, string>>({});
+  const [libraryAspects, setLibraryAspects] = useState<Record<string, number>>({}); // width/height ratio
   const thumbInFlightRef = useRef<Set<string>>(new Set());
   const [reviewProject, setReviewProject] = useState<VideoRepoProject | null>(null);
   const [reviewNotes, setReviewNotes] = useState('');
