@@ -855,15 +855,32 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
       toast({ title: 'Missing cast for an item', description: `"${missing.plan.topic}" has no twin assigned. Pick a default character first.`, variant: 'destructive' });
       return;
     }
+    bulkStopRef.current = false;
     setIsBulkRunning(true);
-    toast({ title: `Bulk generating ${queue.length} ${bulkOutput === 'video' ? 'videos' : 'voiceovers'}`, description: 'Running sequentially. Stay on this page.' });
+    toast({ title: `Bulk generating ${queue.length} ${bulkOutput === 'video' ? 'videos' : 'voiceovers'}`, description: 'Running sequentially. You can stop at any time.' });
+    let stopped = false;
     for (const item of queue) {
+      if (bulkStopRef.current) {
+        stopped = true;
+        updateBulkItem(item.id, { status: 'failed', error: 'Stopped by user' });
+        continue;
+      }
       const twin = resolveItemTwin(item)!;
       await processBulkItem(item, twin);
     }
     setIsBulkRunning(false);
+    bulkStopRef.current = false;
     loadHistory();
-    toast({ title: '✅ Bulk run complete', description: 'Check History tab to edit & re-render.' });
+    toast({
+      title: stopped ? '⏹ Bulk run stopped' : '✅ Bulk run complete',
+      description: stopped ? 'Remaining items were skipped.' : 'Check History tab to edit & re-render.',
+    });
+  };
+
+  const stopBulkGeneration = () => {
+    if (!isBulkRunning) return;
+    bulkStopRef.current = true;
+    toast({ title: 'Stopping…', description: 'Will halt after the current step finishes.' });
   };
 
   const retryBulkItem = async (id: string) => {
