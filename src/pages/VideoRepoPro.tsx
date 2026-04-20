@@ -52,6 +52,7 @@ import { FrameExtractorDialog } from '@/components/FrameExtractorDialog';
 import { ProductPickerDialog, type SelectedProductContext } from '@/components/ProductPickerDialog';
 import { MarcoVoiceChat } from '@/components/MarcoVoiceChat';
 import { StylePicker, AlternativeAngles, STYLE_OPTIONS } from '@/components/StyleAnglePicker';
+import { VideoRepoEngineSelector, type VideoEngine } from '@/components/VideoRepoEngineSelector';
 
 interface ChatMessage {
   id: string;
