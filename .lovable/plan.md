@@ -1,46 +1,42 @@
 
 
-## Add Google Flow (Veo 3) to Video Repo Pro
+## Add Aspect Ratio Picker to Podcast Talking-Head
 
-Bring Google Flow-style filmmaking to `/video-repo-pro` with a model picker for any new video AND a multi-shot "Flow Mode" that chains multiple Veo 3 clips into one long, consistent video — all with native Veo 3 audio + dialogue.
+Enable TikTok-style 9:16 portrait talking-head videos (plus 16:9 landscape and 1:1 square) on the Podcast page.
 
-### What you'll see in the UI
+### What you'll get
 
-On the Video Repo Pro create form, add a new **Engine** section above the Generate button:
+A new **Aspect Ratio** section on `/podcast` when creating talking-head videos:
 
-```text
-┌─ Engine ────────────────────────────────┐
-│  ◯ Sora-2 (default)  ◉ Veo 3  ◯ Wan 2.5 │
-│                                          │
-│  [✓] Flow Mode (multi-shot)              │
-│      Shots: [ 3 ]  Total: ~24s           │
-│      Auto-stitch into one video          │
-└──────────────────────────────────────────┘
+```
+┌─ Aspect Ratio ──────────────────────┐
+│  ◯ 9:16 Portrait  (TikTok/Reels)     │
+│  ◉ 16:9 Landscape (YouTube)           │
+│  ◯ 1:1 Square     (Instagram)        │
+└───────────────────────────────────────┘
 ```
 
-- **Single Veo 3 shot**: 8s clip, native audio + dialogue (uses the rewriter we just built).
-- **Flow Mode**: 2-6 shots × 8s each, character/setting locked across shots, auto-stitched into one final video saved to history.
+- **9:16 Portrait**: Full-screen vertical video for TikTok, Instagram Reels, YouTube Shorts
+- **16:9 Landscape**: Traditional widescreen (current default)
+- **1:1 Square**: Instagram feed posts
 
-### How Flow Mode works
+### How it flows through
 
-1. **Script breakdown** — your script gets split into N beats (one per shot) by Lovable AI, each beat ≤ ~20 spoken words.
-2. **Consistency lock** — a single "Character & Setting Bible" (wardrobe, location, lighting, voice tone) is generated once and prepended to every shot prompt so the actor and environment stay identical.
-3. **Sequential generation** — N Veo 3 calls run in parallel via `wavespeed-video` (`google/veo3`), each with its own dialogue line + native audio.
-4. **Auto-stitch** — when all clips finish, `creatomate-stitch` concatenates them into one MP4 and saves to `video_repo_projects` (with `segment_urls` populated so you can still re-roll any single shot).
-5. **History card** — labelled `Veo 3 · Flow · 3 shots` with a small badge so you can spot Flow videos at a glance.
+1. **UI selector** — new radio group on Podcast page, defaulting to 9:16 (since you mentioned TikTok preference)
+2. **Pipeline update** — `aspectRatio` parameter passed to the generation edge function (`infinitetalk-hd` or `avatar-omni-human-1.5` if used)
+3. **Video framing** — the AI avatar will be properly framed for vertical/portrait output (head/shoulders centered, not cut off)
+4. **History cards** — badge shows `9:16` or `16:9` so you can spot portrait vs landscape videos
 
 ### Files to change
 
-- `src/pages/VideoRepoPro.tsx` — add `<EngineSelector>` UI, `flowMode` + `flowShots` state, branch `generateVideo` into single-shot vs Flow Mode loop, save engine + `flow_mode` to DB.
-- `src/components/VideoRepoEngineSelector.tsx` — new small component (radio + Flow toggle + shot count slider).
-- `supabase/functions/generate-flow-bible/index.ts` — new edge function: takes script + N, returns `{ bible: {...}, shots: [{ prompt, dialogue }] }` using Lovable AI (gemini-3-flash-preview).
-- `supabase/migrations/...` — add `engine TEXT` and `flow_mode BOOLEAN` columns to `video_repo_projects` for the badge + filtering.
-- `.lovable/memory/features/video-repo/google-flow-mode.md` — log the feature.
+- `src/pages/Podcast.tsx` — add `aspectRatio` state (9:16 | 16:9 | 1:1), new AspectRatioPicker component before the Generate button, pass ratio to generation calls
+- `src/components/PodcastAspectRatioPicker.tsx` — new radio group with visual icons showing portrait vs landscape preview
+- `supabase/functions/[talking-head-function]` — accept `aspectRatio` param and pass to video generation API (most support `aspect_ratio` or similar)
+- `src/integrations/supabase/types.ts` — add `aspect_ratio` column to podcast generation tracking table
 
 ### Technical notes
 
-- All Veo 3 calls reuse the existing `wavespeed-video` edge function with `model: 'google/veo3'`, 8s, native audio always on (per your choice).
-- The VEO3 prompt rewriter from the last change is reused per shot, but seeded with the shared Bible so dialogue + look stay consistent.
-- Stitching reuses `creatomate-stitch` (no new infra). Background tasks tracked via `BackgroundVideoContext` so Flow runs survive page navigation.
-- Cost guardrail: Flow Mode capped at 6 shots (48s) with a visible `~$X.XX` estimate before you hit Generate.
+- `infinitetalk-hd` (WaveSpeed) supports `aspect_ratio: "9:16"` natively for portrait talking-head
+- Preview thumbnail on history cards will render correctly with CSS `aspect-ratio` property
+- Bulk generation mode will respect the selected ratio for all queued items
 
