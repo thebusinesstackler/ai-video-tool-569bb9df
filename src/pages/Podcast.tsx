@@ -799,6 +799,7 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
       const maxAttempts = 150;
       let finalUrl: string | undefined;
       while (attempts < maxAttempts) {
+        if (bulkStopRef.current) throw new Error('Stopped by user');
         attempts++;
         await new Promise(r => setTimeout(r, 3000));
         const { data: status } = await supabase.functions.invoke('wavespeed-video', {
