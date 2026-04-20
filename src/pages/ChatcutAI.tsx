@@ -472,6 +472,16 @@ const ChatcutAI = () => {
   const [storyboardOpen, setStoryboardOpen] = useState(false);
   useEffect(() => { if (brollReview) setStoryboardOpen(true); }, [brollReview]);
 
+  // 🎞 Manus Slides — async generation state
+  const [slidesDialogOpen, setSlidesDialogOpen] = useState(false);
+  const [slidesPrompt, setSlidesPrompt] = useState('');
+  const [slidesCount, setSlidesCount] = useState(6);
+  const [slidesStyle, setSlidesStyle] = useState('bold tiktok-friendly, high-contrast');
+  const [slidesPerSlideDur, setSlidesPerSlideDur] = useState(3);
+  const [slidesStartAt, setSlidesStartAt] = useState<'cursor' | 'beginning'>('cursor');
+  const [slidesGenerating, setSlidesGenerating] = useState(false);
+  const slidesPollRef = useRef<{ stop: boolean }>({ stop: false });
+
   // Track failed B-roll attempts so we only auto-retry once
   const brollRetryCount = useRef<Map<string, number>>(new Map());
 
