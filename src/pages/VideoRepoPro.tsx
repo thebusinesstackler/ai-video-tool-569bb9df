@@ -125,6 +125,8 @@ const VideoRepoPro = () => {
   const HISTORY_PAGE_SIZE = 9;
   const [aspectRatio, setAspectRatio] = useState<'9:16' | '16:9'>('9:16');
   const [singleDuration, setSingleDuration] = useState<10 | 15 | 20>(20);
+  // Which video model to use for the NEXT generation. Default Sora-2; "Recreate with VEO3" sets this to 'veo3'.
+  const [nextGenerationModel, setNextGenerationModel] = useState<'sora-2' | 'veo3'>('sora-2');
 
   // AI Script Director chat state
   const [hasAnalysis, setHasAnalysis] = useState(false);
@@ -565,6 +567,24 @@ Be specific, constructive, and actionable. Reference exact moments/frames when p
     pendingAutoPromptRef.current = originalPrompt;
     setPendingAutoAnalysis(true);
     toast({ title: 'Recreating', description: `Re-analyzing and generating a fresh ${singleDuration}-second take.` });
+  };
+
+  // Recreate the EXACT same video with Google VEO3 (8s native, supports image-to-video).
+  // Re-runs the AI Director on the original reference + prompt, then generates the new clip with VEO3 instead of Sora-2.
+  const recreateWithVeo3 = (project: VideoRepoProject, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    loadProjectAssets(project);
+    const originalPrompt = project.prompt?.replace(/^\[PRO\]\s*/, '') || `Analyze reference and generate ad`;
+    setPrompt(originalPrompt);
+    setNextGenerationModel('veo3');
+    setSelectedProject(null);
+    setMainTab('create');
+    pendingAutoPromptRef.current = originalPrompt;
+    setPendingAutoAnalysis(true);
+    toast({
+      title: '🎬 Recreating with Google VEO3',
+      description: 'Re-analyzing the reference and generating a fresh take with VEO3 (native 8s, longer & higher detail).',
+    });
   };
 
   useEffect(() => {
@@ -1231,25 +1251,28 @@ Check word count vs ${singleDuration}s duration (~2.5 words/sec = ${wordTarget} 
 
     setIsGenerating(true);
 
+    const segmentModel: 'sora-2' | 'veo3' = nextGenerationModel;
+    const modelLabel = segmentModel === 'veo3' ? 'Google VEO3' : 'Sora-2';
+    // VEO3 produces 8-second native clips; Sora-2 honors singleDuration (10/15/20s).
+    const effectiveDuration = segmentModel === 'veo3' ? 8 : singleDuration;
+
     const generatingMsg: ChatMessage = {
       id: `assistant-gen-${Date.now()}`,
       role: 'assistant',
-      content: `🎬 Generating ONE continuous ${singleDuration}-second video with Sora-2... No stitching, no segments — a single clean take that ends on the closing frame.`,
+      content: `🎬 Generating ONE continuous ${effectiveDuration}-second video with ${modelLabel}... No stitching, no segments — a single clean take that ends on the closing frame.`,
     };
     setMessages((prev) => [...prev, generatingMsg]);
 
     let videoUrl: string | null = null;
 
     try {
-      setGenerationProgress(`Starting ${singleDuration}s generation...`);
-
-      const segmentModel: 'sora-2' = 'sora-2';
+      setGenerationProgress(`Starting ${effectiveDuration}s generation with ${modelLabel}...`);
 
       const taskId = await createWaveSpeedVideo({
         prompt: videoPrompt,
         model: segmentModel,
         aspectRatio,
-        duration: singleDuration,
+        duration: effectiveDuration,
         userId: user?.id,
         source: 'video-repo-pro',
         ...(persistentImageUrl ? { imageUrls: [persistentImageUrl] } : {}),
@@ -1269,7 +1292,7 @@ Check word count vs ${singleDuration}s duration (~2.5 words/sec = ${wordTarget} 
         }
         if (job?.status === 'failed') throw new Error(`Generation failed: ${job.error || 'Unknown error'}`);
 
-        setGenerationProgress(`Generating ${singleDuration}s clip... (${Math.round((attempts / maxAttempts) * 100)}%)`);
+        setGenerationProgress(`Generating ${effectiveDuration}s clip with ${modelLabel}... (${Math.round((attempts / maxAttempts) * 100)}%)`);
         attempts++;
       }
 
@@ -1285,6 +1308,7 @@ Check word count vs ${singleDuration}s duration (~2.5 words/sec = ${wordTarget} 
           generated_video_url: videoUrl,
           status: 'completed',
           segment_urls: [videoUrl],
+          model: segmentModel,
         } as any).eq('id', projectId);
       }
 
@@ -1292,7 +1316,7 @@ Check word count vs ${singleDuration}s duration (~2.5 words/sec = ${wordTarget} 
         await supabase.from('generated_images').insert({
           user_id: user.id,
           image_url: videoUrl,
-          prompt: `[PRO ${singleDuration}s] ${videoPrompt.substring(0, 100)}...`,
+          prompt: `[PRO ${effectiveDuration}s ${modelLabel}] ${videoPrompt.substring(0, 100)}...`,
           source: 'video-repo-pro',
           reference_image_url: persistentImageUrl,
         });
@@ -1301,11 +1325,13 @@ Check word count vs ${singleDuration}s duration (~2.5 words/sec = ${wordTarget} 
       const resultMsg: ChatMessage = {
         id: `result-${Date.now()}`,
         role: 'assistant',
-        content: `✅ Your ${singleDuration}-second video is ready! One clean take — no stitching. Want changes? Just tell me in the chat.\n\n💾 This project has been saved to your **History** tab.`,
-        videoResults: [{ url: videoUrl, label: `${singleDuration}s clip` }],
+        content: `✅ Your ${effectiveDuration}-second ${modelLabel} video is ready! One clean take — no stitching. Want changes? Just tell me in the chat.\n\n💾 This project has been saved to your **History** tab.`,
+        videoResults: [{ url: videoUrl, label: `${effectiveDuration}s ${modelLabel} clip` }],
       };
       setMessages((prev) => prev.filter((m) => m.id !== generatingMsg.id).concat(resultMsg));
       await fetchHistory();
+      // Reset to default model after a successful VEO3 run so the next chat-driven generation goes back to Sora-2.
+      if (segmentModel === 'veo3') setNextGenerationModel('sora-2');
       toast({
         title: '✅ Saved to History',
         description: 'Your single-take video is saved. Click the History tab to view all your projects.',
@@ -1428,6 +1454,14 @@ Check word count vs ${singleDuration}s duration (~2.5 words/sec = ${wordTarget} 
             </Button>
             <Button variant="outline" size="sm" className="gap-1.5" onClick={(e) => newVersionFromProject(selectedProject, e)}>
               <RefreshCw className="w-3.5 h-3.5" /> New Version
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 border-blue-500/40 text-blue-400 hover:bg-blue-500/10"
+              onClick={(e) => recreateWithVeo3(selectedProject, e)}
+            >
+              <Sparkles className="w-3.5 h-3.5" /> Recreate with VEO3
             </Button>
             {selectedProject.analysis_text && (
               <Button variant="outline" size="sm" className="gap-1.5" onClick={(e) => sendToSpokesperson(selectedProject, e)}>
@@ -2303,6 +2337,19 @@ Check word count vs ${singleDuration}s duration (~2.5 words/sec = ${wordTarget} 
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>Generate new version</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
+                                onClick={(e) => recreateWithVeo3(project, e)}
+                              >
+                                <Sparkles className="w-3 h-3" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Recreate with Google VEO3</TooltipContent>
                           </Tooltip>
                           {project.generated_video_url && (
                             <Tooltip>
