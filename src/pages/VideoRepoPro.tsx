@@ -2884,22 +2884,33 @@ Output the VEO3-optimized prompt now.`
                       return (
                         <Card key={project.id} className="overflow-hidden group hover:border-primary/50 transition-colors">
                           <div className="relative aspect-[9/16] bg-muted">
+                            {/* Always-visible placeholder behind the video so the tile is never blank */}
+                            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-muted to-muted/40 pointer-events-none">
+                              <Film className="w-10 h-10 text-muted-foreground/40" />
+                            </div>
                             {isPlaying ? (
                               <video
                                 src={url}
                                 controls
                                 autoPlay
                                 playsInline
-                                className="w-full h-full object-cover bg-black"
+                                className="relative w-full h-full object-cover bg-black"
                               />
                             ) : (
                               <>
                                 <video
+                                  key={url}
                                   src={`${url}#t=0.5`}
                                   preload="metadata"
                                   muted
                                   playsInline
-                                  className="w-full h-full object-cover bg-black"
+                                  poster={(project as any).product_image_url || undefined}
+                                  onLoadedMetadata={(e) => {
+                                    // Force first frame to render on browsers that ignore #t= fragments
+                                    const v = e.currentTarget;
+                                    try { if (v.currentTime === 0) v.currentTime = 0.1; } catch {}
+                                  }}
+                                  className="relative w-full h-full object-cover bg-black"
                                 />
                                 <button
                                   type="button"
