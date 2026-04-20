@@ -1170,6 +1170,7 @@ export type Database = {
           review_notes: string | null
           segment_urls: string[] | null
           status: string
+          tagged_product: string | null
           thumbnail_url: string | null
           updated_at: string
           user_id: string
@@ -1194,6 +1195,7 @@ export type Database = {
           review_notes?: string | null
           segment_urls?: string[] | null
           status?: string
+          tagged_product?: string | null
           thumbnail_url?: string | null
           updated_at?: string
           user_id: string
@@ -1218,6 +1220,7 @@ export type Database = {
           review_notes?: string | null
           segment_urls?: string[] | null
           status?: string
+          tagged_product?: string | null
           thumbnail_url?: string | null
           updated_at?: string
           user_id?: string
