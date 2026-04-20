@@ -81,6 +81,8 @@ interface VideoRepoProject {
   custom_name?: string | null;
   segment_urls?: string[] | null;
   thumbnail_url?: string | null;
+  tagged_product?: string | null;
+  source?: 'video_repo' | 'podcast' | 'chatcut';
 }
 
 const statusColors: Record<string, string> = {
@@ -215,14 +217,72 @@ const VideoRepoPro = () => {
     if (!user) return;
     setIsLoadingHistory(true);
     try {
-      const { data, error } = await supabase
-        .from('video_repo_projects')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('is_favorite', { ascending: false })
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      setHistoryProjects((data as VideoRepoProject[]) || []);
+      const [repoRes, podcastRes, chatcutRes] = await Promise.all([
+        supabase
+          .from('video_repo_projects')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('is_favorite', { ascending: false })
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('podcast_projects')
+          .select('id,user_id,topic,hook,video_url,scene_image_url,status,created_at,updated_at,twin_name,featured_product')
+          .eq('user_id', user.id)
+          .not('video_url', 'is', null)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('chatcut_drafts')
+          .select('id,user_id,name,video_url,created_at,updated_at')
+          .eq('user_id', user.id)
+          .not('video_url', 'is', null)
+          .order('created_at', { ascending: false }),
+      ]);
+      if (repoRes.error) throw repoRes.error;
+
+      const repoRows = (repoRes.data as VideoRepoProject[] || []).map(r => ({ ...r, source: 'video_repo' as const }));
+
+      const podcastRows: VideoRepoProject[] = (podcastRes.data || []).map((p: any) => ({
+        id: `podcast:${p.id}`,
+        user_id: p.user_id,
+        prompt: p.hook || p.topic || null,
+        reference_video_url: null,
+        product_image_url: p.scene_image_url || null,
+        analysis_text: null,
+        generated_video_url: p.video_url,
+        video_prompt: null,
+        status: p.status || 'completed',
+        created_at: p.created_at,
+        updated_at: p.updated_at,
+        is_favorite: false,
+        custom_name: p.topic ? `🎙️ ${p.topic}` : (p.twin_name ? `🎙️ ${p.twin_name}` : '🎙️ Podcast'),
+        thumbnail_url: p.scene_image_url || null,
+        tagged_product: p.featured_product || null,
+        source: 'podcast' as const,
+      }));
+
+      const chatcutRows: VideoRepoProject[] = (chatcutRes.data || []).map((c: any) => ({
+        id: `chatcut:${c.id}`,
+        user_id: c.user_id,
+        prompt: c.name || null,
+        reference_video_url: null,
+        product_image_url: null,
+        analysis_text: null,
+        generated_video_url: c.video_url,
+        video_prompt: null,
+        status: 'completed',
+        created_at: c.created_at,
+        updated_at: c.updated_at,
+        is_favorite: false,
+        custom_name: c.name ? `✂️ ${c.name}` : '✂️ Chatcut Edit',
+        thumbnail_url: null,
+        source: 'chatcut' as const,
+      }));
+
+      const merged = [...repoRows, ...podcastRows, ...chatcutRows].sort((a, b) => {
+        if ((b.is_favorite ? 1 : 0) !== (a.is_favorite ? 1 : 0)) return (b.is_favorite ? 1 : 0) - (a.is_favorite ? 1 : 0);
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+      setHistoryProjects(merged);
     } catch (err: any) {
       console.error('Error fetching history:', err);
     } finally {
