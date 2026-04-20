@@ -278,25 +278,7 @@ const VideoRepoPro = () => {
         source: 'chatcut' as const,
       }));
 
-      const reelsRows: VideoRepoProject[] = (reelsRes.data || []).map((r: any) => ({
-        id: `reels:${r.id}`,
-        user_id: r.user_id,
-        prompt: r.topic || null,
-        reference_video_url: null,
-        product_image_url: null,
-        analysis_text: null,
-        generated_video_url: r.video_url,
-        video_prompt: null,
-        status: 'completed',
-        created_at: r.created_at,
-        updated_at: r.updated_at,
-        is_favorite: false,
-        custom_name: r.topic ? `🎬 ${r.topic}` : '🎬 Reel',
-        thumbnail_url: r.thumbnail_url || null,
-        source: 'reels' as const,
-      }));
-
-      const merged = [...repoRows, ...podcastRows, ...chatcutRows, ...reelsRows].sort((a, b) => {
+      const merged = [...repoRows, ...podcastRows, ...chatcutRows].sort((a, b) => {
         if ((b.is_favorite ? 1 : 0) !== (a.is_favorite ? 1 : 0)) return (b.is_favorite ? 1 : 0) - (a.is_favorite ? 1 : 0);
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
