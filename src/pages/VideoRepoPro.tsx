@@ -217,7 +217,7 @@ const VideoRepoPro = () => {
     if (!user) return;
     setIsLoadingHistory(true);
     try {
-      const [repoRes, podcastRes, chatcutRes, reelsRes] = await Promise.all([
+      const [repoRes, podcastRes, chatcutRes] = await Promise.all([
         supabase
           .from('video_repo_projects')
           .select('*')
@@ -233,12 +233,6 @@ const VideoRepoPro = () => {
         supabase
           .from('chatcut_drafts')
           .select('id,user_id,name,video_url,created_at,updated_at')
-          .eq('user_id', user.id)
-          .not('video_url', 'is', null)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('reels')
-          .select('id,user_id,topic,video_url,thumbnail_url,created_at,updated_at')
           .eq('user_id', user.id)
           .not('video_url', 'is', null)
           .order('created_at', { ascending: false }),
