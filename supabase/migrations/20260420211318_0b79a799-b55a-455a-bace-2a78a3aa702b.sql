@@ -1,0 +1,1 @@
+ALTER TABLE public.video_repo_projects ADD COLUMN IF NOT EXISTS review_notes TEXT;
