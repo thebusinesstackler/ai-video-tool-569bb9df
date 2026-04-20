@@ -316,7 +316,7 @@ CRITICAL FOR TEXT: The "text" and "items" fields MUST be specific to the content
 [{"action":"split","time":15.5,"track":"v1"}]
 \`\`\`
 
-6. **add_broll** — Add B-Roll footage to the B-Roll track. There are TWO modes:
+6. **add_broll** — Add B-Roll footage to the B-Roll track. There are THREE modes:
 
   (A) Drop a saved Source Clip (instant, no generation). Use your editor's eye. If nothing in the library fits as literal/metaphor, fall back to (B) and generate fresh.
 
@@ -337,7 +337,14 @@ CRITICAL FOR TEXT: The "text" and "items" fields MUST be specific to the content
 [{"action":"add_broll","description":"Product close-up","prompt":"...","start":5,"duration":3,"broll_type":"product","matchType":"literal"}]
 \`\`\`
 
-IMPORTANT: B-roll duration is ALWAYS 3 seconds for generated clips. For sourceClipId clips, the saved duration is honored.
+  (C) ⭐ STATIC SAVED FRAME — Drop a still image from the user's Saved Frames library as a static cutaway. INSTANT, zero render cost, perfect for filling blank b-roll windows when the user says "fill the blank spots", "add static b-roll throughout", "use my saved frames", "cover the gaps". The user does NOT need to pin frames — you have the full list in the top-level \`savedFrames\` field (each has id, label, thumbUrl).
+
+\`\`\`actions
+[{"action":"add_broll","savedFrameId":"<id from savedFrames>","start":5.9,"duration":2.4,"description":"Workout/performance still","static":true,"matchType":"literal"}]
+\`\`\`
+  Pick the savedFrame whose label best matches the spoken phrase at that timestamp. Use \`duration\` = the gap length (cap each frame at 4s — chain multiple frames for longer gaps so the cutaway changes every 3-4s and doesn't feel frozen). Always include \`static:true\`.
+
+IMPORTANT: B-roll duration is ALWAYS 3 seconds for generated clips. For sourceClipId clips, the saved duration is honored. For static savedFrameId frames, you control the duration to fit the blank window.
 
 6b. **add_punch_in** — Cheap, high-impact "clarity over complexity" tool. Zooms the main video into the speaker for a beat (no extra render cost). Use this INSTEAD of a motion graphic when:
   - the speaker just said something emotional or important and the screen would feel cluttered with text
