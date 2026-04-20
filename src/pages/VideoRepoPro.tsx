@@ -1884,10 +1884,13 @@ Output the VEO3-optimized prompt now.`
                 ) : selectedProject.generated_video_url ? (
                   <div className="space-y-2">
                     <video src={selectedProject.generated_video_url} controls className="w-full rounded-lg max-h-[280px] object-contain bg-black" />
-                    <Button size="sm" variant="secondary" className="w-full" asChild>
-                      <a href={selectedProject.generated_video_url} download target="_blank" rel="noopener noreferrer">
-                        <Download className="w-3 h-3 mr-1" /> Download
-                      </a>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="w-full"
+                      onClick={() => downloadAsMp4(selectedProject.generated_video_url!, `${selectedProject.custom_name || 'video'}.mp4`)}
+                    >
+                      <Download className="w-3 h-3 mr-1" /> Download
                     </Button>
                     <Button
                       size="sm"
