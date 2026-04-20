@@ -784,6 +784,7 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
 CHARACTER: ${twin.face_description || twin.name}
 GENDER: ${twin.gender || 'unspecified'}
 CAMERA: iPhone front-facing, slight low angle, arm's length
+ASPECT RATIO: ${aspectRatio} — ${ASPECT_FRAMING[aspectRatio]}
 SETTING: ${visualDesc}
 EXPRESSION: Mid-sentence speaking, relaxed and authentic, looking directly at camera
 QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermarks.`;
@@ -799,7 +800,7 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
           imageUrls: [sceneImg],
           audioUrl: ttsUrl,
           prompt: `Real person talking naturally on iPhone front camera. Wide fluid mouth movements. Natural head movements — slight tilts, nods, eyebrow raises. Subtle handheld micro-shake. Casual, authentic energy.`,
-          aspectRatio: '9:16',
+          aspectRatio,
         }
       });
       if (videoErr) throw videoErr;
