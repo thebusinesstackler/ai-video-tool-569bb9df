@@ -2885,7 +2885,7 @@ Output the VEO3-optimized prompt now.`
                                 size="sm"
                                 variant="secondary"
                                 className="flex-1 h-8 text-xs"
-                                onClick={() => { setSelectedProject(project); setMainTab('history'); }}
+                                onClick={() => openReviewDialog(project)}
                               >
                                 <Eye className="w-3 h-3 mr-1" /> Review
                               </Button>
