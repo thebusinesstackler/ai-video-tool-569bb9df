@@ -2228,6 +2228,16 @@ Output the VEO3-optimized prompt now.`
                         </Button>
                       )}
                     </div>
+                    <div className="w-full">
+                      <VideoRepoEngineSelector
+                        engine={selectedEngine}
+                        onEngineChange={handleEngineChange}
+                        flowMode={flowMode}
+                        onFlowModeChange={setFlowMode}
+                        flowShots={flowShots}
+                        onFlowShotsChange={setFlowShots}
+                      />
+                    </div>
                     <Select value={aspectRatio} onValueChange={(v) => setAspectRatio(v as '9:16' | '16:9')}>
                       <SelectTrigger className="h-8 w-[110px] text-xs rounded-full bg-background">
                         <SelectValue />
