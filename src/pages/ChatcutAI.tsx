@@ -472,6 +472,16 @@ const ChatcutAI = () => {
   const [storyboardOpen, setStoryboardOpen] = useState(false);
   useEffect(() => { if (brollReview) setStoryboardOpen(true); }, [brollReview]);
 
+  // 🎞 Manus Slides — async generation state
+  const [slidesDialogOpen, setSlidesDialogOpen] = useState(false);
+  const [slidesPrompt, setSlidesPrompt] = useState('');
+  const [slidesCount, setSlidesCount] = useState(6);
+  const [slidesStyle, setSlidesStyle] = useState('bold tiktok-friendly, high-contrast');
+  const [slidesPerSlideDur, setSlidesPerSlideDur] = useState(3);
+  const [slidesStartAt, setSlidesStartAt] = useState<'cursor' | 'beginning'>('cursor');
+  const [slidesGenerating, setSlidesGenerating] = useState(false);
+  const slidesPollRef = useRef<{ stop: boolean }>({ stop: false });
+
   // Track failed B-roll attempts so we only auto-retry once
   const brollRetryCount = useRef<Map<string, number>>(new Map());
 
@@ -1484,6 +1494,103 @@ const ChatcutAI = () => {
     })();
   }, [currentTime, toast, pollBRollVideo, targetPlatform]);
 
+  // 🎞 MANUS SLIDES — kick off async generation, poll until ready, drop each slide as STATIC B-roll.
+  // Distributes the slides evenly across the timeline (or sequentially from `startAt`),
+  // each pinned to the B-roll track for `perSlideDur` seconds. The PiP twin sits on top.
+  const generateSlidesFromManus = useCallback(async (opts: {
+    prompt: string;
+    slideCount: number;
+    style?: string;
+    perSlideDur: number;
+    startAt: number;             // first slide starts here
+    distribute?: 'sequential' | 'evenly_across_video';
+  }) => {
+    if (!opts.prompt.trim()) {
+      toast({ title: 'Slide prompt required', description: 'Tell Marco what the deck should be about.', variant: 'destructive' });
+      return;
+    }
+    setSlidesGenerating(true);
+    slidesPollRef.current.stop = false;
+    toast({
+      title: '🎞 Generating slides via Manus',
+      description: `~1–4 min — keep editing while ${opts.slideCount} slides render in the background.`,
+    });
+    try {
+      const { data: kickoff, error: kickErr } = await supabase.functions.invoke('generate-manus-slides', {
+        body: {
+          prompt: opts.prompt,
+          slideCount: opts.slideCount,
+          style: opts.style,
+        },
+      });
+      if (kickErr || !kickoff?.taskId) {
+        throw new Error(kickErr?.message || kickoff?.error || 'Failed to start slide generation');
+      }
+      const taskId: string = kickoff.taskId;
+
+      // Poll every 10s up to ~8 minutes
+      const POLL_MS = 10_000;
+      const MAX_POLLS = 50;
+      let slideUrls: string[] | null = null;
+      for (let i = 0; i < MAX_POLLS; i++) {
+        if (slidesPollRef.current.stop) {
+          toast({ title: 'Slide generation cancelled' });
+          return;
+        }
+        await new Promise((r) => setTimeout(r, POLL_MS));
+        const { data: poll, error: pollErr } = await supabase.functions.invoke('check-manus-slides', {
+          body: { taskId },
+        });
+        if (pollErr) {
+          console.warn('[slides] poll error', pollErr);
+          continue;
+        }
+        if (poll?.error && poll?.ready === false && poll?.status !== 'running') {
+          throw new Error(poll.error);
+        }
+        if (poll?.ready && Array.isArray(poll.slideUrls) && poll.slideUrls.length > 0) {
+          slideUrls = poll.slideUrls;
+          break;
+        }
+      }
+      if (!slideUrls) throw new Error('Slide generation timed out (>8 min). Check Manus directly.');
+
+      // Distribute slides on the B-roll track. Sequential = back-to-back from startAt.
+      // Evenly = spread across the remaining timeline so each slide gets equal screen time.
+      const dur = Math.max(1, opts.perSlideDur);
+      const startAt = Math.max(0, opts.startAt);
+      const totalNeeded = slideUrls.length * dur;
+      const remaining = Math.max(totalNeeded, duration - startAt);
+      const useEven = (opts.distribute === 'evenly_across_video') && duration > startAt + totalNeeded;
+      const stride = useEven ? remaining / slideUrls.length : dur;
+
+      slideUrls.forEach((url, idx) => {
+        const slideStart = +(startAt + idx * stride).toFixed(2);
+        addBRollFromImage(
+          url,
+          `Slide ${idx + 1}/${slideUrls!.length}`,
+          `AI-generated slide: ${opts.prompt}`,
+          slideStart,
+          { staticOnly: true, duration: dur },
+        );
+      });
+      toast({
+        title: `✅ ${slideUrls.length} slides added to B-Roll`,
+        description: `Pinned from ${startAt.toFixed(1)}s, ${dur}s each. Your PiP twin sits on top.`,
+      });
+    } catch (e) {
+      console.error('[slides] failed', e);
+      toast({
+        title: 'Slide generation failed',
+        description: e instanceof Error ? e.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setSlidesGenerating(false);
+    }
+  }, [toast, addBRollFromImage, duration]);
+
+
   // Add B-roll from an EXISTING video clip (e.g., extracted source clip) — uses it directly, no Wan animation.
   // Auto-snaps the start time forward to avoid overlapping any existing b-roll on the track.
   const addBRollFromVideoClip = useCallback((opts: { videoUrl: string; label: string; durationSec?: number; startAt?: number; sourceStart?: number; sourceUrl?: string }) => {
@@ -2159,6 +2266,28 @@ const ChatcutAI = () => {
             })),
           });
           toast({ title: '🎬 B-Roll review ready', description: `${items.length} suggestion${items.length === 1 ? '' : 's'} — open Storyboard` });
+          break;
+        }
+        case 'add_slide_broll': {
+          // Marco asks for an AI-generated deck of slides as static B-roll.
+          // We kick off Manus, poll, then drop each slide image as a static cutaway.
+          const slidePrompt = String(act.prompt || act.description || '').trim();
+          if (!slidePrompt) {
+            toast({ title: 'Slide prompt missing', description: 'Marco needs a topic for the deck.', variant: 'destructive' });
+            break;
+          }
+          const sc = Math.max(2, Math.min(15, typeof act.slideCount === 'number' ? act.slideCount : 6));
+          const per = Math.max(1, typeof act.perSlideDur === 'number' ? act.perSlideDur : 3);
+          const startAt = typeof act.start === 'number' ? act.start : currentTime;
+          const distribute = act.distribute === 'evenly_across_video' ? 'evenly_across_video' : 'sequential';
+          generateSlidesFromManus({
+            prompt: slidePrompt,
+            slideCount: sc,
+            style: act.style || undefined,
+            perSlideDur: per,
+            startAt,
+            distribute,
+          });
           break;
         }
         case 'add_product_broll': {
@@ -4136,6 +4265,7 @@ const ChatcutAI = () => {
                       <button type="button" onClick={() => sendMessage('Punch up my hook — rewrite the opening 6 seconds to stop the scroll. Give 3 spoken alternatives.')} disabled={isLoading} className="text-[11px] px-2.5 py-1 rounded-full bg-primary/10 hover:bg-primary/20 text-primary font-medium transition-colors disabled:opacity-50">✨ Punch up hook</button>
                       <button type="button" onClick={() => sendMessage('Clean my captions — strip every filler word, um, uh, like, you know, basically, actually, literally. Show me what you cut.')} disabled={isLoading} className="text-[11px] px-2.5 py-1 rounded-full bg-primary/10 hover:bg-primary/20 text-primary font-medium transition-colors disabled:opacity-50">🧹 Clean captions</button>
                       <button type="button" onClick={() => sendMessage('Add premium b-roll where it makes sense — pick 6-10 visually evocative moments and queue cinematic 3s clips.')} disabled={isLoading} className="text-[11px] px-2.5 py-1 rounded-full bg-primary/10 hover:bg-primary/20 text-primary font-medium transition-colors disabled:opacity-50">⭐ Premium B-roll</button>
+                      <button type="button" onClick={() => { setSlidesPrompt(''); setSlidesDialogOpen(true); }} disabled={isLoading || slidesGenerating} className="text-[11px] px-2.5 py-1 rounded-full bg-primary/10 hover:bg-primary/20 text-primary font-medium transition-colors disabled:opacity-50">{slidesGenerating ? '🎞 Slides rendering…' : '🎞 New Slide Graphic'}</button>
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1">
@@ -6241,6 +6371,111 @@ const ChatcutAI = () => {
           ) : (
             <p className="text-sm text-muted-foreground text-center py-8">No suggestions to review. Ask Marco "review my B-roll" to get fresh ideas.</p>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* 🎞 Manus Slide Generator Dialog */}
+      <Dialog open={slidesDialogOpen} onOpenChange={setSlidesDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>🎞 Generate slide graphics</DialogTitle>
+            <DialogDescription>
+              Manus will design a deck. Each slide drops onto your B-Roll track as a static graphic — your PiP twin sits on top.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">What's the deck about?</label>
+              <textarea
+                value={slidesPrompt}
+                onChange={(e) => setSlidesPrompt(e.target.value)}
+                placeholder="e.g. 6 slides explaining the 3 benefits of Lion's Mane mushroom for focus, with one big stat per slide"
+                className="mt-1 w-full min-h-[90px] text-sm rounded-md border border-input bg-background p-2"
+                disabled={slidesGenerating}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Slides</label>
+                <Input
+                  type="number" min={2} max={15}
+                  value={slidesCount}
+                  onChange={(e) => setSlidesCount(Math.max(2, Math.min(15, Number(e.target.value) || 6)))}
+                  disabled={slidesGenerating}
+                  className="mt-1 h-8 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Seconds per slide</label>
+                <Input
+                  type="number" min={1} max={10} step={0.5}
+                  value={slidesPerSlideDur}
+                  onChange={(e) => setSlidesPerSlideDur(Math.max(1, Math.min(10, Number(e.target.value) || 3)))}
+                  disabled={slidesGenerating}
+                  className="mt-1 h-8 text-sm"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Style</label>
+              <Input
+                value={slidesStyle}
+                onChange={(e) => setSlidesStyle(e.target.value)}
+                placeholder="e.g. minimalist dark, bold tiktok-friendly"
+                disabled={slidesGenerating}
+                className="mt-1 h-8 text-sm"
+              />
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-muted-foreground">Place:</span>
+              <button
+                type="button"
+                onClick={() => setSlidesStartAt('cursor')}
+                disabled={slidesGenerating}
+                className={cn('px-2 py-1 rounded border', slidesStartAt === 'cursor' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground')}
+              >From cursor ({currentTime.toFixed(1)}s)</button>
+              <button
+                type="button"
+                onClick={() => setSlidesStartAt('beginning')}
+                disabled={slidesGenerating}
+                className={cn('px-2 py-1 rounded border', slidesStartAt === 'beginning' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground')}
+              >From start (0s)</button>
+            </div>
+            <div className="rounded-md bg-muted/40 p-2 text-[11px] text-muted-foreground">
+              Manus typically takes 1–4 minutes. You can keep editing — slides will appear on the B-Roll track when ready.
+            </div>
+            <div className="flex gap-2 justify-end pt-2">
+              {slidesGenerating ? (
+                <Button
+                  variant="outline"
+                  onClick={() => { slidesPollRef.current.stop = true; setSlidesGenerating(false); setSlidesDialogOpen(false); }}
+                >
+                  Cancel & close
+                </Button>
+              ) : (
+                <>
+                  <Button variant="ghost" onClick={() => setSlidesDialogOpen(false)}>Close</Button>
+                  <Button
+                    onClick={() => {
+                      const startAt = slidesStartAt === 'cursor' ? currentTime : 0;
+                      generateSlidesFromManus({
+                        prompt: slidesPrompt,
+                        slideCount: slidesCount,
+                        style: slidesStyle,
+                        perSlideDur: slidesPerSlideDur,
+                        startAt,
+                        distribute: 'sequential',
+                      });
+                      setSlidesDialogOpen(false);
+                    }}
+                    disabled={!slidesPrompt.trim()}
+                  >
+                    <Sparkles className="w-3.5 h-3.5 mr-1" /> Generate {slidesCount} slides
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </Layout>
