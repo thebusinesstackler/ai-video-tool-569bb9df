@@ -1,0 +1,94 @@
+# Memory: index.md
+Updated: just now
+
+# Project Memory
+
+## Core
+- Multi-tenancy: Strict Supabase RLS by `user_id`. Edge functions verify JWT claims via `supabase.auth.getClaims(token)` to prevent 401s.
+- Target verticals: Healthcare (TheraNovex) & Wellness (Lifecykel). Strategy follows Hook → Problem → Dropper Ritual → 3 Benefits → CTA.
+- Pacing: ~2.5 words/second. Max 180s for cinematic, 300s for talking head. Scene 1 (Hook) must be 6+ seconds with 15-25 words.
+- Aesthetic: Movement-First UGC. Bright natural daylight, unretouched. 'iPhone selfie' style for Podcasts.
+- Audio: Use `gpt-4o-mini-tts` for voice, `wavespeed-ai/infinitetalk-hd` for lip-sync. Canvas fallback stitching uses silent audio oscillator.
+- State: Sync Sora 2 display/persistent URLs to prevent empty image errors. Persist background tasks across Reels pages.
+- UI Performance: Use scoped CSS transitions (e.g., `transition-[width]`) not `transition-all`. Isolate state for high-frequency inputs.
+- React/Vite: `vite.config.ts` must dedupe `react` and `react-dom` to support `react-resizable-panels`.
+- Video Thumbnails: Use `#t=0.5` in URLs instead of `crossOrigin=anonymous` to prevent CORS failures.
+- Architecture: Fallback AI transcription Whisper → Gemini 2.5 Flash via Lovable AI Gateway.
+- NEVER use `bytedance/avatar-omni-human-1.5` — too expensive. Use `infinitetalk-hd` for lip-sync instead.
+
+## Memories
+- [Scene Analysis](mem://technical/ai/scene-analysis-system) — Claude 3.5 Opus vision for dual-mode text/image B-roll description
+- [AI Gateway](mem://technical/ai/multimodal-gateway) — Lovable AI Gateway for Gemini models, Claude 3.5 for reasoning
+- [Topic Strategist](mem://features/reels/topic-strategist-integration) — AI roadmap planning (5-7 unique video ideas, 7-day schedule)
+- [Twin Loading](mem://technical/database/ai-twin-loading-optimization) — Lightweight get_twins_summary RPC fetching metadata/thumbnails
+- [Context Reliability](mem://technical/ai/context-reliability) — Loop AI Context Override via currentSegments payload
+- [Voice Locking](mem://technical/video-generation/voice-locking-consistency) — Deterministic twinId/name hashing for voice consistency
+- [Background Tasks](mem://technical/video-generation/background-persistence-and-monitoring) — BackgroundVideoContext for persisting WaveSpeed/Creatomate tasks
+- [Music System](mem://features/reels/background-music-system) — WaveSpeed elevenlabs/music proxy (force_instrumental: true)
+- [Script Generator](mem://features/script-generator/reels-integration) — Speech recognition + Gemini Flash for importing structured JSON scripts
+- [Prompting Philosophy](mem://technical/ai/prompting-philosophy) — Strip stage directions/rigid templates for creative flexibility
+- [Actor Scene Generator](mem://features/reels/actor-scene-generator) — Generate new poses/settings via reference-image-based edit-scene-image
+- [System Architecture](mem://technical/video-generation/system-architecture) — Sora-2 (cinematic), Wan 2.5 (B-roll), Creatomate + Local Canvas
+- [Premium Visual Pipeline](mem://technical/ai/premium-visual-pipeline) — Claude prompt direction + DALL-E 3 execution for thumbnails
+- [Reference Analysis](mem://features/video-repo/reference-analysis-system) — Extracts 6 frames for Gemini multimodal viral script cloning
+- [Director Validation](mem://technical/ai/director-validation-system) — 14-point review pass auditing hooks, duration, lighting, and prefixes
+- [Project Purpose](mem://intent/project-purpose) — Strategic KPIs for TheraNovex and Lifecykel marketing
+- [Voice Engine Modernization](mem://technical/audio/voice-engine-modernization) — gpt-4o-mini-tts + infinitetalk-hd pipeline
+- [Beginner Mode](mem://features/reels/beginner-mode-automation) — Auto-character generation and lip-sync defaults for Easy Mode
+- [Spokesperson Enhancements](mem://features/ai-spokesperson/post-production-enhancement) — Optional wan-2.7/video-edit for post-lip-sync cinematic polish
+- [Reels Branding](mem://features/reels/branding-and-outros) — 3-second cinematic intros, logo animations, default thumbnail selection
+- [Director Post-Production Review](mem://features/video-repo/ai-director-post-production-review) — Frame-level hook effectiveness scoring (1-10) and post-generation feedback
+- [Segment Regeneration](mem://features/video-repo/segment-level-regeneration) — segment_urls array for partial video clip remakes
+- [Audio Transcription Analysis](mem://features/video-repo/audio-transcription-analysis) — Whisper transcript integration into AI Director reviews
+- [Lifecykel Context](mem://project/lifecykel-brand-context) — 6 mushroom extracts and feminine 'specific + ritual' narrative angles
+- [Video Repurposer](mem://features/video-repurposer/multimodal-analysis) — Whisper + Gemini Flash for reverse-engineering TikToks/Shorts into Video Repo
+- [Captioning Suite](mem://features/reels/extension-and-captioning-suite) — Non-destructive one-click Creatomate captions and seamless video extensions
+- [Sora 2 Persistence](mem://technical/video-generation/sora-2-state-persistence) — Synchronizes productImageUrl with persistentImageUrl to avoid api errors
+- [Spokesperson Hand-off](mem://features/video-repo/spokesperson-integration) — Recreate with AI Twin duration estimation snap-to-preset logic
+- [Podcast Workflow](mem://features/podcast/simplified-workflow) — Streamlined talking-head up to 300s using infinitetalk-hd
+- [Podcast Aesthetic](mem://style/content/podcast-talking-head-aesthetic) — Unpolished 'iPhone selfie' style with natural micro-shakes
+- [Brand Gallery](mem://features/gallery/lifecykel-brand-gallery) — High-density 4-column square asset grid with 2-column PDF image export
+- [Quality vs Cost](mem://features/podcast/quality-vs-cost-decision) — Prioritization of infinitetalk-hd fidelity over fallback models
+- [Pacing Logic](mem://features/shared/pacing-and-duration-logic) — AI Script Pacing Agent enforces ~2.5 words/s and duration estimation
+- [Hook Strategy](mem://features/shared/hook-strategy-system) — Minimum 6-second, 15-25 word hook using psychological triggers
+- [Cinematography Prompts](mem://technical/video-generation/cinematography-and-prompt-direction) — 10 core elements for cinematic prompts and match-cut continuity
+- [Product Library](mem://features/shared/product-integration-library) — Gemini 3 Pro vision variations keeping source product pixel-perfect
+- [Typography System](mem://features/shared/caption-and-typography-system) — Karaoke/Word Pop caption integration sent to Creatomate
+- [Director Persona](mem://features/shared/ugc-aesthetic-and-director-persona) — AI Reel Director movement-first observational storytelling
+- [Audio Trim Logic](mem://technical/video-generation/audio-trim-and-extension-logic) — Gemini Flash smart sentence trimming and Wan 2.5 video extension
+- [Gallery Loading](mem://technical/database/gallery-loading-optimization) — Image Gallery PAGE_SIZE 50 to prevent pagination issues
+- [Multi-tenancy](mem://technical/security/multi-tenancy-data-isolation) — RLS policies and local storage user ID isolation
+- [Clothing Logos](mem://features/characters/clothing-logo-integration) — Logo placement via Gemini image editing
+- [Spokesperson Drafts](mem://features/ai-spokesperson/draft-restoration-behavior) — Excludes message/generatedScript from auto-restoring defaults
+- [Logo Specifications](mem://style/ui/branding-and-logo-specifications) — Universal h-30 landing, w-240 auth, h-12 mobile logo dimensions
+- [Lifestyle Stories](mem://features/ai-tools/lifestyle-stories) — Brand URL multi-step Firecrawl + Gemini analysis to Wan 2.5 clips
+- [Animate Statics](mem://features/ai-tools/animate-statics) — [TEXT FREEZE] anchors and no movement-verbs for image-to-video processing
+- [Import/Remix Workflow](mem://features/video-repo/import-and-remix-workflow) — Reverse-engineering original prompt/model/taskId from drag-and-drop
+- [Asset Sharing](mem://features/account/cross-account-asset-sharing) — Deep copy of database records via email share feature
+- [Video Rendering Optimization](mem://style/ui/video-rendering-optimization) — Use #t=0.5 and preload=metadata to bypass crossOrigin issues
+- [Chatcut AI](mem://features/ai-tools/chatcut-ai) — NLE editor with Wan 2.5 I2V, draggable motion graphics, and timeline audio checks
+- [React Deduplication](mem://technical/vite/react-deduplication) — Vite config to fix 'Cannot read properties of null (reading useId)' errors
+- [Chatcut Director](mem://technical/ai/chatcut-director-execution) — Proactive 'Marco' AI using Reaction -> Action -> Follow-up parsing json
+- [Google Drive Export](mem://features/ai-tools/google-drive-export) — Batch bulk export via GIS and Drive API v3 (anyone with the link)
+- [Layout Stability](mem://technical/ui/layout-stability) — Avoid transition-all for layout-critical sidebar elements
+- [Chatcut Layering System](mem://features/ai-tools/chatcut-ai-layering-system) — PiP background video layer sync via 500ms heartbeat interval
+- [Transcription Fallback](mem://technical/ai/transcription-resilience-fallback) — High-availability Whisper to Gemini 2.5 Flash gateway fallback
+- [Chatcut Skip Logic](mem://features/editing/chatcut-playback-skip-logic) — Nondestructive >0.8s pause skipping via timeupdate listener
+- [Brand Guidelines](mem://features/brand/brand-guidelines-system) — Extracted PDF context for AI generation agents
+- [Audio Autoplay Sync](mem://technical/audio/web-audio-autoplay-sync) — One-time hasInteracted gate to allow audio sync via cached objects
+- [Vizard Clipping Tool](mem://features/ai-tools/vizard-clipping-tool) — Webhook integration with auto HD-URL refresh every 7 days
+- [YouTube Searcher](mem://features/ai-tools/youtube-searcher) — Keyword and duration search for direct Vizard/Chatcut handoff
+- [Social Media Import](mem://technical/video-generation/social-media-import-utility) — Proxy pipeline to solve SMVD/CORS issues and capture browser fallback
+- [Video Upscaler](mem://features/ai-tools/video-upscaler) — Edge function polling WaveSpeed 4K video upscaler
+- [Growth Marketing KPIs](mem://strategy/growth-marketing-kpis) — Hook Win Rate, Creative Velocity, and Asset Reuse Rate metrics
+- [Edge Function Auth](mem://technical/security/edge-function-auth-pattern) — Fast-path JWT claims verification over getUser
+- [Character Identity Lock](mem://features/characters/creation-and-identity-lock) — Consistency mechanism enforcing visual profile across scenes
+- [Continuous Expressive Arch](mem://features/ai-spokesperson/continuous-expressive-architecture) — Single-take avatar-omni-human-1.5 logic for long-form
+- [Brand Aware Generation](mem://features/profile/brand-aware-generation) — Injects user profile (name, brand description) into scripts
+- [Hybrid Model Routing](mem://technical/video-generation/reels-hybrid-model-routing-v2) — gpt-4o-mini-tts + infinitetalk-hd (speaking) vs Sora/VEO3 (cinematic)
+- [Chatcut Smart Graphics](mem://features/ai-tools/chatcut-ai-smart-graphics) — DOM-rendered SmartOverlay (stat/list/quote/CTA/full-coverage) + Nano Banana 2 image fallback
+- [Chatcut Premium B-Roll](mem://features/ai-tools/chatcut-premium-broll) — Marco's add_premium_broll_auto: 6-10 cinematic 3s Wan 2.5 clips at transcript phrases
+- [Marco Update Actions](mem://features/ai-tools/chatcut-marco-update-actions) — update_overlay/motion_graphic/broll with position+placement+treatment+scale (no remove+re-add)
+- [Marco Creative Brief](mem://features/ai-tools/chatcut-director-creative-brief) — 5-lens director prompt, visual-intelligence pre-flight, B-roll matchType, add_punch_in action
+- [Google Flow Mode](mem://features/video-repo/google-flow-mode) — Video Repo Pro multi-shot Veo 3 with shared Bible + Creatomate auto-stitch (2-6 shots × 8s)
+- [Manus Slides](mem://features/ai-tools/chatcut-manus-slides) — Async Manus API slide deck → static B-roll graphics under PiP twin (manual button + Marco add_slide_broll)
