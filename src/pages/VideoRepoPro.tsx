@@ -261,7 +261,60 @@ const VideoRepoPro = () => {
     }
   };
 
-  const deleteProject = async (project: VideoRepoProject, e: React.MouseEvent) => {
+  const openReviewDialog = (project: VideoRepoProject) => {
+    setReviewProject(project);
+    setReviewNotes((project as any).review_notes || '');
+    setReviewAiFeedback(null);
+  };
+
+  const runAiReviewInDialog = async () => {
+    if (!reviewProject?.generated_video_url) return;
+    setIsReviewLoadingAi(true);
+    setReviewAiFeedback(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-frame-vision', {
+        body: {
+          videoUrl: reviewProject.generated_video_url,
+          prompt: `You are an AI Director reviewing a generated marketing video. Provide a critical post-production review covering:
+1. Hook strength (first 2 seconds)
+2. Visual quality, lighting, composition
+3. Pacing and energy
+4. On-brand consistency
+5. Specific issues (artifacts, weird hands, audio mismatch, etc.)
+6. 3 concrete recommendations to improve the next version
+
+Original prompt: ${reviewProject.prompt || 'N/A'}
+${reviewProject.video_prompt ? `Video script: ${reviewProject.video_prompt}` : ''}
+
+Be honest, specific, and actionable. Use markdown.`,
+        },
+      });
+      if (error) throw error;
+      setReviewAiFeedback(data?.analysis || data?.text || 'No feedback returned.');
+    } catch (err: any) {
+      toast({ title: 'AI review failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsReviewLoadingAi(false);
+    }
+  };
+
+  const saveReviewNotes = async () => {
+    if (!reviewProject) return;
+    setIsSavingReview(true);
+    const { error } = await supabase
+      .from('video_repo_projects')
+      .update({ review_notes: reviewNotes } as any)
+      .eq('id', reviewProject.id);
+    setIsSavingReview(false);
+    if (error) {
+      toast({ title: 'Save failed', description: error.message, variant: 'destructive' });
+    } else {
+      setHistoryProjects(prev => prev.map(p => p.id === reviewProject.id ? { ...p, review_notes: reviewNotes } as any : p));
+      toast({ title: 'Notes saved' });
+    }
+  };
+
+
     e.stopPropagation();
     const label = project.custom_name || project.prompt?.slice(0, 60) || 'this video';
     if (!confirm(`Delete "${label}"? This cannot be undone.`)) return;
