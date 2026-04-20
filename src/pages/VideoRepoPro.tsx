@@ -1292,7 +1292,7 @@ Check word count vs ${singleDuration}s duration (~2.5 words/sec = ${wordTarget} 
         }
         if (job?.status === 'failed') throw new Error(`Generation failed: ${job.error || 'Unknown error'}`);
 
-        setGenerationProgress(`Generating ${singleDuration}s clip... (${Math.round((attempts / maxAttempts) * 100)}%)`);
+        setGenerationProgress(`Generating ${effectiveDuration}s clip with ${modelLabel}... (${Math.round((attempts / maxAttempts) * 100)}%)`);
         attempts++;
       }
 
@@ -1308,6 +1308,7 @@ Check word count vs ${singleDuration}s duration (~2.5 words/sec = ${wordTarget} 
           generated_video_url: videoUrl,
           status: 'completed',
           segment_urls: [videoUrl],
+          model: segmentModel,
         } as any).eq('id', projectId);
       }
 
@@ -1315,7 +1316,7 @@ Check word count vs ${singleDuration}s duration (~2.5 words/sec = ${wordTarget} 
         await supabase.from('generated_images').insert({
           user_id: user.id,
           image_url: videoUrl,
-          prompt: `[PRO ${singleDuration}s] ${videoPrompt.substring(0, 100)}...`,
+          prompt: `[PRO ${effectiveDuration}s ${modelLabel}] ${videoPrompt.substring(0, 100)}...`,
           source: 'video-repo-pro',
           reference_image_url: persistentImageUrl,
         });
@@ -1324,11 +1325,13 @@ Check word count vs ${singleDuration}s duration (~2.5 words/sec = ${wordTarget} 
       const resultMsg: ChatMessage = {
         id: `result-${Date.now()}`,
         role: 'assistant',
-        content: `✅ Your ${singleDuration}-second video is ready! One clean take — no stitching. Want changes? Just tell me in the chat.\n\n💾 This project has been saved to your **History** tab.`,
-        videoResults: [{ url: videoUrl, label: `${singleDuration}s clip` }],
+        content: `✅ Your ${effectiveDuration}-second ${modelLabel} video is ready! One clean take — no stitching. Want changes? Just tell me in the chat.\n\n💾 This project has been saved to your **History** tab.`,
+        videoResults: [{ url: videoUrl, label: `${effectiveDuration}s ${modelLabel} clip` }],
       };
       setMessages((prev) => prev.filter((m) => m.id !== generatingMsg.id).concat(resultMsg));
       await fetchHistory();
+      // Reset to default model after a successful VEO3 run so the next chat-driven generation goes back to Sora-2.
+      if (segmentModel === 'veo3') setNextGenerationModel('sora-2');
       toast({
         title: '✅ Saved to History',
         description: 'Your single-take video is saved. Click the History tab to view all your projects.',
