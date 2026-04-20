@@ -1243,6 +1243,95 @@ Check word count vs ${singleDuration}s duration (~2.5 words/sec = ${wordTarget} 
       console.warn('[VideoRepoPro] Pacing review failed, using original prompt:', pacingErr);
     }
 
+    const segmentModel: 'sora-2' | 'veo3' = nextGenerationModel;
+    const modelLabel = segmentModel === 'veo3' ? 'Google VEO3' : 'Sora-2';
+    // VEO3 produces 8-second native clips; Sora-2 honors singleDuration (10/15/20s).
+    const effectiveDuration = segmentModel === 'veo3' ? 8 : singleDuration;
+
+    // --- VEO3 Prompt Rewriter ---
+    // VEO3 supports native synchronized audio + dialogue. Rewrite the Sora-style cinematic prompt
+    // into a VEO3-native prompt with explicit spoken dialogue, ambient audio, and 8-second structure.
+    if (segmentModel === 'veo3') {
+      try {
+        setGenerationProgress('Optimizing prompt for Google VEO3 (native dialogue + audio)...');
+        const narrationMatch = analysisText.match(/```narration\n([\s\S]*?)```/);
+        const fullNarration = narrationMatch ? narrationMatch[1].trim() : '';
+        // VEO3 = 8s @ ~2.5 wps → ~20 words spoken max
+        const veo3WordTarget = 20;
+
+        const { data: veo3Data, error: veo3Error } = await supabase.functions.invoke('ai', {
+          body: {
+            messages: [
+              {
+                role: 'system',
+                content: `You are a prompt engineer for Google VEO3 (text+image-to-video, 8 seconds, native synchronized audio with lip-synced dialogue).
+
+VEO3 STRENGTHS — USE THEM:
+- Native spoken dialogue with accurate lip-sync (no separate TTS needed)
+- Ambient sound design baked into the video (room tone, foley, light music)
+- Photoreal humans with natural expression and micro-movement
+- 8-second clean single take
+
+VEO3 PROMPT FORMAT (strict):
+1. SHOT (1 sentence): subject, setting, framing, lens, lighting (cinematic, natural daylight if UGC)
+2. ACTION (1-2 sentences): what the subject DOES across the 8s — concrete physical actions, expressions, eye contact
+3. DIALOGUE (this is the most important part — VEO3 will lip-sync it):
+   Format EXACTLY as: The [subject] says: "[exact spoken line, max ${veo3WordTarget} words, must be a complete self-contained thought that fits naturally in 8 seconds at ~2.5 words/sec]"
+   - Must be ONE clean spoken line, conversational, ends on a complete sentence
+   - No stage directions inside the quotes
+   - Match the brand/topic from the source narration
+4. AUDIO (1 sentence): ambient sound + tone (e.g. "Audio: soft room tone, subtle warm background music, intimate ASMR-close mic on the voice.")
+5. ENDING (1 short sentence): describe the final frame at second 8 — subject's final expression/pose so VEO3 lands the cut cleanly.
+
+HARD RULES:
+- Total prompt: 90-160 words
+- DIALOGUE quoted line: max ${veo3WordTarget} words, MUST be a complete sentence, MUST make sense as a standalone spoken hook/insight/CTA
+- No camera-jargon overload — VEO3 prefers plain cinematic English
+- No "[TEXT FREEZE]", no segment markers, no scene numbers
+- Do NOT include "Subtitles:" or "Caption:" instructions — VEO3 bakes them in if you ask, we don't want that
+
+RESPOND IN EXACTLY THIS FORMAT (no extra text, no preamble):
+\`\`\`veo3-prompt
+[the rewritten 90-160 word VEO3 prompt following the 5-part format above, with the dialogue line clearly written as: The [subject] says: "..."]
+\`\`\``
+              },
+              {
+                role: 'user',
+                content: `Rewrite this for Google VEO3 (8s, native dialogue + audio). Pull the single strongest spoken line from the narration — it must be a complete thought that fits in ~8 seconds (max ${veo3WordTarget} words).
+
+ORIGINAL CINEMATIC PROMPT:
+${videoPrompt}
+
+ORIGINAL NARRATION (extract or distill the best single spoken line from this):
+${fullNarration || '(no narration provided — invent a punchy on-brand spoken line that matches the visual prompt)'}
+
+Output the VEO3-optimized prompt now.`
+              }
+            ],
+          },
+        });
+
+        if (!veo3Error && veo3Data?.response) {
+          const v3 = veo3Data.response.match(/```veo3-prompt\s*\n([\s\S]*?)```/);
+          if (v3) {
+            videoPrompt = v3[1].trim();
+            console.log('[VideoRepoPro] VEO3 prompt rewriter applied:', videoPrompt.substring(0, 200));
+          } else {
+            // Model didn't wrap in fence — use raw response if it looks reasonable
+            const raw = veo3Data.response.trim();
+            if (raw.length > 50 && raw.length < 2000) {
+              videoPrompt = raw;
+              console.log('[VideoRepoPro] VEO3 rewriter returned unfenced prompt, using raw');
+            }
+          }
+        } else if (veo3Error) {
+          console.warn('[VideoRepoPro] VEO3 rewriter failed, using cinematic prompt as-is:', veo3Error);
+        }
+      } catch (veo3Err) {
+        console.warn('[VideoRepoPro] VEO3 prompt rewrite error, using cinematic prompt:', veo3Err);
+      }
+    }
+
     if (projectId) {
       await supabase.from('video_repo_projects').update({
         video_prompt: videoPrompt,
@@ -1250,11 +1339,6 @@ Check word count vs ${singleDuration}s duration (~2.5 words/sec = ${wordTarget} 
     }
 
     setIsGenerating(true);
-
-    const segmentModel: 'sora-2' | 'veo3' = nextGenerationModel;
-    const modelLabel = segmentModel === 'veo3' ? 'Google VEO3' : 'Sora-2';
-    // VEO3 produces 8-second native clips; Sora-2 honors singleDuration (10/15/20s).
-    const effectiveDuration = segmentModel === 'veo3' ? 8 : singleDuration;
 
     const generatingMsg: ChatMessage = {
       id: `assistant-gen-${Date.now()}`,
