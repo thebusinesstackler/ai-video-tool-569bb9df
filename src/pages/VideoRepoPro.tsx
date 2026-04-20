@@ -1455,6 +1455,14 @@ Check word count vs ${singleDuration}s duration (~2.5 words/sec = ${wordTarget} 
             <Button variant="outline" size="sm" className="gap-1.5" onClick={(e) => newVersionFromProject(selectedProject, e)}>
               <RefreshCw className="w-3.5 h-3.5" /> New Version
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 border-blue-500/40 text-blue-400 hover:bg-blue-500/10"
+              onClick={(e) => recreateWithVeo3(selectedProject, e)}
+            >
+              <Sparkles className="w-3.5 h-3.5" /> Recreate with VEO3
+            </Button>
             {selectedProject.analysis_text && (
               <Button variant="outline" size="sm" className="gap-1.5" onClick={(e) => sendToSpokesperson(selectedProject, e)}>
                 <Mic className="w-3.5 h-3.5" /> Recreate with AI Twin
@@ -2329,6 +2337,19 @@ Check word count vs ${singleDuration}s duration (~2.5 words/sec = ${wordTarget} 
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>Generate new version</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
+                                onClick={(e) => recreateWithVeo3(project, e)}
+                              >
+                                <Sparkles className="w-3 h-3" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Recreate with Google VEO3</TooltipContent>
                           </Tooltip>
                           {project.generated_video_url && (
                             <Tooltip>
