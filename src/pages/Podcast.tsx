@@ -1414,17 +1414,29 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                             </Button>
                           </div>
                         </div>
-                        <Button
-                          className="w-full h-11 rounded-xl bg-gradient-to-r from-primary to-primary/80"
-                          onClick={startBulkGeneration}
-                          disabled={isBulkRunning || twins.length === 0 || bulkItems.filter(i => i.selected && i.status !== 'done').length === 0}
-                        >
-                          {isBulkRunning ? (
-                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Running queue...</>
-                          ) : (
-                            <><Sparkles className="w-4 h-4 mr-2" /> Bulk generate {bulkItems.filter(i => i.selected && i.status !== 'done').length} {bulkOutput === 'video' ? 'videos' : 'voiceovers'}</>
+                        <div className="flex gap-2">
+                          <Button
+                            className="flex-1 h-11 rounded-xl bg-gradient-to-r from-primary to-primary/80"
+                            onClick={startBulkGeneration}
+                            disabled={isBulkRunning || twins.length === 0 || bulkItems.filter(i => i.selected && i.status !== 'done').length === 0}
+                          >
+                            {isBulkRunning ? (
+                              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Running queue...</>
+                            ) : (
+                              <><Sparkles className="w-4 h-4 mr-2" /> Bulk generate {bulkItems.filter(i => i.selected && i.status !== 'done').length} {bulkOutput === 'video' ? 'videos' : 'voiceovers'}</>
+                            )}
+                          </Button>
+                          {isBulkRunning && (
+                            <Button
+                              variant="destructive"
+                              className="h-11 rounded-xl"
+                              onClick={stopBulkGeneration}
+                              disabled={bulkStopRef.current}
+                            >
+                              <X className="w-4 h-4 mr-1" /> Stop
+                            </Button>
                           )}
-                        </Button>
+                        </div>
                       </CardContent>
                     </Card>
 
