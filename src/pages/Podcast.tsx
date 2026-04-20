@@ -1319,6 +1319,8 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                   )}
                 </div>
 
+                <PodcastAspectRatioPicker value={aspectRatio} onChange={setAspectRatio} />
+
                 {(() => {
                   const activeVar = variations.find(v => v.id === activeVariationId) || null;
                   const hasInput = activeVar ? true : !!message.trim();
