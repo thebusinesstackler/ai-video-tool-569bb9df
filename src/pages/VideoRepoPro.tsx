@@ -80,6 +80,7 @@ interface VideoRepoProject {
   is_favorite?: boolean;
   custom_name?: string | null;
   segment_urls?: string[] | null;
+  thumbnail_url?: string | null;
 }
 
 const statusColors: Record<string, string> = {
@@ -97,6 +98,8 @@ const VideoRepoPro = () => {
   const [mainTab, setMainTab] = useState<'create' | 'history' | 'library' | 'calendar'>('create');
   const [libraryFavoritesOnly, setLibraryFavoritesOnly] = useState(false);
   const [libraryPlayingId, setLibraryPlayingId] = useState<string | null>(null);
+  const [libraryThumbs, setLibraryThumbs] = useState<Record<string, string>>({});
+  const thumbInFlightRef = useRef<Set<string>>(new Set());
   const [reviewProject, setReviewProject] = useState<VideoRepoProject | null>(null);
   const [reviewNotes, setReviewNotes] = useState('');
   const [reviewAiFeedback, setReviewAiFeedback] = useState<string | null>(null);
@@ -242,6 +245,109 @@ const VideoRepoPro = () => {
       fetchHistory();
     }
   };
+
+  /**
+   * Capture a real preview frame for a CDN-hosted video.
+   * Tries crossOrigin="anonymous" first, then falls back to fetch -> blob URL
+   * to bypass CORS-tainted-canvas errors. Uploads result to Supabase Storage
+   * and persists the URL on the project row so it loads instantly next time.
+   */
+  const captureThumbnail = useCallback(async (project: VideoRepoProject) => {
+    const url = project.generated_video_url;
+    if (!url || !user) return;
+    if (libraryThumbs[project.id] || project.thumbnail_url) return;
+    if (thumbInFlightRef.current.has(project.id)) return;
+    thumbInFlightRef.current.add(project.id);
+
+    const drawFromVideo = (videoSrc: string, useCors: boolean): Promise<string | null> =>
+      new Promise((resolve) => {
+        const v = document.createElement('video');
+        if (useCors) v.crossOrigin = 'anonymous';
+        v.muted = true;
+        v.playsInline = true;
+        v.preload = 'auto';
+        v.src = videoSrc;
+        let settled = false;
+        const cleanup = () => {
+          v.removeAttribute('src');
+          try { v.load(); } catch {}
+        };
+        const fail = () => { if (!settled) { settled = true; cleanup(); resolve(null); } };
+        const timeout = setTimeout(fail, 8000);
+        const drawNow = () => {
+          if (settled) return;
+          try {
+            const w = v.videoWidth || 540;
+            const h = v.videoHeight || 960;
+            const scale = Math.min(1, 540 / Math.max(w, h));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(w * scale));
+            canvas.height = Math.max(1, Math.round(h * scale));
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return fail();
+            ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.78);
+            settled = true;
+            clearTimeout(timeout);
+            cleanup();
+            resolve(dataUrl);
+          } catch {
+            fail();
+          }
+        };
+        v.addEventListener('loadeddata', () => {
+          try { v.currentTime = Math.min(0.5, (v.duration || 1) * 0.1); } catch { drawNow(); }
+        });
+        v.addEventListener('seeked', drawNow);
+        v.addEventListener('error', fail);
+      });
+
+    try {
+      // Attempt 1: direct video with CORS header
+      let dataUrl = await drawFromVideo(url, true);
+
+      // Attempt 2: fetch as blob -> object URL (same-origin canvas)
+      if (!dataUrl) {
+        try {
+          const resp = await fetch(url);
+          if (resp.ok) {
+            const blob = await resp.blob();
+            const objUrl = URL.createObjectURL(blob);
+            dataUrl = await drawFromVideo(objUrl, false);
+            URL.revokeObjectURL(objUrl);
+          }
+        } catch { /* CORS-blocked CDN; give up gracefully */ }
+      }
+
+      if (!dataUrl) return;
+
+      // Cache locally for instant render
+      setLibraryThumbs(prev => ({ ...prev, [project.id]: dataUrl! }));
+
+      // Persist to storage so subsequent visits skip the decode entirely
+      try {
+        const res = await fetch(dataUrl);
+        const blob = await res.blob();
+        const path = `thumbnails/${project.id}.jpg`;
+        const { error: upErr } = await supabase.storage
+          .from('project-files')
+          .upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
+        if (!upErr) {
+          const { data: pub } = supabase.storage.from('project-files').getPublicUrl(path);
+          if (pub?.publicUrl) {
+            await supabase.from('video_repo_projects')
+              .update({ thumbnail_url: pub.publicUrl } as any)
+              .eq('id', project.id);
+            setHistoryProjects(prev => prev.map(p => p.id === project.id ? { ...p, thumbnail_url: pub.publicUrl } : p));
+          }
+        }
+      } catch (e) {
+        console.warn('[captureThumbnail] persist failed', e);
+      }
+    } finally {
+      thumbInFlightRef.current.delete(project.id);
+    }
+  }, [libraryThumbs, user]);
 
   const startRename = (project: VideoRepoProject, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -2884,46 +2990,57 @@ Output the VEO3-optimized prompt now.`
                       return (
                         <Card key={project.id} className="overflow-hidden group hover:border-primary/50 transition-colors">
                           <div className="relative aspect-[9/16] bg-muted">
-                            {/* Always-visible placeholder behind the video so the tile is never blank */}
+                            {/* Always-visible placeholder behind the preview so the tile is never blank */}
                             <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-muted to-muted/40 pointer-events-none">
                               <Film className="w-10 h-10 text-muted-foreground/40" />
                             </div>
-                            {isPlaying ? (
-                              <video
-                                src={url}
-                                controls
-                                autoPlay
-                                playsInline
-                                className="relative w-full h-full object-cover bg-black"
-                              />
-                            ) : (
-                              <>
-                                <video
-                                  key={url}
-                                  src={`${url}#t=0.5`}
-                                  preload="metadata"
-                                  muted
-                                  playsInline
-                                  poster={(project as any).product_image_url || undefined}
-                                  onLoadedMetadata={(e) => {
-                                    // Force first frame to render on browsers that ignore #t= fragments
-                                    const v = e.currentTarget;
-                                    try { if (v.currentTime === 0) v.currentTime = 0.1; } catch {}
-                                  }}
-                                  className="relative w-full h-full object-cover bg-black"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => setLibraryPlayingId(project.id)}
-                                  className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  aria-label="Play video"
-                                >
-                                  <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center shadow-lg">
-                                    <Play className="w-5 h-5 text-primary-foreground fill-primary-foreground ml-0.5" />
-                                  </div>
-                                </button>
-                              </>
-                            )}
+                            {(() => {
+                              const thumb = libraryThumbs[project.id] || project.thumbnail_url || (project as any).product_image_url || null;
+                              if (isPlaying) {
+                                return (
+                                  <video
+                                    src={url}
+                                    controls
+                                    autoPlay
+                                    playsInline
+                                    className="relative w-full h-full object-cover bg-black"
+                                  />
+                                );
+                              }
+                              return (
+                                <>
+                                  {thumb ? (
+                                    <img
+                                      src={thumb}
+                                      alt={label}
+                                      loading="lazy"
+                                      className="relative w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    // No thumbnail yet — kick off background capture and keep placeholder visible
+                                    <img
+                                      ref={(el) => {
+                                        if (el && !libraryThumbs[project.id] && !project.thumbnail_url) {
+                                          captureThumbnail(project);
+                                        }
+                                      }}
+                                      alt=""
+                                      className="hidden"
+                                    />
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => setLibraryPlayingId(project.id)}
+                                    className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    aria-label="Play video"
+                                  >
+                                    <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center shadow-lg">
+                                      <Play className="w-5 h-5 text-primary-foreground fill-primary-foreground ml-0.5" />
+                                    </div>
+                                  </button>
+                                </>
+                              );
+                            })()}
                             <button
                               type="button"
                               onClick={(e) => toggleFavorite(project, e)}
