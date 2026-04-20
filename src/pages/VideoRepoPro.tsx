@@ -125,6 +125,8 @@ const VideoRepoPro = () => {
   const HISTORY_PAGE_SIZE = 9;
   const [aspectRatio, setAspectRatio] = useState<'9:16' | '16:9'>('9:16');
   const [singleDuration, setSingleDuration] = useState<10 | 15 | 20>(20);
+  // Which video model to use for the NEXT generation. Default Sora-2; "Recreate with VEO3" sets this to 'veo3'.
+  const [nextGenerationModel, setNextGenerationModel] = useState<'sora-2' | 'veo3'>('sora-2');
 
   // AI Script Director chat state
   const [hasAnalysis, setHasAnalysis] = useState(false);
@@ -565,6 +567,24 @@ Be specific, constructive, and actionable. Reference exact moments/frames when p
     pendingAutoPromptRef.current = originalPrompt;
     setPendingAutoAnalysis(true);
     toast({ title: 'Recreating', description: `Re-analyzing and generating a fresh ${singleDuration}-second take.` });
+  };
+
+  // Recreate the EXACT same video with Google VEO3 (8s native, supports image-to-video).
+  // Re-runs the AI Director on the original reference + prompt, then generates the new clip with VEO3 instead of Sora-2.
+  const recreateWithVeo3 = (project: VideoRepoProject, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    loadProjectAssets(project);
+    const originalPrompt = project.prompt?.replace(/^\[PRO\]\s*/, '') || `Analyze reference and generate ad`;
+    setPrompt(originalPrompt);
+    setNextGenerationModel('veo3');
+    setSelectedProject(null);
+    setMainTab('create');
+    pendingAutoPromptRef.current = originalPrompt;
+    setPendingAutoAnalysis(true);
+    toast({
+      title: '🎬 Recreating with Google VEO3',
+      description: 'Re-analyzing the reference and generating a fresh take with VEO3 (native 8s, longer & higher detail).',
+    });
   };
 
   useEffect(() => {
@@ -1231,25 +1251,28 @@ Check word count vs ${singleDuration}s duration (~2.5 words/sec = ${wordTarget} 
 
     setIsGenerating(true);
 
+    const segmentModel: 'sora-2' | 'veo3' = nextGenerationModel;
+    const modelLabel = segmentModel === 'veo3' ? 'Google VEO3' : 'Sora-2';
+    // VEO3 produces 8-second native clips; Sora-2 honors singleDuration (10/15/20s).
+    const effectiveDuration = segmentModel === 'veo3' ? 8 : singleDuration;
+
     const generatingMsg: ChatMessage = {
       id: `assistant-gen-${Date.now()}`,
       role: 'assistant',
-      content: `🎬 Generating ONE continuous ${singleDuration}-second video with Sora-2... No stitching, no segments — a single clean take that ends on the closing frame.`,
+      content: `🎬 Generating ONE continuous ${effectiveDuration}-second video with ${modelLabel}... No stitching, no segments — a single clean take that ends on the closing frame.`,
     };
     setMessages((prev) => [...prev, generatingMsg]);
 
     let videoUrl: string | null = null;
 
     try {
-      setGenerationProgress(`Starting ${singleDuration}s generation...`);
-
-      const segmentModel: 'sora-2' = 'sora-2';
+      setGenerationProgress(`Starting ${effectiveDuration}s generation with ${modelLabel}...`);
 
       const taskId = await createWaveSpeedVideo({
         prompt: videoPrompt,
         model: segmentModel,
         aspectRatio,
-        duration: singleDuration,
+        duration: effectiveDuration,
         userId: user?.id,
         source: 'video-repo-pro',
         ...(persistentImageUrl ? { imageUrls: [persistentImageUrl] } : {}),
