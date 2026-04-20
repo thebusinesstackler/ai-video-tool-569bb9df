@@ -81,6 +81,8 @@ interface VideoRepoProject {
   custom_name?: string | null;
   segment_urls?: string[] | null;
   thumbnail_url?: string | null;
+  tagged_product?: string | null;
+  review_notes?: string | null;
 }
 
 const statusColors: Record<string, string> = {
@@ -100,6 +102,9 @@ const VideoRepoPro = () => {
   const [libraryPlayingId, setLibraryPlayingId] = useState<string | null>(null);
   const [libraryThumbs, setLibraryThumbs] = useState<Record<string, string>>({});
   const [libraryAspects, setLibraryAspects] = useState<Record<string, number>>({}); // width/height ratio
+  const [libraryProductFilter, setLibraryProductFilter] = useState<string>('all'); // 'all' | 'untagged' | product name
+  const [librarySortBy, setLibrarySortBy] = useState<'newest' | 'oldest' | 'product' | 'favorites'>('newest');
+  const [productOptions, setProductOptions] = useState<string[]>([]);
   const thumbInFlightRef = useRef<Set<string>>(new Set());
   const [reviewProject, setReviewProject] = useState<VideoRepoProject | null>(null);
   const [reviewNotes, setReviewNotes] = useState('');
@@ -779,6 +784,31 @@ Be specific, constructive, and actionable. Reference exact moments/frames when p
   useEffect(() => {
     if (user) fetchHistory();
   }, [user, fetchHistory]);
+
+  // Load product names for tagging dropdown
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from('products')
+        .select('name')
+        .eq('user_id', user.id)
+        .order('name');
+      if (data) setProductOptions(Array.from(new Set(data.map(d => d.name).filter(Boolean))));
+    })();
+  }, [user]);
+
+  const updateProjectProduct = useCallback(async (projectId: string, productName: string | null) => {
+    const { error } = await supabase
+      .from('video_repo_projects')
+      .update({ tagged_product: productName } as any)
+      .eq('id', projectId);
+    if (error) {
+      toast({ title: 'Failed to tag', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setHistoryProjects(prev => prev.map(p => p.id === projectId ? { ...p, tagged_product: productName } as any : p));
+  }, [toast]);
 
   // Auto-trigger analysis for "New Version" flow
   useEffect(() => {
@@ -2944,7 +2974,30 @@ Output the VEO3-optimized prompt now.`
                     })()}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Select value={libraryProductFilter} onValueChange={setLibraryProductFilter}>
+                    <SelectTrigger className="h-9 w-[180px] text-xs">
+                      <SelectValue placeholder="Filter by product" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All products</SelectItem>
+                      <SelectItem value="untagged">Untagged</SelectItem>
+                      {productOptions.map(name => (
+                        <SelectItem key={name} value={name}>{name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={librarySortBy} onValueChange={(v) => setLibrarySortBy(v as any)}>
+                    <SelectTrigger className="h-9 w-[160px] text-xs">
+                      <SelectValue placeholder="Sort" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="newest">Newest first</SelectItem>
+                      <SelectItem value="oldest">Oldest first</SelectItem>
+                      <SelectItem value="product">By product (A→Z)</SelectItem>
+                      <SelectItem value="favorites">Favorites first</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Button
                     variant={libraryFavoritesOnly ? 'default' : 'outline'}
                     size="sm"
@@ -2964,7 +3017,18 @@ Output the VEO3-optimized prompt now.`
               {(() => {
                 const videos = historyProjects
                   .filter(p => p.generated_video_url)
-                  .filter(p => !libraryFavoritesOnly || p.is_favorite);
+                  .filter(p => !libraryFavoritesOnly || p.is_favorite)
+                  .filter(p => {
+                    if (libraryProductFilter === 'all') return true;
+                    if (libraryProductFilter === 'untagged') return !p.tagged_product;
+                    return p.tagged_product === libraryProductFilter;
+                  })
+                  .sort((a, b) => {
+                    if (librarySortBy === 'oldest') return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+                    if (librarySortBy === 'product') return (a.tagged_product || 'zzz').localeCompare(b.tagged_product || 'zzz');
+                    if (librarySortBy === 'favorites') return (b.is_favorite ? 1 : 0) - (a.is_favorite ? 1 : 0);
+                    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                  });
 
                 if (isLoadingHistory && videos.length === 0) {
                   return (
@@ -3065,9 +3129,30 @@ Output the VEO3-optimized prompt now.`
                         <p className="text-sm font-medium line-clamp-2 min-h-[2.5rem]" title={label}>
                           {label}
                         </p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {new Date(project.created_at).toLocaleDateString()}
-                        </p>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[11px] text-muted-foreground">
+                            {new Date(project.created_at).toLocaleDateString()}
+                          </p>
+                          {project.tagged_product && (
+                            <Badge variant="secondary" className="text-[10px] h-5 px-1.5 max-w-[60%] truncate" title={project.tagged_product}>
+                              {project.tagged_product}
+                            </Badge>
+                          )}
+                        </div>
+                        <Select
+                          value={project.tagged_product || '__none__'}
+                          onValueChange={(v) => updateProjectProduct(project.id, v === '__none__' ? null : v)}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue placeholder="Tag product…" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">— No product —</SelectItem>
+                            {productOptions.map(name => (
+                              <SelectItem key={name} value={name}>{name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <div className="flex items-center gap-1.5 pt-1">
                           <Button size="sm" variant="secondary" className="flex-1 h-8 text-xs" onClick={() => openReviewDialog(project)}>
                             <Eye className="w-3 h-3 mr-1" /> Review
