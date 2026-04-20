@@ -18,6 +18,18 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Mic, Loader2, Play, Download, User, Clock, RotateCcw, Sparkles, Wand2, Check, Globe, Upload, X, Headphones, Layers, History, Trash2, CheckSquare, Square, RefreshCw } from 'lucide-react';
 import type { AITwin } from '@/types/aiTwin';
+import { PodcastAspectRatioPicker, type PodcastAspectRatio } from '@/components/PodcastAspectRatioPicker';
+
+const ASPECT_FRAMING: Record<PodcastAspectRatio, string> = {
+  '9:16': 'VERTICAL 9:16 portrait framing for TikTok/Reels/Shorts. Subject head-and-shoulders centered with generous headroom, full vertical composition.',
+  '16:9': 'HORIZONTAL 16:9 landscape framing for YouTube/web. Subject head-and-shoulders centered with cinematic widescreen composition.',
+  '1:1': 'SQUARE 1:1 framing for Instagram feed. Subject head-and-shoulders centered, balanced square composition.',
+};
+const ASPECT_CSS: Record<PodcastAspectRatio, string> = {
+  '9:16': 'aspect-[9/16] max-w-xs',
+  '16:9': 'aspect-video max-w-2xl',
+  '1:1': 'aspect-square max-w-md',
+};
 
 interface BrandContext {
   brandName?: string;
