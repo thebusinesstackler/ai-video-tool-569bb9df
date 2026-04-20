@@ -128,6 +128,23 @@ const VideoRepoPro = () => {
   const [singleDuration, setSingleDuration] = useState<10 | 15 | 20>(20);
   // Which video model to use for the NEXT generation. Default Sora-2; "Recreate with VEO3" sets this to 'veo3'.
   const [nextGenerationModel, setNextGenerationModel] = useState<'sora-2' | 'veo3'>('sora-2');
+  // Google Flow (multi-shot Veo 3): chains 2-6 sequential 8s clips into one stitched video.
+  const [flowMode, setFlowMode] = useState(false);
+  const [flowShots, setFlowShots] = useState<number>(3);
+  // UI engine picker (mirrors nextGenerationModel + future wan-2.5 routing).
+  const selectedEngine: VideoEngine = nextGenerationModel === 'veo3' ? 'veo3' : nextGenerationModel as VideoEngine;
+  const handleEngineChange = (e: VideoEngine) => {
+    if (e === 'veo3') setNextGenerationModel('veo3');
+    else if (e === 'sora-2') {
+      setNextGenerationModel('sora-2');
+      setFlowMode(false);
+    } else {
+      // wan-2.5 falls back to sora-2 routing for now; flag retained for future expansion
+      setNextGenerationModel('sora-2');
+      setFlowMode(false);
+      toast({ title: 'Wan 2.5 coming soon', description: 'Defaulting to Sora-2 for now.' });
+    }
+  };
 
   // AI Script Director chat state
   const [hasAnalysis, setHasAnalysis] = useState(false);
