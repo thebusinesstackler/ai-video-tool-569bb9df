@@ -98,6 +98,8 @@ const VideoRepoPro = () => {
   const [mainTab, setMainTab] = useState<'create' | 'history' | 'library' | 'calendar'>('create');
   const [libraryFavoritesOnly, setLibraryFavoritesOnly] = useState(false);
   const [libraryPlayingId, setLibraryPlayingId] = useState<string | null>(null);
+  const [libraryThumbs, setLibraryThumbs] = useState<Record<string, string>>({});
+  const thumbInFlightRef = useRef<Set<string>>(new Set());
   const [reviewProject, setReviewProject] = useState<VideoRepoProject | null>(null);
   const [reviewNotes, setReviewNotes] = useState('');
   const [reviewAiFeedback, setReviewAiFeedback] = useState<string | null>(null);
