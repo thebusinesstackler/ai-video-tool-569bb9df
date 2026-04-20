@@ -1979,7 +1979,7 @@ const ChatcutAI = () => {
           toast({ title: 'Split', description: `Clip split at ${(act.time ?? currentTime).toFixed(1)}s` });
           break;
         case 'add_broll': {
-          // If Marco picked a saved Source Clip by id, drop it directly without regen.
+          // PATH 1 — Marco picked a saved Source Clip (video) by id, drop it directly without regen.
           const savedRow = act.sourceClipId
             ? savedBrollClips.find((c) => c.id === act.sourceClipId)
             : null;
@@ -1995,6 +1995,23 @@ const ChatcutAI = () => {
             });
             break;
           }
+          // PATH 2 — Marco picked a saved STATIC FRAME (image) by id → drop as a static cutaway.
+          // This is how Marco fills blank b-roll windows without generating new footage.
+          const savedFrame = act.savedFrameId
+            ? savedBrollFrames.find((f) => f.id === act.savedFrameId)
+            : null;
+          if (savedFrame) {
+            const label = act.description || savedFrame.prompt || 'Saved frame';
+            addBRollFromImage(
+              savedFrame.image_url,
+              label,
+              act.prompt || savedFrame.prompt || undefined,
+              act.start ?? currentTime,
+              { staticOnly: act.static !== false, duration: act.duration ?? 3 },
+            );
+            break;
+          }
+          // PATH 3 — fresh AI-generated b-roll
           const brollId = crypto.randomUUID();
           const isPremium = !!act.premium;
           const broll: BRollClip = {
