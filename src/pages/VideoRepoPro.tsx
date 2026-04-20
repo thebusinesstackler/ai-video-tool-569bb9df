@@ -93,7 +93,9 @@ const VideoRepoPro = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [mainTab, setMainTab] = useState<'create' | 'history' | 'calendar'>('create');
+  const [mainTab, setMainTab] = useState<'create' | 'history' | 'library' | 'calendar'>('create');
+  const [libraryFavoritesOnly, setLibraryFavoritesOnly] = useState(false);
+  const [libraryPlayingId, setLibraryPlayingId] = useState<string | null>(null);
   const [prompt, setPrompt] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
