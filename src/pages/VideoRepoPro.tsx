@@ -729,6 +729,31 @@ Be specific, constructive, and actionable. Reference exact moments/frames when p
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const downloadAsMp4 = async (url: string, filename: string) => {
+    try {
+      toast({ title: 'Preparing download...', description: 'Fetching video file.' });
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const blob = await resp.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = filename.endsWith('.mp4') ? filename : `${filename}.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } catch (e: any) {
+      console.error('[downloadAsMp4]', e);
+      toast({
+        title: 'Download failed',
+        description: 'Opening video in a new tab — right-click and choose "Save Video As" to save as .mp4.',
+        variant: 'destructive',
+      });
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   const handleUrlImport = async () => {
     const trimmed = urlInput.trim();
     if (!trimmed || isDownloadingUrl) return;
@@ -1833,10 +1858,13 @@ Output the VEO3-optimized prompt now.`
                       <div key={idx} className="space-y-2">
                         <p className="text-[11px] font-medium text-muted-foreground">Segment {idx + 1}</p>
                         <video src={segUrl} controls className="w-full rounded-lg max-h-[280px] object-contain bg-black" preload="metadata" playsInline />
-                        <Button size="sm" variant="secondary" className="w-full h-8 text-xs" asChild>
-                          <a href={segUrl} download target="_blank" rel="noopener noreferrer">
-                            <Download className="w-3 h-3 mr-1" /> Download Segment {idx + 1}
-                          </a>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="w-full h-8 text-xs"
+                          onClick={() => downloadAsMp4(segUrl, `${selectedProject.custom_name || 'video'}-segment-${idx + 1}.mp4`)}
+                        >
+                          <Download className="w-3 h-3 mr-1" /> Download Segment {idx + 1}
                         </Button>
                         <Button
                           size="sm"
@@ -1856,10 +1884,13 @@ Output the VEO3-optimized prompt now.`
                 ) : selectedProject.generated_video_url ? (
                   <div className="space-y-2">
                     <video src={selectedProject.generated_video_url} controls className="w-full rounded-lg max-h-[280px] object-contain bg-black" />
-                    <Button size="sm" variant="secondary" className="w-full" asChild>
-                      <a href={selectedProject.generated_video_url} download target="_blank" rel="noopener noreferrer">
-                        <Download className="w-3 h-3 mr-1" /> Download
-                      </a>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="w-full"
+                      onClick={() => downloadAsMp4(selectedProject.generated_video_url!, `${selectedProject.custom_name || 'video'}.mp4`)}
+                    >
+                      <Download className="w-3 h-3 mr-1" /> Download
                     </Button>
                     <Button
                       size="sm"
