@@ -2985,123 +2985,143 @@ Output the VEO3-optimized prompt now.`
                   );
                 }
 
+                const renderCard = (project: VideoRepoProject, isWide: boolean) => {
+                  const url = project.generated_video_url!;
+                  const label = project.custom_name || project.prompt?.replace(/^\[PRO\]\s*/, '').slice(0, 60) || 'Untitled';
+                  const isPlaying = libraryPlayingId === project.id;
+                  const aspectClass = isWide ? 'aspect-video' : 'aspect-[9/16]';
+                  return (
+                    <Card key={project.id} className="overflow-hidden group hover:border-primary/50 transition-colors">
+                      <div className={`relative ${aspectClass} bg-muted`}>
+                        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-muted to-muted/40 pointer-events-none">
+                          <Film className="w-10 h-10 text-muted-foreground/40" />
+                        </div>
+                        {(() => {
+                          const thumb = libraryThumbs[project.id] || project.thumbnail_url || (project as any).product_image_url || null;
+                          if (isPlaying) {
+                            return (
+                              <video
+                                src={url}
+                                controls
+                                autoPlay
+                                playsInline
+                                className="relative w-full h-full object-cover bg-black"
+                              />
+                            );
+                          }
+                          return (
+                            <>
+                              {thumb ? (
+                                <img
+                                  src={thumb}
+                                  alt={label}
+                                  loading="lazy"
+                                  onLoad={(e) => {
+                                    const img = e.currentTarget;
+                                    if (img.naturalWidth > 0 && img.naturalHeight > 0 && !libraryAspects[project.id]) {
+                                      setLibraryAspects(prev => prev[project.id] ? prev : { ...prev, [project.id]: img.naturalWidth / img.naturalHeight });
+                                    }
+                                  }}
+                                  className="relative w-full h-full object-cover"
+                                />
+                              ) : (
+                                <img
+                                  ref={(el) => {
+                                    if (el && !libraryThumbs[project.id] && !project.thumbnail_url) {
+                                      captureThumbnail(project);
+                                    }
+                                  }}
+                                  alt=""
+                                  className="hidden"
+                                />
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => setLibraryPlayingId(project.id)}
+                                className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity"
+                                aria-label="Play video"
+                              >
+                                <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center shadow-lg">
+                                  <Play className="w-5 h-5 text-primary-foreground fill-primary-foreground ml-0.5" />
+                                </div>
+                              </button>
+                            </>
+                          );
+                        })()}
+                        <button
+                          type="button"
+                          onClick={(e) => toggleFavorite(project, e)}
+                          className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-sm transition-colors ${
+                            project.is_favorite
+                              ? 'bg-yellow-500/90 text-white'
+                              : 'bg-black/50 text-white hover:bg-black/70'
+                          }`}
+                          aria-label={project.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
+                        >
+                          <Star className={`w-4 h-4 ${project.is_favorite ? 'fill-current' : ''}`} />
+                        </button>
+                      </div>
+                      <CardContent className="p-3 space-y-2">
+                        <p className="text-sm font-medium line-clamp-2 min-h-[2.5rem]" title={label}>
+                          {label}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {new Date(project.created_at).toLocaleDateString()}
+                        </p>
+                        <div className="flex items-center gap-1.5 pt-1">
+                          <Button size="sm" variant="secondary" className="flex-1 h-8 text-xs" onClick={() => openReviewDialog(project)}>
+                            <Eye className="w-3 h-3 mr-1" /> Review
+                          </Button>
+                          <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => downloadAsMp4(url, `${label}.mp4`)} aria-label="Download">
+                            <Download className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={(e) => deleteProject(project, e)}
+                            aria-label="Delete"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                };
+
+                // Classify wide (>=1.2 ratio) vs vertical. Unknown defaults to vertical until thumbnail loads.
+                const wideVideos = videos.filter(p => (libraryAspects[p.id] ?? 0) >= 1.2);
+                const verticalVideos = videos.filter(p => !((libraryAspects[p.id] ?? 0) >= 1.2));
+
                 return (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {videos.map((project) => {
-                      const url = project.generated_video_url!;
-                      const label = project.custom_name || project.prompt?.replace(/^\[PRO\]\s*/, '').slice(0, 60) || 'Untitled';
-                      const isPlaying = libraryPlayingId === project.id;
-                      return (
-                        <Card key={project.id} className="overflow-hidden group hover:border-primary/50 transition-colors">
-                          <div className="relative aspect-[9/16] bg-muted">
-                            {/* Always-visible placeholder behind the preview so the tile is never blank */}
-                            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-muted to-muted/40 pointer-events-none">
-                              <Film className="w-10 h-10 text-muted-foreground/40" />
-                            </div>
-                            {(() => {
-                              const thumb = libraryThumbs[project.id] || project.thumbnail_url || (project as any).product_image_url || null;
-                              if (isPlaying) {
-                                return (
-                                  <video
-                                    src={url}
-                                    controls
-                                    autoPlay
-                                    playsInline
-                                    className="relative w-full h-full object-cover bg-black"
-                                  />
-                                );
-                              }
-                              return (
-                                <>
-                                  {thumb ? (
-                                    <img
-                                      src={thumb}
-                                      alt={label}
-                                      loading="lazy"
-                                      className="relative w-full h-full object-cover"
-                                    />
-                                  ) : (
-                                    // No thumbnail yet — kick off background capture and keep placeholder visible
-                                    <img
-                                      ref={(el) => {
-                                        if (el && !libraryThumbs[project.id] && !project.thumbnail_url) {
-                                          captureThumbnail(project);
-                                        }
-                                      }}
-                                      alt=""
-                                      className="hidden"
-                                    />
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() => setLibraryPlayingId(project.id)}
-                                    className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    aria-label="Play video"
-                                  >
-                                    <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center shadow-lg">
-                                      <Play className="w-5 h-5 text-primary-foreground fill-primary-foreground ml-0.5" />
-                                    </div>
-                                  </button>
-                                </>
-                              );
-                            })()}
-                            <button
-                              type="button"
-                              onClick={(e) => toggleFavorite(project, e)}
-                              className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-sm transition-colors ${
-                                project.is_favorite
-                                  ? 'bg-yellow-500/90 text-white'
-                                  : 'bg-black/50 text-white hover:bg-black/70'
-                              }`}
-                              aria-label={project.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
-                            >
-                              <Star className={`w-4 h-4 ${project.is_favorite ? 'fill-current' : ''}`} />
-                            </button>
-                          </div>
-                          <CardContent className="p-3 space-y-2">
-                            <p className="text-sm font-medium line-clamp-2 min-h-[2.5rem]" title={label}>
-                              {label}
-                            </p>
-                            <p className="text-[11px] text-muted-foreground">
-                              {new Date(project.created_at).toLocaleDateString()}
-                            </p>
-                            <div className="flex items-center gap-1.5 pt-1">
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                className="flex-1 h-8 text-xs"
-                                onClick={() => openReviewDialog(project)}
-                              >
-                                <Eye className="w-3 h-3 mr-1" /> Review
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 px-2"
-                                onClick={() => downloadAsMp4(url, `${label}.mp4`)}
-                                aria-label="Download"
-                              >
-                                <Download className="w-3.5 h-3.5" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                onClick={(e) => deleteProject(project, e)}
-                                aria-label="Delete"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
+                  <div className="space-y-8">
+                    {verticalVideos.length > 0 && (
+                      <section>
+                        <h3 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
+                          Vertical · TikTok / Reels ({verticalVideos.length})
+                        </h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                          {verticalVideos.map((p) => renderCard(p, false))}
+                        </div>
+                      </section>
+                    )}
+                    {wideVideos.length > 0 && (
+                      <section>
+                        <h3 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
+                          Widescreen · YouTube / Landscape ({wideVideos.length})
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {wideVideos.map((p) => renderCard(p, true))}
+                        </div>
+                      </section>
+                    )}
                   </div>
                 );
               })()}
             </div>
           </TabsContent>
+
 
           <TabsContent value="calendar" className="flex-1 min-h-0 overflow-y-auto mt-2">
             <ContentCalendarTab projects={historyProjects} />
