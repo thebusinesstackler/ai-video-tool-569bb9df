@@ -123,6 +123,7 @@ const Podcast = () => {
   const [bulkOutput, setBulkOutput] = useState<'video' | 'voiceover'>('video');
   const [isBulkRunning, setIsBulkRunning] = useState(false);
   const bulkStopRef = useRef(false);
+  const [aspectRatio, setAspectRatio] = useState<PodcastAspectRatio>('9:16');
   const [activeTab, setActiveTab] = useState<string>('talking-head');
 
   // ===== History =====
