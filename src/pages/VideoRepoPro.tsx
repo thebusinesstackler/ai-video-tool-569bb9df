@@ -280,6 +280,9 @@ const VideoRepoPro = () => {
           try {
             const w = v.videoWidth || 540;
             const h = v.videoHeight || 960;
+            if (w > 0 && h > 0) {
+              setLibraryAspects(prev => prev[project.id] ? prev : { ...prev, [project.id]: w / h });
+            }
             const scale = Math.min(1, 540 / Math.max(w, h));
             const canvas = document.createElement('canvas');
             canvas.width = Math.max(1, Math.round(w * scale));
