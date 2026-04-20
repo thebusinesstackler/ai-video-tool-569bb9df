@@ -2976,6 +2976,112 @@ Output the VEO3-optimized prompt now.`
           </TabsContent>
         </Tabs>
       </div>
+      <Dialog open={!!reviewProject} onOpenChange={(o) => { if (!o) { setReviewProject(null); setReviewAiFeedback(null); } }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="w-4 h-4 text-orange-500" />
+              Review: {reviewProject?.custom_name || reviewProject?.prompt?.replace(/^\[PRO\]\s*/, '').slice(0, 60) || 'Video'}
+            </DialogTitle>
+          </DialogHeader>
+
+          {reviewProject && (
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-3">
+                {reviewProject.generated_video_url && (
+                  <video
+                    src={reviewProject.generated_video_url}
+                    controls
+                    playsInline
+                    className="w-full rounded-lg bg-black aspect-[9/16] object-contain"
+                  />
+                )}
+                {reviewProject.video_prompt && (
+                  <details className="text-xs bg-muted/50 rounded-lg p-3">
+                    <summary className="cursor-pointer font-medium">Original script</summary>
+                    <p className="mt-2 whitespace-pre-wrap text-muted-foreground">{reviewProject.video_prompt}</p>
+                  </details>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm font-medium mb-1.5 flex items-center justify-between">
+                    <span>Your notes — what's wrong / what to fix</span>
+                  </label>
+                  <Textarea
+                    value={reviewNotes}
+                    onChange={(e) => setReviewNotes(e.target.value)}
+                    placeholder="e.g. Hook is too slow, lighting flat at 0:04, hands look weird at the end, audio doesn't match the visual..."
+                    rows={8}
+                    className="resize-none text-sm"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={saveReviewNotes}
+                    disabled={isSavingReview}
+                    className="w-full mt-2 gap-1.5"
+                  >
+                    {isSavingReview ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                    Save Notes
+                  </Button>
+                </div>
+
+                <div className="border-t border-border pt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-orange-500" /> AI Director Feedback
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={runAiReviewInDialog}
+                      disabled={isReviewLoadingAi}
+                      className="h-7 text-xs gap-1.5"
+                    >
+                      {isReviewLoadingAi ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                      {reviewAiFeedback ? 'Re-run' : 'Run AI Review'}
+                    </Button>
+                  </div>
+                  {isReviewLoadingAi && (
+                    <div className="text-xs text-muted-foreground flex items-center gap-2 py-3">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Analyzing video frames...
+                    </div>
+                  )}
+                  {reviewAiFeedback && (
+                    <div className="prose prose-sm dark:prose-invert max-w-none text-xs bg-muted/40 rounded-lg p-3 max-h-64 overflow-y-auto">
+                      <ReactMarkdown>{reviewAiFeedback}</ReactMarkdown>
+                    </div>
+                  )}
+                  {!reviewAiFeedback && !isReviewLoadingAi && (
+                    <p className="text-xs text-muted-foreground italic">
+                      Click "Run AI Review" to get a critical post-production breakdown of this video.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            {reviewProject && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const p = reviewProject;
+                  setReviewProject(null);
+                  setSelectedProject(p);
+                  setMainTab('history');
+                }}
+                className="gap-1.5"
+              >
+                <ArrowUp className="w-3.5 h-3.5" /> Open in full editor
+              </Button>
+            )}
+            <Button variant="ghost" onClick={() => setReviewProject(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <FrameExtractorDialog
         open={!!frameExtractor}
         onOpenChange={(o) => !o && setFrameExtractor(null)}
