@@ -2164,6 +2164,14 @@ Output the VEO3-optimized prompt now.`
                   <span className="ml-1 bg-primary/20 text-primary text-xs px-1.5 py-0.5 rounded-full">{historyProjects.length}</span>
                 )}
               </TabsTrigger>
+              <TabsTrigger value="library" className="gap-1.5">
+                <Film className="w-3.5 h-3.5" /> Library
+                {historyProjects.filter(p => p.generated_video_url).length > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">
+                    {historyProjects.filter(p => p.generated_video_url).length}
+                  </Badge>
+                )}
+              </TabsTrigger>
               <TabsTrigger value="calendar" className="gap-1.5">
                 <Calendar className="w-3.5 h-3.5" /> Content Calendar
               </TabsTrigger>
