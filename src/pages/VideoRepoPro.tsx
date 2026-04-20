@@ -82,7 +82,7 @@ interface VideoRepoProject {
   segment_urls?: string[] | null;
   thumbnail_url?: string | null;
   tagged_product?: string | null;
-  review_notes?: string | null;
+  source?: 'video_repo' | 'podcast' | 'chatcut';
 }
 
 const statusColors: Record<string, string> = {
@@ -101,10 +101,6 @@ const VideoRepoPro = () => {
   const [libraryFavoritesOnly, setLibraryFavoritesOnly] = useState(false);
   const [libraryPlayingId, setLibraryPlayingId] = useState<string | null>(null);
   const [libraryThumbs, setLibraryThumbs] = useState<Record<string, string>>({});
-  const [libraryAspects, setLibraryAspects] = useState<Record<string, number>>({}); // width/height ratio
-  const [libraryProductFilter, setLibraryProductFilter] = useState<string>('all'); // 'all' | 'untagged' | product name
-  const [librarySortBy, setLibrarySortBy] = useState<'newest' | 'oldest' | 'product' | 'favorites'>('newest');
-  const [productOptions, setProductOptions] = useState<string[]>([]);
   const thumbInFlightRef = useRef<Set<string>>(new Set());
   const [reviewProject, setReviewProject] = useState<VideoRepoProject | null>(null);
   const [reviewNotes, setReviewNotes] = useState('');
@@ -221,14 +217,72 @@ const VideoRepoPro = () => {
     if (!user) return;
     setIsLoadingHistory(true);
     try {
-      const { data, error } = await supabase
-        .from('video_repo_projects')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('is_favorite', { ascending: false })
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      setHistoryProjects((data as VideoRepoProject[]) || []);
+      const [repoRes, podcastRes, chatcutRes] = await Promise.all([
+        supabase
+          .from('video_repo_projects')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('is_favorite', { ascending: false })
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('podcast_projects')
+          .select('id,user_id,topic,hook,video_url,scene_image_url,status,created_at,updated_at,twin_name,featured_product')
+          .eq('user_id', user.id)
+          .not('video_url', 'is', null)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('chatcut_drafts')
+          .select('id,user_id,name,video_url,created_at,updated_at')
+          .eq('user_id', user.id)
+          .not('video_url', 'is', null)
+          .order('created_at', { ascending: false }),
+      ]);
+      if (repoRes.error) throw repoRes.error;
+
+      const repoRows = (repoRes.data as VideoRepoProject[] || []).map(r => ({ ...r, source: 'video_repo' as const }));
+
+      const podcastRows: VideoRepoProject[] = (podcastRes.data || []).map((p: any) => ({
+        id: `podcast:${p.id}`,
+        user_id: p.user_id,
+        prompt: p.hook || p.topic || null,
+        reference_video_url: null,
+        product_image_url: p.scene_image_url || null,
+        analysis_text: null,
+        generated_video_url: p.video_url,
+        video_prompt: null,
+        status: p.status || 'completed',
+        created_at: p.created_at,
+        updated_at: p.updated_at,
+        is_favorite: false,
+        custom_name: p.topic ? `🎙️ ${p.topic}` : (p.twin_name ? `🎙️ ${p.twin_name}` : '🎙️ Podcast'),
+        thumbnail_url: p.scene_image_url || null,
+        tagged_product: p.featured_product || null,
+        source: 'podcast' as const,
+      }));
+
+      const chatcutRows: VideoRepoProject[] = (chatcutRes.data || []).map((c: any) => ({
+        id: `chatcut:${c.id}`,
+        user_id: c.user_id,
+        prompt: c.name || null,
+        reference_video_url: null,
+        product_image_url: null,
+        analysis_text: null,
+        generated_video_url: c.video_url,
+        video_prompt: null,
+        status: 'completed',
+        created_at: c.created_at,
+        updated_at: c.updated_at,
+        is_favorite: false,
+        custom_name: c.name ? `✂️ ${c.name}` : '✂️ Chatcut Edit',
+        thumbnail_url: null,
+        source: 'chatcut' as const,
+      }));
+
+      const merged = [...repoRows, ...podcastRows, ...chatcutRows].sort((a, b) => {
+        if ((b.is_favorite ? 1 : 0) !== (a.is_favorite ? 1 : 0)) return (b.is_favorite ? 1 : 0) - (a.is_favorite ? 1 : 0);
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+      setHistoryProjects(merged);
     } catch (err: any) {
       console.error('Error fetching history:', err);
     } finally {
@@ -239,8 +293,14 @@ const VideoRepoPro = () => {
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [editNameValue, setEditNameValue] = useState('');
 
+  const isImported = (project: VideoRepoProject) => project.source && project.source !== 'video_repo';
+
   const toggleFavorite = async (project: VideoRepoProject, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isImported(project)) {
+      toast({ title: 'Read-only', description: 'Favorites are only available for videos created in Video Repo.' });
+      return;
+    }
     const newVal = !project.is_favorite;
     setHistoryProjects(prev => prev.map(p => p.id === project.id ? { ...p, is_favorite: newVal } : p));
     const { error } = await supabase.from('video_repo_projects').update({ is_favorite: newVal } as any).eq('id', project.id);
@@ -285,9 +345,6 @@ const VideoRepoPro = () => {
           try {
             const w = v.videoWidth || 540;
             const h = v.videoHeight || 960;
-            if (w > 0 && h > 0) {
-              setLibraryAspects(prev => prev[project.id] ? prev : { ...prev, [project.id]: w / h });
-            }
             const scale = Math.min(1, 540 / Math.max(w, h));
             const canvas = document.createElement('canvas');
             canvas.width = Math.max(1, Math.round(w * scale));
@@ -334,6 +391,9 @@ const VideoRepoPro = () => {
       setLibraryThumbs(prev => ({ ...prev, [project.id]: dataUrl! }));
 
       // Persist to storage so subsequent visits skip the decode entirely
+      // Skip persistence for imported rows (podcast/chatcut) — they aren't in video_repo_projects.
+      if (isImported(project)) return;
+
       try {
         const res = await fetch(dataUrl);
         const blob = await res.blob();
@@ -436,12 +496,22 @@ Be honest, specific, and actionable. Use markdown.`,
     const prev = historyProjects;
     setHistoryProjects(prev.filter(p => p.id !== project.id));
     if (selectedProject?.id === project.id) setSelectedProject(null);
-    const { error } = await supabase.from('video_repo_projects').delete().eq('id', project.id);
+
+    let error: any = null;
+    if (project.source === 'podcast') {
+      const realId = project.id.replace(/^podcast:/, '');
+      ({ error } = await supabase.from('podcast_projects').delete().eq('id', realId));
+    } else if (project.source === 'chatcut') {
+      const realId = project.id.replace(/^chatcut:/, '');
+      ({ error } = await supabase.from('chatcut_drafts').delete().eq('id', realId));
+    } else {
+      ({ error } = await supabase.from('video_repo_projects').delete().eq('id', project.id));
+    }
     if (error) {
       setHistoryProjects(prev);
       toast({ title: 'Delete failed', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Deleted', description: 'Video removed from history.' });
+      toast({ title: 'Deleted', description: 'Video removed from library.' });
     }
   };
 
@@ -784,31 +854,6 @@ Be specific, constructive, and actionable. Reference exact moments/frames when p
   useEffect(() => {
     if (user) fetchHistory();
   }, [user, fetchHistory]);
-
-  // Load product names for tagging dropdown
-  useEffect(() => {
-    if (!user) return;
-    (async () => {
-      const { data } = await supabase
-        .from('products')
-        .select('name')
-        .eq('user_id', user.id)
-        .order('name');
-      if (data) setProductOptions(Array.from(new Set(data.map(d => d.name).filter(Boolean))));
-    })();
-  }, [user]);
-
-  const updateProjectProduct = useCallback(async (projectId: string, productName: string | null) => {
-    const { error } = await supabase
-      .from('video_repo_projects')
-      .update({ tagged_product: productName } as any)
-      .eq('id', projectId);
-    if (error) {
-      toast({ title: 'Failed to tag', description: error.message, variant: 'destructive' });
-      return;
-    }
-    setHistoryProjects(prev => prev.map(p => p.id === projectId ? { ...p, tagged_product: productName } as any : p));
-  }, [toast]);
 
   // Auto-trigger analysis for "New Version" flow
   useEffect(() => {
@@ -2974,30 +3019,7 @@ Output the VEO3-optimized prompt now.`
                     })()}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Select value={libraryProductFilter} onValueChange={setLibraryProductFilter}>
-                    <SelectTrigger className="h-9 w-[180px] text-xs">
-                      <SelectValue placeholder="Filter by product" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All products</SelectItem>
-                      <SelectItem value="untagged">Untagged</SelectItem>
-                      {productOptions.map(name => (
-                        <SelectItem key={name} value={name}>{name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select value={librarySortBy} onValueChange={(v) => setLibrarySortBy(v as any)}>
-                    <SelectTrigger className="h-9 w-[160px] text-xs">
-                      <SelectValue placeholder="Sort" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="newest">Newest first</SelectItem>
-                      <SelectItem value="oldest">Oldest first</SelectItem>
-                      <SelectItem value="product">By product (A→Z)</SelectItem>
-                      <SelectItem value="favorites">Favorites first</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="flex items-center gap-2">
                   <Button
                     variant={libraryFavoritesOnly ? 'default' : 'outline'}
                     size="sm"
@@ -3017,18 +3039,7 @@ Output the VEO3-optimized prompt now.`
               {(() => {
                 const videos = historyProjects
                   .filter(p => p.generated_video_url)
-                  .filter(p => !libraryFavoritesOnly || p.is_favorite)
-                  .filter(p => {
-                    if (libraryProductFilter === 'all') return true;
-                    if (libraryProductFilter === 'untagged') return !p.tagged_product;
-                    return p.tagged_product === libraryProductFilter;
-                  })
-                  .sort((a, b) => {
-                    if (librarySortBy === 'oldest') return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-                    if (librarySortBy === 'product') return (a.tagged_product || 'zzz').localeCompare(b.tagged_product || 'zzz');
-                    if (librarySortBy === 'favorites') return (b.is_favorite ? 1 : 0) - (a.is_favorite ? 1 : 0);
-                    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-                  });
+                  .filter(p => !libraryFavoritesOnly || p.is_favorite);
 
                 if (isLoadingHistory && videos.length === 0) {
                   return (
@@ -3049,164 +3060,123 @@ Output the VEO3-optimized prompt now.`
                   );
                 }
 
-                const renderCard = (project: VideoRepoProject, isWide: boolean) => {
-                  const url = project.generated_video_url!;
-                  const label = project.custom_name || project.prompt?.replace(/^\[PRO\]\s*/, '').slice(0, 60) || 'Untitled';
-                  const isPlaying = libraryPlayingId === project.id;
-                  const aspectClass = isWide ? 'aspect-video' : 'aspect-[9/16]';
-                  return (
-                    <Card key={project.id} className="overflow-hidden group hover:border-primary/50 transition-colors">
-                      <div className={`relative ${aspectClass} bg-muted`}>
-                        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-muted to-muted/40 pointer-events-none">
-                          <Film className="w-10 h-10 text-muted-foreground/40" />
-                        </div>
-                        {(() => {
-                          const thumb = libraryThumbs[project.id] || project.thumbnail_url || (project as any).product_image_url || null;
-                          if (isPlaying) {
-                            return (
-                              <video
-                                src={url}
-                                controls
-                                autoPlay
-                                playsInline
-                                className="relative w-full h-full object-cover bg-black"
-                              />
-                            );
-                          }
-                          return (
-                            <>
-                              {thumb ? (
-                                <img
-                                  src={thumb}
-                                  alt={label}
-                                  loading="lazy"
-                                  onLoad={(e) => {
-                                    const img = e.currentTarget;
-                                    if (img.naturalWidth > 0 && img.naturalHeight > 0 && !libraryAspects[project.id]) {
-                                      setLibraryAspects(prev => prev[project.id] ? prev : { ...prev, [project.id]: img.naturalWidth / img.naturalHeight });
-                                    }
-                                  }}
-                                  className="relative w-full h-full object-cover"
-                                />
-                              ) : (
-                                <img
-                                  ref={(el) => {
-                                    if (el && !libraryThumbs[project.id] && !project.thumbnail_url) {
-                                      captureThumbnail(project);
-                                    }
-                                  }}
-                                  alt=""
-                                  className="hidden"
-                                />
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => setLibraryPlayingId(project.id)}
-                                className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity"
-                                aria-label="Play video"
-                              >
-                                <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center shadow-lg">
-                                  <Play className="w-5 h-5 text-primary-foreground fill-primary-foreground ml-0.5" />
-                                </div>
-                              </button>
-                            </>
-                          );
-                        })()}
-                        <button
-                          type="button"
-                          onClick={(e) => toggleFavorite(project, e)}
-                          className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-sm transition-colors ${
-                            project.is_favorite
-                              ? 'bg-yellow-500/90 text-white'
-                              : 'bg-black/50 text-white hover:bg-black/70'
-                          }`}
-                          aria-label={project.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
-                        >
-                          <Star className={`w-4 h-4 ${project.is_favorite ? 'fill-current' : ''}`} />
-                        </button>
-                      </div>
-                      <CardContent className="p-3 space-y-2">
-                        <p className="text-sm font-medium line-clamp-2 min-h-[2.5rem]" title={label}>
-                          {label}
-                        </p>
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-[11px] text-muted-foreground">
-                            {new Date(project.created_at).toLocaleDateString()}
-                          </p>
-                          {project.tagged_product && (
-                            <Badge variant="secondary" className="text-[10px] h-5 px-1.5 max-w-[60%] truncate" title={project.tagged_product}>
-                              {project.tagged_product}
-                            </Badge>
-                          )}
-                        </div>
-                        <Select
-                          value={project.tagged_product || '__none__'}
-                          onValueChange={(v) => updateProjectProduct(project.id, v === '__none__' ? null : v)}
-                        >
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue placeholder="Tag product…" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none__">— No product —</SelectItem>
-                            {productOptions.map(name => (
-                              <SelectItem key={name} value={name}>{name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <div className="flex items-center gap-1.5 pt-1">
-                          <Button size="sm" variant="secondary" className="flex-1 h-8 text-xs" onClick={() => openReviewDialog(project)}>
-                            <Eye className="w-3 h-3 mr-1" /> Review
-                          </Button>
-                          <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => downloadAsMp4(url, `${label}.mp4`)} aria-label="Download">
-                            <Download className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={(e) => deleteProject(project, e)}
-                            aria-label="Delete"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                };
-
-                // Classify wide (>=1.2 ratio) vs vertical. Unknown defaults to vertical until thumbnail loads.
-                const wideVideos = videos.filter(p => (libraryAspects[p.id] ?? 0) >= 1.2);
-                const verticalVideos = videos.filter(p => !((libraryAspects[p.id] ?? 0) >= 1.2));
-
                 return (
-                  <div className="space-y-8">
-                    {verticalVideos.length > 0 && (
-                      <section>
-                        <h3 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
-                          Vertical · TikTok / Reels ({verticalVideos.length})
-                        </h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                          {verticalVideos.map((p) => renderCard(p, false))}
-                        </div>
-                      </section>
-                    )}
-                    {wideVideos.length > 0 && (
-                      <section>
-                        <h3 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
-                          Widescreen · YouTube / Landscape ({wideVideos.length})
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {wideVideos.map((p) => renderCard(p, true))}
-                        </div>
-                      </section>
-                    )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {videos.map((project) => {
+                      const url = project.generated_video_url!;
+                      const label = project.custom_name || project.prompt?.replace(/^\[PRO\]\s*/, '').slice(0, 60) || 'Untitled';
+                      const isPlaying = libraryPlayingId === project.id;
+                      return (
+                        <Card key={project.id} className="overflow-hidden group hover:border-primary/50 transition-colors">
+                          <div className="relative aspect-[9/16] bg-muted">
+                            {/* Always-visible placeholder behind the preview so the tile is never blank */}
+                            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-muted to-muted/40 pointer-events-none">
+                              <Film className="w-10 h-10 text-muted-foreground/40" />
+                            </div>
+                            {(() => {
+                              const thumb = libraryThumbs[project.id] || project.thumbnail_url || (project as any).product_image_url || null;
+                              if (isPlaying) {
+                                return (
+                                  <video
+                                    src={url}
+                                    controls
+                                    autoPlay
+                                    playsInline
+                                    className="relative w-full h-full object-cover bg-black"
+                                  />
+                                );
+                              }
+                              return (
+                                <>
+                                  {thumb ? (
+                                    <img
+                                      src={thumb}
+                                      alt={label}
+                                      loading="lazy"
+                                      className="relative w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    // No thumbnail yet — kick off background capture and keep placeholder visible
+                                    <img
+                                      ref={(el) => {
+                                        if (el && !libraryThumbs[project.id] && !project.thumbnail_url) {
+                                          captureThumbnail(project);
+                                        }
+                                      }}
+                                      alt=""
+                                      className="hidden"
+                                    />
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => setLibraryPlayingId(project.id)}
+                                    className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    aria-label="Play video"
+                                  >
+                                    <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center shadow-lg">
+                                      <Play className="w-5 h-5 text-primary-foreground fill-primary-foreground ml-0.5" />
+                                    </div>
+                                  </button>
+                                </>
+                              );
+                            })()}
+                            <button
+                              type="button"
+                              onClick={(e) => toggleFavorite(project, e)}
+                              className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-sm transition-colors ${
+                                project.is_favorite
+                                  ? 'bg-yellow-500/90 text-white'
+                                  : 'bg-black/50 text-white hover:bg-black/70'
+                              }`}
+                              aria-label={project.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
+                            >
+                              <Star className={`w-4 h-4 ${project.is_favorite ? 'fill-current' : ''}`} />
+                            </button>
+                          </div>
+                          <CardContent className="p-3 space-y-2">
+                            <p className="text-sm font-medium line-clamp-2 min-h-[2.5rem]" title={label}>
+                              {label}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {new Date(project.created_at).toLocaleDateString()}
+                            </p>
+                            <div className="flex items-center gap-1.5 pt-1">
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                className="flex-1 h-8 text-xs"
+                                onClick={() => openReviewDialog(project)}
+                              >
+                                <Eye className="w-3 h-3 mr-1" /> Review
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 px-2"
+                                onClick={() => downloadAsMp4(url, `${label}.mp4`)}
+                                aria-label="Download"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={(e) => deleteProject(project, e)}
+                                aria-label="Delete"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                   </div>
                 );
               })()}
             </div>
           </TabsContent>
-
 
           <TabsContent value="calendar" className="flex-1 min-h-0 overflow-y-auto mt-2">
             <ContentCalendarTab projects={historyProjects} />
