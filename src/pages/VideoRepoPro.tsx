@@ -785,6 +785,31 @@ Be specific, constructive, and actionable. Reference exact moments/frames when p
     if (user) fetchHistory();
   }, [user, fetchHistory]);
 
+  // Load product names for tagging dropdown
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from('products')
+        .select('name')
+        .eq('user_id', user.id)
+        .order('name');
+      if (data) setProductOptions(Array.from(new Set(data.map(d => d.name).filter(Boolean))));
+    })();
+  }, [user]);
+
+  const updateProjectProduct = useCallback(async (projectId: string, productName: string | null) => {
+    const { error } = await supabase
+      .from('video_repo_projects')
+      .update({ tagged_product: productName } as any)
+      .eq('id', projectId);
+    if (error) {
+      toast({ title: 'Failed to tag', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setHistoryProjects(prev => prev.map(p => p.id === projectId ? { ...p, tagged_product: productName } as any : p));
+  }, [toast]);
+
   // Auto-trigger analysis for "New Version" flow
   useEffect(() => {
     if (pendingAutoAnalysis && mainTab === 'create' && !isAnalyzing && !isGenerating && !isStitching) {
@@ -2949,7 +2974,30 @@ Output the VEO3-optimized prompt now.`
                     })()}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Select value={libraryProductFilter} onValueChange={setLibraryProductFilter}>
+                    <SelectTrigger className="h-9 w-[180px] text-xs">
+                      <SelectValue placeholder="Filter by product" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All products</SelectItem>
+                      <SelectItem value="untagged">Untagged</SelectItem>
+                      {productOptions.map(name => (
+                        <SelectItem key={name} value={name}>{name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={librarySortBy} onValueChange={(v) => setLibrarySortBy(v as any)}>
+                    <SelectTrigger className="h-9 w-[160px] text-xs">
+                      <SelectValue placeholder="Sort" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="newest">Newest first</SelectItem>
+                      <SelectItem value="oldest">Oldest first</SelectItem>
+                      <SelectItem value="product">By product (A→Z)</SelectItem>
+                      <SelectItem value="favorites">Favorites first</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Button
                     variant={libraryFavoritesOnly ? 'default' : 'outline'}
                     size="sm"
@@ -2969,7 +3017,18 @@ Output the VEO3-optimized prompt now.`
               {(() => {
                 const videos = historyProjects
                   .filter(p => p.generated_video_url)
-                  .filter(p => !libraryFavoritesOnly || p.is_favorite);
+                  .filter(p => !libraryFavoritesOnly || p.is_favorite)
+                  .filter(p => {
+                    if (libraryProductFilter === 'all') return true;
+                    if (libraryProductFilter === 'untagged') return !p.tagged_product;
+                    return p.tagged_product === libraryProductFilter;
+                  })
+                  .sort((a, b) => {
+                    if (librarySortBy === 'oldest') return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+                    if (librarySortBy === 'product') return (a.tagged_product || 'zzz').localeCompare(b.tagged_product || 'zzz');
+                    if (librarySortBy === 'favorites') return (b.is_favorite ? 1 : 0) - (a.is_favorite ? 1 : 0);
+                    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                  });
 
                 if (isLoadingHistory && videos.length === 0) {
                   return (
