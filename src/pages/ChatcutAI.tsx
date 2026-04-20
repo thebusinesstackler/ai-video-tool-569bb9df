@@ -1438,20 +1438,26 @@ const ChatcutAI = () => {
 
 
   // Add B-roll from an EXISTING image (saved frame, product image, or upload) — skips image gen, animates directly
-  const addBRollFromImage = useCallback((imageUrl: string, label: string, prompt?: string, startAt?: number) => {
+  const addBRollFromImage = useCallback((imageUrl: string, label: string, prompt?: string, startAt?: number, opts?: { staticOnly?: boolean; duration?: number }) => {
     const brollId = crypto.randomUUID();
+    const dur = opts?.duration ?? 3;
+    const staticOnly = !!opts?.staticOnly;
     const broll: BRollClip = {
       id: brollId,
       name: label,
       prompt: prompt || `Subtle natural motion that fits this scene: ${label}`,
       start: startAt ?? currentTime,
-      duration: 3,
+      duration: dur,
       imageUrl,
       imageStatus: 'ready',
-      videoStatus: 'generating',
+      videoStatus: staticOnly ? undefined : 'generating',
     };
     setBRollClips(prev => [...prev, broll]);
-    toast({ title: 'B-Roll added', description: `"${label}" — animating into 3s clip...` });
+    toast({
+      title: 'B-Roll added',
+      description: staticOnly ? `"${label}" — static cutaway (${dur}s)` : `"${label}" — animating into ${dur}s clip...`,
+    });
+    if (staticOnly) return;
     (async () => {
       try {
         const platformAspect: '16:9' | '9:16' = targetPlatform === 'youtube-landscape' ? '16:9' : '9:16';
@@ -1973,7 +1979,7 @@ const ChatcutAI = () => {
           toast({ title: 'Split', description: `Clip split at ${(act.time ?? currentTime).toFixed(1)}s` });
           break;
         case 'add_broll': {
-          // If Marco picked a saved Source Clip by id, drop it directly without regen.
+          // PATH 1 — Marco picked a saved Source Clip (video) by id, drop it directly without regen.
           const savedRow = act.sourceClipId
             ? savedBrollClips.find((c) => c.id === act.sourceClipId)
             : null;
@@ -1989,6 +1995,23 @@ const ChatcutAI = () => {
             });
             break;
           }
+          // PATH 2 — Marco picked a saved STATIC FRAME (image) by id → drop as a static cutaway.
+          // This is how Marco fills blank b-roll windows without generating new footage.
+          const savedFrame = act.savedFrameId
+            ? savedBrollFrames.find((f) => f.id === act.savedFrameId)
+            : null;
+          if (savedFrame) {
+            const label = act.description || savedFrame.prompt || 'Saved frame';
+            addBRollFromImage(
+              savedFrame.image_url,
+              label,
+              act.prompt || savedFrame.prompt || undefined,
+              act.start ?? currentTime,
+              { staticOnly: act.static !== false, duration: act.duration ?? 3 },
+            );
+            break;
+          }
+          // PATH 3 — fresh AI-generated b-roll
           const brollId = crypto.randomUUID();
           const isPremium = !!act.premium;
           const broll: BRollClip = {
@@ -2781,6 +2804,13 @@ const ChatcutAI = () => {
             hasImage: !!p.primary_image,
           })),
           savedFramesCount: savedBrollFrames.length,
+          // Send actual saved frames (id + label + thumb) so Marco can pin them himself
+          // by emitting add_broll with savedFrameId — no user pinning required.
+          savedFrames: savedBrollFrames.slice(0, 24).map((f) => ({
+            id: f.id,
+            label: (f.prompt || 'Saved frame').slice(0, 80),
+            thumbUrl: f.image_url,
+          })),
           videoFrames,
           brandVocabulary,
           savedSourceClips: savedBrollClips.slice(0, 12).map((c) => {
@@ -2798,6 +2828,25 @@ const ChatcutAI = () => {
               ready: (b.videoStatus === 'ready') || (b.imageStatus === 'ready'),
               overlaps: overlapIdsByTrack.broll.has(b.id),
             })),
+            // Pre-computed BLANK windows on the B-Roll track (≥2s of empty space).
+            // Marco MUST use these to fill gaps without the user pinning each window.
+            brollGaps: (() => {
+              const gaps: { start: number; end: number; duration: number }[] = [];
+              const occupied = bRollClips
+                .map((b) => ({ s: b.start, e: b.start + b.duration }))
+                .sort((a, b) => a.s - b.s);
+              let cursor = 0;
+              for (const r of occupied) {
+                if (r.s > cursor + 1.5) {
+                  gaps.push({ start: +cursor.toFixed(2), end: +r.s.toFixed(2), duration: +(r.s - cursor).toFixed(2) });
+                }
+                cursor = Math.max(cursor, r.e);
+              }
+              if (duration > cursor + 1.5) {
+                gaps.push({ start: +cursor.toFixed(2), end: +duration.toFixed(2), duration: +(duration - cursor).toFixed(2) });
+              }
+              return gaps;
+            })(),
             currentOverlays: overlays.map((o) => ({
               id: o.id,
               type: o.type,
