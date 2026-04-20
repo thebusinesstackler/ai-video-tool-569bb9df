@@ -598,6 +598,7 @@ Return ONLY a JSON object:
 CHARACTER: ${selectedTwin.face_description || selectedTwin.name}
 GENDER: ${selectedTwin.gender || 'unspecified'}
 CAMERA: iPhone front-facing camera, slight low angle, arm's length distance
+ASPECT RATIO: ${aspectRatio} — ${ASPECT_FRAMING[aspectRatio]}
 SETTING & STYLE: ${visualDesc || 'Casual real environment — home office or living room, natural window light'}
 EXPRESSION: Mid-sentence speaking, relaxed and authentic, looking directly at camera${productLine}
 QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, NO watermarks.`;
@@ -613,7 +614,7 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
           imageUrls: [sceneImg],
           audioUrl: ttsUrl,
           prompt: `Real person talking naturally on iPhone front camera. Wide fluid mouth movements with visible jaw and lip motion. Natural head movements — slight tilts, nods, eyebrow raises. Subtle handheld camera micro-shake. Casual, authentic energy. NOT cinematic, NOT polished — raw and real like an iPhone selfie video.`,
-          aspectRatio: '9:16',
+          aspectRatio,
         }
       });
       if (videoErr) throw videoErr;
