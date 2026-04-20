@@ -110,6 +110,7 @@ const Podcast = () => {
   const [bulkItems, setBulkItems] = useState<BulkItem[]>([]);
   const [bulkOutput, setBulkOutput] = useState<'video' | 'voiceover'>('video');
   const [isBulkRunning, setIsBulkRunning] = useState(false);
+  const bulkStopRef = useRef(false);
   const [activeTab, setActiveTab] = useState<string>('talking-head');
 
   // ===== History =====
