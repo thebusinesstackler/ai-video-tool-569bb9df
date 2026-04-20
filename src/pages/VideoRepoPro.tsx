@@ -3129,9 +3129,30 @@ Output the VEO3-optimized prompt now.`
                         <p className="text-sm font-medium line-clamp-2 min-h-[2.5rem]" title={label}>
                           {label}
                         </p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {new Date(project.created_at).toLocaleDateString()}
-                        </p>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[11px] text-muted-foreground">
+                            {new Date(project.created_at).toLocaleDateString()}
+                          </p>
+                          {project.tagged_product && (
+                            <Badge variant="secondary" className="text-[10px] h-5 px-1.5 max-w-[60%] truncate" title={project.tagged_product}>
+                              {project.tagged_product}
+                            </Badge>
+                          )}
+                        </div>
+                        <Select
+                          value={project.tagged_product || '__none__'}
+                          onValueChange={(v) => updateProjectProduct(project.id, v === '__none__' ? null : v)}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue placeholder="Tag product…" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">— No product —</SelectItem>
+                            {productOptions.map(name => (
+                              <SelectItem key={name} value={name}>{name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <div className="flex items-center gap-1.5 pt-1">
                           <Button size="sm" variant="secondary" className="flex-1 h-8 text-xs" onClick={() => openReviewDialog(project)}>
                             <Eye className="w-3 h-3 mr-1" /> Review
