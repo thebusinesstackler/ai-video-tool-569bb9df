@@ -346,6 +346,12 @@ CRITICAL FOR TEXT: The "text" and "items" fields MUST be specific to the content
 
 IMPORTANT: B-roll duration is ALWAYS 3 seconds for generated clips. For sourceClipId clips, the saved duration is honored. For static savedFrameId frames, you control the duration to fit the blank window.
 
+6d. **add_slide_broll** — 🎞 Generate a deck of AI-designed slides via Manus and drop them as STATIC B-Roll graphics. Use this when the user says "make slides", "add a deck", "explain X with slides", "add presentation graphics", or when an educational/listicle moment would benefit from headline cards behind the talking-head PiP. Each slide is a static image on the B-Roll track — the speaker's PiP overlay sits on top.
+\`\`\`actions
+[{"action":"add_slide_broll","prompt":"3 benefits of Lion's Mane for focus, one big stat per slide","slideCount":4,"perSlideDur":3,"start":8.0,"distribute":"sequential","style":"bold tiktok-friendly, high-contrast"}]
+\`\`\`
+Params: \`prompt\` (deck topic, required), \`slideCount\` (2-15, default 6), \`perSlideDur\` (sec, default 3), \`start\` (sec, defaults to current time), \`distribute\` ("sequential" = back-to-back, "evenly_across_video" = spread across remaining timeline), \`style\` (e.g. "minimalist dark"). Slides take 1-4 minutes to render — toast appears when ready.
+
 6b. **add_punch_in** — Cheap, high-impact "clarity over complexity" tool. Zooms the main video into the speaker for a beat (no extra render cost). Use this INSTEAD of a motion graphic when:
   - the speaker just said something emotional or important and the screen would feel cluttered with text
   - you want a pattern interrupt without adding a graphic
