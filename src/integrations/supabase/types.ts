@@ -788,6 +788,51 @@ export type Database = {
         }
         Relationships: []
       }
+      public_video_comments: {
+        Row: {
+          author_name: string
+          comment: string
+          created_at: string
+          id: string
+          project_id: string
+        }
+        Insert: {
+          author_name?: string
+          comment: string
+          created_at?: string
+          id?: string
+          project_id: string
+        }
+        Update: {
+          author_name?: string
+          comment?: string
+          created_at?: string
+          id?: string
+          project_id?: string
+        }
+        Relationships: []
+      }
+      public_video_favorites: {
+        Row: {
+          created_at: string
+          id: string
+          project_id: string
+          visitor_token: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          project_id: string
+          visitor_token: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          project_id?: string
+          visitor_token?: string
+        }
+        Relationships: []
+      }
       reels: {
         Row: {
           audio_url: string | null
