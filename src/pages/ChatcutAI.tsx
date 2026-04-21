@@ -1103,18 +1103,21 @@ const ChatcutAI = () => {
     }
 
     // Deep-link: ?draft=<id> auto-loads a specific draft
+    let pendingDraftId: string | null = null;
     try {
       const params = new URLSearchParams(window.location.search);
-      const draftParam = params.get('draft');
-      if (draftParam) {
-        loadDraft(draftParam);
-        // Clean URL so refresh doesn't keep reloading
+      pendingDraftId = params.get('draft');
+      if (pendingDraftId) {
         const url = new URL(window.location.href);
         url.searchParams.delete('draft');
         window.history.replaceState({}, '', url.toString());
-        return;
       }
     } catch { /* ignore */ }
+
+    if (pendingDraftId) {
+      pendingDraftIdRef.current = pendingDraftId;
+      return;
+    }
 
     // Load drafts on mount (only if no Vizard handoff)
     if (videoUrl) return;
@@ -1131,7 +1134,7 @@ const ChatcutAI = () => {
           setShowDraftPicker(true);
         }
       });
-  }, [user, applyVizardClipToBuilder, loadDraft]);
+  }, [user, applyVizardClipToBuilder]);
 
   const resetProject = useCallback(() => {
     setMessages([]);
