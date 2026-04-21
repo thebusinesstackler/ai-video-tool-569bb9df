@@ -38,6 +38,7 @@ import {
   Scissors,
   Package,
   Trash2,
+  Share2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
@@ -3031,6 +3032,22 @@ Output the VEO3-optimized prompt now.`
                   >
                     <Star className={`w-3.5 h-3.5 ${libraryFavoritesOnly ? 'fill-current' : ''}`} />
                     {libraryFavoritesOnly ? 'Showing Favorites' : 'Favorites Only'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (!user) return;
+                      const url = `${window.location.origin}/library/${user.id}`;
+                      navigator.clipboard.writeText(url).then(
+                        () => toast({ title: 'Share link copied', description: 'Anyone with this link can view your videos.' }),
+                        () => toast({ title: 'Copy failed', description: url, variant: 'destructive' as any }),
+                      );
+                    }}
+                    className="gap-1.5"
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                    Share Library
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => fetchHistory()} disabled={isLoadingHistory} className="gap-1.5">
                     <RefreshCw className={`w-3.5 h-3.5 ${isLoadingHistory ? 'animate-spin' : ''}`} />
