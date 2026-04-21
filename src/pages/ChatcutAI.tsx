@@ -369,6 +369,7 @@ const ChatcutAI = () => {
   const bgVideoRef = useRef<HTMLVideoElement>(null);
   const videoWrapperRef = useRef<HTMLDivElement>(null);
   const bgFileInputRef = useRef<HTMLInputElement>(null);
+  const pendingDraftIdRef = useRef<string | null>(null);
   // Draft state
   const [draftId, setDraftId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('Untitled Project');
