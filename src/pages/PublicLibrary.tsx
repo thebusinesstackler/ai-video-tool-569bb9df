@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, Download, Star } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Loader2, Download, Star, MessageCircle, Send } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface PublicVideo {
   id: string;
@@ -17,11 +20,46 @@ interface PublicVideo {
   created_at: string;
 }
 
+interface PublicComment {
+  id: string;
+  project_id: string;
+  author_name: string;
+  comment: string;
+  created_at: string;
+}
+
+const VISITOR_TOKEN_KEY = 'public_library_visitor_token';
+const VISITOR_NAME_KEY = 'public_library_visitor_name';
+
+function getVisitorToken(): string {
+  let token = localStorage.getItem(VISITOR_TOKEN_KEY);
+  if (!token) {
+    token = `v_${crypto.randomUUID()}`;
+    localStorage.setItem(VISITOR_TOKEN_KEY, token);
+  }
+  return token;
+}
+
 const PublicLibrary = () => {
   const { userId } = useParams<{ userId: string }>();
   const [videos, setVideos] = useState<PublicVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+
+  // Per-project favorite counts and which projects this visitor has favorited
+  const [favCounts, setFavCounts] = useState<Record<string, number>>({});
+  const [myFavorites, setMyFavorites] = useState<Set<string>>(new Set());
+
+  // Comments per project
+  const [comments, setComments] = useState<Record<string, PublicComment[]>>({});
+  const [openComments, setOpenComments] = useState<Set<string>>(new Set());
+  const [draftComment, setDraftComment] = useState<Record<string, string>>({});
+  const [authorName, setAuthorName] = useState<string>(
+    () => localStorage.getItem(VISITOR_NAME_KEY) || ''
+  );
+  const [submitting, setSubmitting] = useState<Record<string, boolean>>({});
+
+  const visitorToken = useMemo(() => getVisitorToken(), []);
 
   useEffect(() => {
     document.title = 'Shared Video Library';
@@ -40,12 +78,47 @@ const PublicLibrary = () => {
         .not('generated_video_url', 'is', null)
         .order('is_favorite', { ascending: false })
         .order('created_at', { ascending: false });
-      if (!error && data) setVideos(data as PublicVideo[]);
+      if (!error && data) {
+        const list = data as PublicVideo[];
+        setVideos(list);
+        const ids = list.map(v => v.id);
+        if (ids.length > 0) {
+          // Load favorites and comments in parallel
+          const [favRes, commentRes] = await Promise.all([
+            supabase
+              .from('public_video_favorites')
+              .select('project_id,visitor_token')
+              .in('project_id', ids),
+            supabase
+              .from('public_video_comments')
+              .select('id,project_id,author_name,comment,created_at')
+              .in('project_id', ids)
+              .order('created_at', { ascending: false }),
+          ]);
+          if (favRes.data) {
+            const counts: Record<string, number> = {};
+            const mine = new Set<string>();
+            for (const f of favRes.data as { project_id: string; visitor_token: string }[]) {
+              counts[f.project_id] = (counts[f.project_id] || 0) + 1;
+              if (f.visitor_token === visitorToken) mine.add(f.project_id);
+            }
+            setFavCounts(counts);
+            setMyFavorites(mine);
+          }
+          if (commentRes.data) {
+            const grouped: Record<string, PublicComment[]> = {};
+            for (const c of commentRes.data as PublicComment[]) {
+              (grouped[c.project_id] ||= []).push(c);
+            }
+            setComments(grouped);
+          }
+        }
+      }
       setLoading(false);
     })();
-  }, [userId]);
+  }, [userId, visitorToken]);
 
-  const filtered = videos.filter(v => !favoritesOnly || v.is_favorite);
+  const filtered = videos.filter(v => !favoritesOnly || myFavorites.has(v.id) || v.is_favorite);
 
   const downloadAsMp4 = async (url: string, name: string) => {
     try {
@@ -61,23 +134,96 @@ const PublicLibrary = () => {
     }
   };
 
+  const toggleFavorite = async (projectId: string) => {
+    const isFav = myFavorites.has(projectId);
+    // Optimistic update
+    setMyFavorites(prev => {
+      const next = new Set(prev);
+      isFav ? next.delete(projectId) : next.add(projectId);
+      return next;
+    });
+    setFavCounts(prev => ({
+      ...prev,
+      [projectId]: Math.max(0, (prev[projectId] || 0) + (isFav ? -1 : 1)),
+    }));
+
+    if (isFav) {
+      const { error } = await supabase
+        .from('public_video_favorites')
+        .delete()
+        .eq('project_id', projectId)
+        .eq('visitor_token', visitorToken);
+      if (error) toast.error('Could not remove favorite');
+    } else {
+      const { error } = await supabase
+        .from('public_video_favorites')
+        .insert({ project_id: projectId, visitor_token: visitorToken });
+      if (error) toast.error('Could not add favorite');
+    }
+  };
+
+  const toggleComments = (projectId: string) => {
+    setOpenComments(prev => {
+      const next = new Set(prev);
+      next.has(projectId) ? next.delete(projectId) : next.add(projectId);
+      return next;
+    });
+  };
+
+  const submitComment = async (projectId: string) => {
+    const text = (draftComment[projectId] || '').trim();
+    const name = authorName.trim() || 'Anonymous';
+    if (!text) return;
+    if (text.length > 1000) {
+      toast.error('Comment is too long (max 1000 characters)');
+      return;
+    }
+    setSubmitting(p => ({ ...p, [projectId]: true }));
+    const { data, error } = await supabase
+      .from('public_video_comments')
+      .insert({ project_id: projectId, author_name: name.slice(0, 60), comment: text })
+      .select('id,project_id,author_name,comment,created_at')
+      .single();
+    setSubmitting(p => ({ ...p, [projectId]: false }));
+    if (error || !data) {
+      toast.error('Could not post comment');
+      return;
+    }
+    localStorage.setItem(VISITOR_NAME_KEY, name);
+    setComments(prev => ({
+      ...prev,
+      [projectId]: [data as PublicComment, ...(prev[projectId] || [])],
+    }));
+    setDraftComment(p => ({ ...p, [projectId]: '' }));
+    toast.success('Comment posted');
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border">
-        <div className="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-semibold">Shared Video Library</h1>
             <p className="text-sm text-muted-foreground">{filtered.length} video{filtered.length === 1 ? '' : 's'}</p>
           </div>
-          <Button
-            variant={favoritesOnly ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFavoritesOnly(v => !v)}
-            className="gap-1.5"
-          >
-            <Star className={`w-3.5 h-3.5 ${favoritesOnly ? 'fill-current' : ''}`} />
-            {favoritesOnly ? 'Showing favorites' : 'Favorites only'}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="Your name (optional)"
+              value={authorName}
+              onChange={(e) => setAuthorName(e.target.value)}
+              className="h-9 w-48"
+              maxLength={60}
+            />
+            <Button
+              variant={favoritesOnly ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFavoritesOnly(v => !v)}
+              className="gap-1.5"
+            >
+              <Star className={`w-3.5 h-3.5 ${favoritesOnly ? 'fill-current' : ''}`} />
+              {favoritesOnly ? 'Showing favorites' : 'Favorites only'}
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -95,8 +241,12 @@ const PublicLibrary = () => {
             {filtered.map((v) => {
               const label = v.custom_name || v.prompt || 'Untitled';
               const poster = v.thumbnail_url || v.product_image_url || undefined;
+              const myFav = myFavorites.has(v.id);
+              const favCount = favCounts[v.id] || 0;
+              const projectComments = comments[v.id] || [];
+              const isOpen = openComments.has(v.id);
               return (
-                <Card key={v.id} className="overflow-hidden">
+                <Card key={v.id} className="overflow-hidden flex flex-col">
                   <div className="relative aspect-[9/16] bg-muted">
                     <video
                       src={`${v.generated_video_url}#t=0.5`}
@@ -107,25 +257,90 @@ const PublicLibrary = () => {
                     />
                     {v.is_favorite && (
                       <Badge className="absolute top-2 left-2">
-                        <Star className="w-3 h-3 mr-1 fill-current" /> Favorite
+                        <Star className="w-3 h-3 mr-1 fill-current" /> Featured
                       </Badge>
                     )}
                   </div>
-                  <CardContent className="p-3 space-y-2">
+                  <CardContent className="p-3 space-y-2 flex-1 flex flex-col">
                     <p className="text-sm font-medium line-clamp-2 min-h-[2.5rem]" title={label}>
                       {label}
                     </p>
                     <p className="text-[11px] text-muted-foreground">
                       {new Date(v.created_at).toLocaleDateString()}
                     </p>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="w-full h-8 text-xs"
-                      onClick={() => downloadAsMp4(v.generated_video_url, label)}
-                    >
-                      <Download className="w-3 h-3 mr-1" /> Download
-                    </Button>
+
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        size="sm"
+                        variant={myFav ? 'default' : 'outline'}
+                        className="h-8 px-2 text-xs gap-1"
+                        onClick={() => toggleFavorite(v.id)}
+                        title={myFav ? 'Remove favorite' : 'Add to favorites'}
+                      >
+                        <Star className={`w-3.5 h-3.5 ${myFav ? 'fill-current' : ''}`} />
+                        {favCount > 0 ? favCount : ''}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 px-2 text-xs gap-1"
+                        onClick={() => toggleComments(v.id)}
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        {projectComments.length > 0 ? projectComments.length : ''}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 px-2 text-xs flex-1"
+                        onClick={() => downloadAsMp4(v.generated_video_url, label)}
+                      >
+                        <Download className="w-3.5 h-3.5 mr-1" /> Download
+                      </Button>
+                    </div>
+
+                    {isOpen && (
+                      <div className="border-t border-border pt-2 space-y-2">
+                        <div className="flex gap-1.5">
+                          <Textarea
+                            placeholder="Leave a comment…"
+                            value={draftComment[v.id] || ''}
+                            onChange={(e) => setDraftComment(p => ({ ...p, [v.id]: e.target.value }))}
+                            className="min-h-[60px] text-xs resize-none"
+                            maxLength={1000}
+                          />
+                          <Button
+                            size="icon"
+                            className="h-8 w-8 self-end"
+                            disabled={submitting[v.id] || !(draftComment[v.id] || '').trim()}
+                            onClick={() => submitComment(v.id)}
+                          >
+                            {submitting[v.id]
+                              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              : <Send className="w-3.5 h-3.5" />}
+                          </Button>
+                        </div>
+                        <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                          {projectComments.length === 0 ? (
+                            <p className="text-[11px] text-muted-foreground text-center py-2">
+                              No comments yet.
+                            </p>
+                          ) : (
+                            projectComments.map(c => (
+                              <div key={c.id} className="text-xs bg-muted/50 rounded p-2">
+                                <div className="flex items-center justify-between gap-2 mb-0.5">
+                                  <span className="font-medium truncate">{c.author_name}</span>
+                                  <span className="text-[10px] text-muted-foreground shrink-0">
+                                    {new Date(c.created_at).toLocaleDateString()}
+                                  </span>
+                                </div>
+                                <p className="whitespace-pre-wrap break-words">{c.comment}</p>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               );
