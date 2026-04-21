@@ -66,12 +66,15 @@ const PublicLibrary = () => {
   const visitorToken = useMemo(() => getVisitorToken(), []);
 
   useEffect(() => {
-    document.title = isAnimatedOnly ? 'Shared Animated Statics' : 'Shared Video Library';
+    const titleText = isAnimatedOnly ? 'Shared Animated Statics' : isVizardOnly ? 'Shared Vizard Clips' : 'Shared Video Library';
+    document.title = titleText;
     const meta = document.querySelector('meta[name="description"]');
     if (meta) meta.setAttribute('content', isAnimatedOnly
       ? 'Public gallery of animated static creatives shared for feedback.'
+      : isVizardOnly
+      ? 'Public gallery of Vizard short clips shared for feedback.'
       : 'Public video library shared from Video Repo Pro.');
-  }, [isAnimatedOnly]);
+  }, [isAnimatedOnly, isVizardOnly]);
 
   useEffect(() => {
     if (!userId) return;
