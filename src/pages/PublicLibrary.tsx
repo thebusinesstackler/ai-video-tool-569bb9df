@@ -107,8 +107,8 @@ const PublicLibrary = () => {
             animatedReq,
           ]);
 
-      if (!repoRes.error && repoRes.data) {
-        const repoRows = (repoRes.data as PublicVideo[]);
+      if ((isAnimatedOnly && !animatedRes.error) || (!repoRes.error && repoRes.data)) {
+        const repoRows = ((repoRes.data || []) as PublicVideo[]);
         const podcastRows: PublicVideo[] = (podcastRes.data || []).map((p: any) => ({
           id: `podcast:${p.id}`,
           generated_video_url: p.video_url,
