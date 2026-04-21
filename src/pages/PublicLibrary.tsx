@@ -120,7 +120,17 @@ const PublicLibrary = () => {
           is_favorite: false,
           created_at: c.created_at,
         }));
-        const list = [...repoRows, ...podcastRows, ...chatcutRows].sort((a, b) => {
+        const animatedRows: PublicVideo[] = (animatedRes.data || []).map((a: any) => ({
+          id: `animated:${a.id}`,
+          generated_video_url: a.animation_url,
+          custom_name: '🎞️ Animated Static',
+          prompt: a.prompt || null,
+          thumbnail_url: a.source_image_url || null,
+          product_image_url: a.source_image_url || null,
+          is_favorite: false,
+          created_at: a.created_at,
+        }));
+        const list = [...repoRows, ...podcastRows, ...chatcutRows, ...animatedRows].sort((a, b) => {
           if ((b.is_favorite ? 1 : 0) !== (a.is_favorite ? 1 : 0)) return (b.is_favorite ? 1 : 0) - (a.is_favorite ? 1 : 0);
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
         });
