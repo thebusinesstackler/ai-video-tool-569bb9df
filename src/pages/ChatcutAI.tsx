@@ -1286,6 +1286,15 @@ const ChatcutAI = () => {
     toast({ title: 'Draft loaded', description: `Resumed "${data.name}"` });
   }, [user, toast, resetProject]);
 
+  // Consume pending deep-link draft id once loadDraft is available
+  useEffect(() => {
+    const pending = pendingDraftIdRef.current;
+    if (pending && user) {
+      pendingDraftIdRef.current = null;
+      loadDraft(pending);
+    }
+  }, [user, loadDraft]);
+
   const uploadVideo = useCallback(async (file: File) => {
     if (!user) return;
     setIsUploading(true);
