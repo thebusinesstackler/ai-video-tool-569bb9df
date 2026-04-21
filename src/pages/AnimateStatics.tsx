@@ -13,7 +13,7 @@ import { createWaveSpeedVideo, getWaveSpeedVideoJob } from '@/lib/wavespeed';
 import { ImageDropZone } from '@/components/ImageDropZone';
 import { useImageGallery } from '@/hooks/useImageGallery';
 import {
-  Wand2, Upload, Sparkles, Play, RotateCcw, Download, Music, ChevronRight, ChevronLeft, Image as ImageIcon, Loader2, History, Trash2, Plus, CheckCircle2, XCircle, Layers, Zap, Library, Pause, RefreshCw
+  Wand2, Upload, Sparkles, Play, RotateCcw, Download, Music, ChevronRight, ChevronLeft, Image as ImageIcon, Loader2, History, Trash2, Plus, CheckCircle2, XCircle, Layers, Zap, Library, Pause, RefreshCw, Share2
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -672,8 +672,31 @@ const AnimateStatics = () => {
         {view === 'history' && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><History className="w-5 h-5" /> Your Animated Statics</CardTitle>
-              <CardDescription>Resume, download, or delete past projects</CardDescription>
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                  <CardTitle className="flex items-center gap-2"><History className="w-5 h-5" /> Your Animated Statics</CardTitle>
+                  <CardDescription>Resume, download, or delete past projects</CardDescription>
+                </div>
+                {user?.id && history.some(h => h.animation_url) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={async () => {
+                      const url = `${window.location.origin}/library/${user.id}?source=animated`;
+                      try {
+                        await navigator.clipboard.writeText(url);
+                        toast({ title: 'Share link copied', description: 'Anyone with this link can view your animated statics — no login required.' });
+                      } catch {
+                        window.prompt('Copy this share link:', url);
+                      }
+                    }}
+                  >
+                    <Share2 className="w-4 h-4" />
+                    Share Public Gallery
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               {historyLoading ? (

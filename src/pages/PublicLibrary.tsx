@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -42,6 +42,9 @@ function getVisitorToken(): string {
 
 const PublicLibrary = () => {
   const { userId } = useParams<{ userId: string }>();
+  const [searchParams] = useSearchParams();
+  const sourceFilter = searchParams.get('source'); // e.g. 'animated' to show only animated statics
+  const isAnimatedOnly = sourceFilter === 'animated';
   const [videos, setVideos] = useState<PublicVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
@@ -62,44 +65,50 @@ const PublicLibrary = () => {
   const visitorToken = useMemo(() => getVisitorToken(), []);
 
   useEffect(() => {
-    document.title = 'Shared Video Library';
+    document.title = isAnimatedOnly ? 'Shared Animated Statics' : 'Shared Video Library';
     const meta = document.querySelector('meta[name="description"]');
-    if (meta) meta.setAttribute('content', 'Public video library shared from Video Repo Pro.');
-  }, []);
+    if (meta) meta.setAttribute('content', isAnimatedOnly
+      ? 'Public gallery of animated static creatives shared for feedback.'
+      : 'Public video library shared from Video Repo Pro.');
+  }, [isAnimatedOnly]);
 
   useEffect(() => {
     if (!userId) return;
     (async () => {
       setLoading(true);
-      const [repoRes, podcastRes, chatcutRes, animatedRes] = await Promise.all([
-        supabase
-          .from('video_repo_projects')
-          .select('id,generated_video_url,custom_name,prompt,thumbnail_url,product_image_url,is_favorite,created_at')
-          .eq('user_id', userId)
-          .not('generated_video_url', 'is', null)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('podcast_projects')
-          .select('id,topic,hook,video_url,scene_image_url,twin_name,featured_product,created_at')
-          .eq('user_id', userId)
-          .not('video_url', 'is', null)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('chatcut_drafts')
-          .select('id,name,video_url,created_at')
-          .eq('user_id', userId)
-          .not('video_url', 'is', null)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('animated_statics')
-          .select('id,animation_url,prompt,source_image_url,created_at')
-          .eq('user_id', userId)
-          .not('animation_url', 'is', null)
-          .order('created_at', { ascending: false }),
-      ]);
+      const animatedReq = supabase
+        .from('animated_statics')
+        .select('id,animation_url,prompt,source_image_url,created_at')
+        .eq('user_id', userId)
+        .not('animation_url', 'is', null)
+        .order('created_at', { ascending: false });
 
-      if (!repoRes.error && repoRes.data) {
-        const repoRows = (repoRes.data as PublicVideo[]);
+      const [repoRes, podcastRes, chatcutRes, animatedRes] = isAnimatedOnly
+        ? [{ data: [], error: null } as any, { data: [], error: null } as any, { data: [], error: null } as any, await animatedReq]
+        : await Promise.all([
+            supabase
+              .from('video_repo_projects')
+              .select('id,generated_video_url,custom_name,prompt,thumbnail_url,product_image_url,is_favorite,created_at')
+              .eq('user_id', userId)
+              .not('generated_video_url', 'is', null)
+              .order('created_at', { ascending: false }),
+            supabase
+              .from('podcast_projects')
+              .select('id,topic,hook,video_url,scene_image_url,twin_name,featured_product,created_at')
+              .eq('user_id', userId)
+              .not('video_url', 'is', null)
+              .order('created_at', { ascending: false }),
+            supabase
+              .from('chatcut_drafts')
+              .select('id,name,video_url,created_at')
+              .eq('user_id', userId)
+              .not('video_url', 'is', null)
+              .order('created_at', { ascending: false }),
+            animatedReq,
+          ]);
+
+      if ((isAnimatedOnly && !animatedRes.error) || (!repoRes.error && repoRes.data)) {
+        const repoRows = ((repoRes.data || []) as PublicVideo[]);
         const podcastRows: PublicVideo[] = (podcastRes.data || []).map((p: any) => ({
           id: `podcast:${p.id}`,
           generated_video_url: p.video_url,
@@ -170,7 +179,7 @@ const PublicLibrary = () => {
       }
       setLoading(false);
     })();
-  }, [userId, visitorToken]);
+  }, [userId, visitorToken, isAnimatedOnly]);
 
   const filtered = videos.filter(v => !favoritesOnly || myFavorites.has(v.id) || v.is_favorite);
 
@@ -257,8 +266,8 @@ const PublicLibrary = () => {
       <header className="border-b border-border">
         <div className="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-2xl font-semibold">Shared Video Library</h1>
-            <p className="text-sm text-muted-foreground">{filtered.length} video{filtered.length === 1 ? '' : 's'}</p>
+            <h1 className="text-2xl font-semibold">{isAnimatedOnly ? 'Shared Animated Statics' : 'Shared Video Library'}</h1>
+            <p className="text-sm text-muted-foreground">{filtered.length} {isAnimatedOnly ? 'animation' : 'video'}{filtered.length === 1 ? '' : 's'}</p>
           </div>
           <div className="flex items-center gap-2">
             <Input
