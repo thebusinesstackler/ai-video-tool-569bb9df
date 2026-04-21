@@ -179,7 +179,7 @@ const PublicLibrary = () => {
       }
       setLoading(false);
     })();
-  }, [userId, visitorToken]);
+  }, [userId, visitorToken, isAnimatedOnly]);
 
   const filtered = videos.filter(v => !favoritesOnly || myFavorites.has(v.id) || v.is_favorite);
 
