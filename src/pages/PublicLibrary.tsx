@@ -43,8 +43,9 @@ function getVisitorToken(): string {
 const PublicLibrary = () => {
   const { userId } = useParams<{ userId: string }>();
   const [searchParams] = useSearchParams();
-  const sourceFilter = searchParams.get('source'); // e.g. 'animated' to show only animated statics
+  const sourceFilter = searchParams.get('source'); // e.g. 'animated' or 'vizard'
   const isAnimatedOnly = sourceFilter === 'animated';
+  const isVizardOnly = sourceFilter === 'vizard';
   const [videos, setVideos] = useState<PublicVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
@@ -65,49 +66,95 @@ const PublicLibrary = () => {
   const visitorToken = useMemo(() => getVisitorToken(), []);
 
   useEffect(() => {
-    document.title = isAnimatedOnly ? 'Shared Animated Statics' : 'Shared Video Library';
+    const titleText = isAnimatedOnly ? 'Shared Animated Statics' : isVizardOnly ? 'Shared Vizard Clips' : 'Shared Video Library';
+    document.title = titleText;
     const meta = document.querySelector('meta[name="description"]');
     if (meta) meta.setAttribute('content', isAnimatedOnly
       ? 'Public gallery of animated static creatives shared for feedback.'
+      : isVizardOnly
+      ? 'Public gallery of Vizard short clips shared for feedback.'
       : 'Public video library shared from Video Repo Pro.');
-  }, [isAnimatedOnly]);
+  }, [isAnimatedOnly, isVizardOnly]);
 
   useEffect(() => {
     if (!userId) return;
     (async () => {
       setLoading(true);
-      const animatedReq = supabase
-        .from('animated_statics')
-        .select('id,animation_url,prompt,source_image_url,created_at')
-        .eq('user_id', userId)
-        .not('animation_url', 'is', null)
-        .order('created_at', { ascending: false });
 
-      const [repoRes, podcastRes, chatcutRes, animatedRes] = isAnimatedOnly
-        ? [{ data: [], error: null } as any, { data: [], error: null } as any, { data: [], error: null } as any, await animatedReq]
-        : await Promise.all([
-            supabase
-              .from('video_repo_projects')
-              .select('id,generated_video_url,custom_name,prompt,thumbnail_url,product_image_url,is_favorite,created_at')
-              .eq('user_id', userId)
-              .not('generated_video_url', 'is', null)
-              .order('created_at', { ascending: false }),
-            supabase
-              .from('podcast_projects')
-              .select('id,topic,hook,video_url,scene_image_url,twin_name,featured_product,created_at')
-              .eq('user_id', userId)
-              .not('video_url', 'is', null)
-              .order('created_at', { ascending: false }),
-            supabase
-              .from('chatcut_drafts')
-              .select('id,name,video_url,created_at')
-              .eq('user_id', userId)
-              .not('video_url', 'is', null)
-              .order('created_at', { ascending: false }),
-            animatedReq,
-          ]);
+      let list: PublicVideo[] = [];
 
-      if ((isAnimatedOnly && !animatedRes.error) || (!repoRes.error && repoRes.data)) {
+      if (isVizardOnly) {
+        const { data, error } = await supabase
+          .from('vizard_projects')
+          .select('id,title,vizard_videos,source_video_url,created_at,status')
+          .eq('user_id', userId)
+          .eq('status', 'ready')
+          .order('created_at', { ascending: false });
+        if (!error && data) {
+          for (const p of data as any[]) {
+            const vids: any[] = Array.isArray(p.vizard_videos) ? p.vizard_videos : [];
+            vids.forEach((v, idx) => {
+              if (!v?.videoUrl) return;
+              list.push({
+                id: `vizard:${p.id}:${v.videoId ?? idx}`,
+                generated_video_url: v.videoUrl,
+                custom_name: `✂️ ${v.title || p.title || 'Clip'}`,
+                prompt: v.viralReason || v.transcript?.slice(0, 140) || null,
+                thumbnail_url: null,
+                product_image_url: null,
+                is_favorite: false,
+                created_at: p.created_at,
+              });
+            });
+          }
+        }
+      } else if (isAnimatedOnly) {
+        const { data, error } = await supabase
+          .from('animated_statics')
+          .select('id,animation_url,prompt,source_image_url,created_at')
+          .eq('user_id', userId)
+          .not('animation_url', 'is', null)
+          .order('created_at', { ascending: false });
+        if (!error && data) {
+          list = data.map((a: any) => ({
+            id: `animated:${a.id}`,
+            generated_video_url: a.animation_url,
+            custom_name: '🎞️ Animated Static',
+            prompt: a.prompt || null,
+            thumbnail_url: a.source_image_url || null,
+            product_image_url: a.source_image_url || null,
+            is_favorite: false,
+            created_at: a.created_at,
+          }));
+        }
+      } else {
+        const [repoRes, podcastRes, chatcutRes, animatedRes] = await Promise.all([
+          supabase
+            .from('video_repo_projects')
+            .select('id,generated_video_url,custom_name,prompt,thumbnail_url,product_image_url,is_favorite,created_at')
+            .eq('user_id', userId)
+            .not('generated_video_url', 'is', null)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('podcast_projects')
+            .select('id,topic,hook,video_url,scene_image_url,twin_name,featured_product,created_at')
+            .eq('user_id', userId)
+            .not('video_url', 'is', null)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('chatcut_drafts')
+            .select('id,name,video_url,created_at')
+            .eq('user_id', userId)
+            .not('video_url', 'is', null)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('animated_statics')
+            .select('id,animation_url,prompt,source_image_url,created_at')
+            .eq('user_id', userId)
+            .not('animation_url', 'is', null)
+            .order('created_at', { ascending: false }),
+        ]);
+
         const repoRows = ((repoRes.data || []) as PublicVideo[]);
         const podcastRows: PublicVideo[] = (podcastRes.data || []).map((p: any) => ({
           id: `podcast:${p.id}`,
@@ -139,47 +186,49 @@ const PublicLibrary = () => {
           is_favorite: false,
           created_at: a.created_at,
         }));
-        const list = [...repoRows, ...podcastRows, ...chatcutRows, ...animatedRows].sort((a, b) => {
-          if ((b.is_favorite ? 1 : 0) !== (a.is_favorite ? 1 : 0)) return (b.is_favorite ? 1 : 0) - (a.is_favorite ? 1 : 0);
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        });
-        setVideos(list);
-        const ids = list.map(v => v.id);
-        if (ids.length > 0) {
-          // Load favorites and comments in parallel
-          const [favRes, commentRes] = await Promise.all([
-            supabase
-              .from('public_video_favorites')
-              .select('project_id,visitor_token')
-              .in('project_id', ids),
-            supabase
-              .from('public_video_comments')
-              .select('id,project_id,author_name,comment,created_at')
-              .in('project_id', ids)
-              .order('created_at', { ascending: false }),
-          ]);
-          if (favRes.data) {
-            const counts: Record<string, number> = {};
-            const mine = new Set<string>();
-            for (const f of favRes.data as { project_id: string; visitor_token: string }[]) {
-              counts[f.project_id] = (counts[f.project_id] || 0) + 1;
-              if (f.visitor_token === visitorToken) mine.add(f.project_id);
-            }
-            setFavCounts(counts);
-            setMyFavorites(mine);
+        list = [...repoRows, ...podcastRows, ...chatcutRows, ...animatedRows];
+      }
+
+      list.sort((a, b) => {
+        if ((b.is_favorite ? 1 : 0) !== (a.is_favorite ? 1 : 0)) return (b.is_favorite ? 1 : 0) - (a.is_favorite ? 1 : 0);
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+      setVideos(list);
+
+      const ids = list.map(v => v.id);
+      if (ids.length > 0) {
+        const [favRes, commentRes] = await Promise.all([
+          supabase
+            .from('public_video_favorites')
+            .select('project_id,visitor_token')
+            .in('project_id', ids),
+          supabase
+            .from('public_video_comments')
+            .select('id,project_id,author_name,comment,created_at')
+            .in('project_id', ids)
+            .order('created_at', { ascending: false }),
+        ]);
+        if (favRes.data) {
+          const counts: Record<string, number> = {};
+          const mine = new Set<string>();
+          for (const f of favRes.data as { project_id: string; visitor_token: string }[]) {
+            counts[f.project_id] = (counts[f.project_id] || 0) + 1;
+            if (f.visitor_token === visitorToken) mine.add(f.project_id);
           }
-          if (commentRes.data) {
-            const grouped: Record<string, PublicComment[]> = {};
-            for (const c of commentRes.data as PublicComment[]) {
-              (grouped[c.project_id] ||= []).push(c);
-            }
-            setComments(grouped);
+          setFavCounts(counts);
+          setMyFavorites(mine);
+        }
+        if (commentRes.data) {
+          const grouped: Record<string, PublicComment[]> = {};
+          for (const c of commentRes.data as PublicComment[]) {
+            (grouped[c.project_id] ||= []).push(c);
           }
+          setComments(grouped);
         }
       }
       setLoading(false);
     })();
-  }, [userId, visitorToken, isAnimatedOnly]);
+  }, [userId, visitorToken, isAnimatedOnly, isVizardOnly]);
 
   const filtered = videos.filter(v => !favoritesOnly || myFavorites.has(v.id) || v.is_favorite);
 
@@ -266,8 +315,8 @@ const PublicLibrary = () => {
       <header className="border-b border-border">
         <div className="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-2xl font-semibold">{isAnimatedOnly ? 'Shared Animated Statics' : 'Shared Video Library'}</h1>
-            <p className="text-sm text-muted-foreground">{filtered.length} {isAnimatedOnly ? 'animation' : 'video'}{filtered.length === 1 ? '' : 's'}</p>
+            <h1 className="text-2xl font-semibold">{isAnimatedOnly ? 'Shared Animated Statics' : isVizardOnly ? 'Shared Vizard Clips' : 'Shared Video Library'}</h1>
+            <p className="text-sm text-muted-foreground">{filtered.length} {isAnimatedOnly ? 'animation' : isVizardOnly ? 'clip' : 'video'}{filtered.length === 1 ? '' : 's'}</p>
           </div>
           <div className="flex items-center gap-2">
             <Input
