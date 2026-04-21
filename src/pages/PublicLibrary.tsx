@@ -106,7 +106,7 @@ const PublicLibrary = () => {
                       className="w-full h-full object-cover"
                     />
                     {v.is_favorite && (
-                      <Badge className="absolute top-2 left-2 bg-yellow-500/90 text-white border-0">
+                      <Badge className="absolute top-2 left-2">
                         <Star className="w-3 h-3 mr-1 fill-current" /> Favorite
                       </Badge>
                     )}

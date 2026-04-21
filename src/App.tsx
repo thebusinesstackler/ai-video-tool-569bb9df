@@ -31,6 +31,7 @@ import Vizard from "./pages/Vizard";
 import YouTubeSearch from "./pages/YouTubeSearch";
 import BRollLibrary from "./pages/BRollLibrary";
 import VoiceoverStudio from "./pages/VoiceoverStudio";
+import PublicLibrary from "./pages/PublicLibrary";
 import { ScrollToTop } from "./components/ScrollToTop";
 
 const queryClient = new QueryClient({
@@ -90,6 +91,7 @@ const App = () => (
               <Route path="/youtube-search" element={<ProtectedRoute><YouTubeSearch /></ProtectedRoute>} />
               <Route path="/broll-library" element={<ProtectedRoute><BRollLibrary /></ProtectedRoute>} />
               <Route path="/voiceover-studio" element={<ProtectedRoute><VoiceoverStudio /></ProtectedRoute>} />
+              <Route path="/library/:userId" element={<PublicLibrary />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
