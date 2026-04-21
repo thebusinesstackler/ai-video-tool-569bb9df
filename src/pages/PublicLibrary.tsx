@@ -71,15 +71,53 @@ const PublicLibrary = () => {
     if (!userId) return;
     (async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('video_repo_projects')
-        .select('id,generated_video_url,custom_name,prompt,thumbnail_url,product_image_url,is_favorite,created_at')
-        .eq('user_id', userId)
-        .not('generated_video_url', 'is', null)
-        .order('is_favorite', { ascending: false })
-        .order('created_at', { ascending: false });
-      if (!error && data) {
-        const list = data as PublicVideo[];
+      const [repoRes, podcastRes, chatcutRes] = await Promise.all([
+        supabase
+          .from('video_repo_projects')
+          .select('id,generated_video_url,custom_name,prompt,thumbnail_url,product_image_url,is_favorite,created_at')
+          .eq('user_id', userId)
+          .not('generated_video_url', 'is', null)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('podcast_projects')
+          .select('id,topic,hook,video_url,scene_image_url,twin_name,featured_product,created_at')
+          .eq('user_id', userId)
+          .not('video_url', 'is', null)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('chatcut_drafts')
+          .select('id,name,video_url,created_at')
+          .eq('user_id', userId)
+          .not('video_url', 'is', null)
+          .order('created_at', { ascending: false }),
+      ]);
+
+      if (!repoRes.error && repoRes.data) {
+        const repoRows = (repoRes.data as PublicVideo[]);
+        const podcastRows: PublicVideo[] = (podcastRes.data || []).map((p: any) => ({
+          id: `podcast:${p.id}`,
+          generated_video_url: p.video_url,
+          custom_name: p.topic ? `🎙️ ${p.topic}` : (p.twin_name ? `🎙️ ${p.twin_name}` : '🎙️ Podcast'),
+          prompt: p.hook || p.topic || null,
+          thumbnail_url: p.scene_image_url || null,
+          product_image_url: p.scene_image_url || null,
+          is_favorite: false,
+          created_at: p.created_at,
+        }));
+        const chatcutRows: PublicVideo[] = (chatcutRes.data || []).map((c: any) => ({
+          id: `chatcut:${c.id}`,
+          generated_video_url: c.video_url,
+          custom_name: c.name ? `✂️ ${c.name}` : '✂️ Chatcut Edit',
+          prompt: null,
+          thumbnail_url: null,
+          product_image_url: null,
+          is_favorite: false,
+          created_at: c.created_at,
+        }));
+        const list = [...repoRows, ...podcastRows, ...chatcutRows].sort((a, b) => {
+          if ((b.is_favorite ? 1 : 0) !== (a.is_favorite ? 1 : 0)) return (b.is_favorite ? 1 : 0) - (a.is_favorite ? 1 : 0);
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
         setVideos(list);
         const ids = list.map(v => v.id);
         if (ids.length > 0) {
