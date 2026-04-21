@@ -311,29 +311,32 @@ const PublicLibrary = () => {
                       <Button
                         size="sm"
                         variant={myFav ? 'default' : 'outline'}
-                        className="h-8 px-2 text-xs gap-1"
+                        className="h-9 flex-1 text-xs gap-1.5"
                         onClick={() => toggleFavorite(v.id)}
                         title={myFav ? 'Remove favorite' : 'Add to favorites'}
                       >
-                        <Star className={`w-3.5 h-3.5 ${myFav ? 'fill-current' : ''}`} />
-                        {favCount > 0 ? favCount : ''}
+                        <Star className={`w-4 h-4 ${myFav ? 'fill-current' : ''}`} />
+                        {myFav ? 'Favorited' : 'Favorite'}
+                        {favCount > 0 && <span className="opacity-70">· {favCount}</span>}
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-8 px-2 text-xs gap-1"
+                        className="h-9 flex-1 text-xs gap-1.5"
                         onClick={() => toggleComments(v.id)}
                       >
-                        <MessageCircle className="w-3.5 h-3.5" />
-                        {projectComments.length > 0 ? projectComments.length : ''}
+                        <MessageCircle className="w-4 h-4" />
+                        Comment
+                        {projectComments.length > 0 && <span className="opacity-70">· {projectComments.length}</span>}
                       </Button>
                       <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 px-2 text-xs flex-1"
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 shrink-0 text-muted-foreground"
                         onClick={() => downloadAsMp4(v.generated_video_url, label)}
+                        title="Download MP4"
                       >
-                        <Download className="w-3.5 h-3.5 mr-1" /> Download
+                        <Download className="w-3.5 h-3.5" />
                       </Button>
                     </div>
 
