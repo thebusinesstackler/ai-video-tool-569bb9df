@@ -42,6 +42,9 @@ function getVisitorToken(): string {
 
 const PublicLibrary = () => {
   const { userId } = useParams<{ userId: string }>();
+  const [searchParams] = useSearchParams();
+  const sourceFilter = searchParams.get('source'); // e.g. 'animated' to show only animated statics
+  const isAnimatedOnly = sourceFilter === 'animated';
   const [videos, setVideos] = useState<PublicVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
