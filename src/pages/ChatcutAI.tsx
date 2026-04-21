@@ -1102,6 +1102,20 @@ const ChatcutAI = () => {
       } catch { /* ignore parse errors */ }
     }
 
+    // Deep-link: ?draft=<id> auto-loads a specific draft
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const draftParam = params.get('draft');
+      if (draftParam) {
+        loadDraft(draftParam);
+        // Clean URL so refresh doesn't keep reloading
+        const url = new URL(window.location.href);
+        url.searchParams.delete('draft');
+        window.history.replaceState({}, '', url.toString());
+        return;
+      }
+    } catch { /* ignore */ }
+
     // Load drafts on mount (only if no Vizard handoff)
     if (videoUrl) return;
     supabase
@@ -1117,7 +1131,7 @@ const ChatcutAI = () => {
           setShowDraftPicker(true);
         }
       });
-  }, [user, applyVizardClipToBuilder]);
+  }, [user, applyVizardClipToBuilder, loadDraft]);
 
   const resetProject = useCallback(() => {
     setMessages([]);
