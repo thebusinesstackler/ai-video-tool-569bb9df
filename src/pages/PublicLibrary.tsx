@@ -71,7 +71,7 @@ const PublicLibrary = () => {
     if (!userId) return;
     (async () => {
       setLoading(true);
-      const [repoRes, podcastRes, chatcutRes] = await Promise.all([
+      const [repoRes, podcastRes, chatcutRes, animatedRes] = await Promise.all([
         supabase
           .from('video_repo_projects')
           .select('id,generated_video_url,custom_name,prompt,thumbnail_url,product_image_url,is_favorite,created_at')
@@ -89,6 +89,12 @@ const PublicLibrary = () => {
           .select('id,name,video_url,created_at')
           .eq('user_id', userId)
           .not('video_url', 'is', null)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('animated_statics')
+          .select('id,animation_url,prompt,source_image_url,created_at')
+          .eq('user_id', userId)
+          .not('animation_url', 'is', null)
           .order('created_at', { ascending: false }),
       ]);
 
@@ -114,7 +120,17 @@ const PublicLibrary = () => {
           is_favorite: false,
           created_at: c.created_at,
         }));
-        const list = [...repoRows, ...podcastRows, ...chatcutRows].sort((a, b) => {
+        const animatedRows: PublicVideo[] = (animatedRes.data || []).map((a: any) => ({
+          id: `animated:${a.id}`,
+          generated_video_url: a.animation_url,
+          custom_name: '🎞️ Animated Static',
+          prompt: a.prompt || null,
+          thumbnail_url: a.source_image_url || null,
+          product_image_url: a.source_image_url || null,
+          is_favorite: false,
+          created_at: a.created_at,
+        }));
+        const list = [...repoRows, ...podcastRows, ...chatcutRows, ...animatedRows].sort((a, b) => {
           if ((b.is_favorite ? 1 : 0) !== (a.is_favorite ? 1 : 0)) return (b.is_favorite ? 1 : 0) - (a.is_favorite ? 1 : 0);
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
         });
