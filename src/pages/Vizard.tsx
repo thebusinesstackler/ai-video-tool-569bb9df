@@ -739,7 +739,27 @@ export default function Vizard() {
         {/* Project Cards */}
         {projects.length > 0 && (
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Your Projects</h2>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <h2 className="text-lg font-semibold">Your Projects</h2>
+              {user && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={async () => {
+                    const url = `${window.location.origin}/library/${user.id}?source=vizard`;
+                    try {
+                      await navigator.clipboard.writeText(url);
+                      toast({ title: 'Share link copied', description: 'Anyone with the link can view your Vizard clips.' });
+                    } catch {
+                      window.prompt('Copy your share link:', url);
+                    }
+                  }}
+                >
+                  <Link2 className="w-4 h-4 mr-1.5" />
+                  Share Public Gallery
+                </Button>
+              )}
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               {projects.map(p => (
                 <Card key={p.id} className="group hover:shadow-lg transition-all duration-200 border-border/60 hover:border-primary/30">
