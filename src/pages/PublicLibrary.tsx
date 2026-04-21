@@ -310,13 +310,13 @@ const PublicLibrary = () => {
               const isOpen = openComments.has(v.id);
               return (
                 <Card key={v.id} className="overflow-hidden flex flex-col">
-                  <div className="relative aspect-[9/16] bg-muted">
+                  <div className={`relative bg-muted flex items-center justify-center ${isAnimatedOnly ? 'aspect-square' : 'aspect-[9/16]'}`}>
                     <video
                       src={`${v.generated_video_url}#t=0.5`}
                       poster={poster}
                       controls
                       preload="metadata"
-                      className="w-full h-full object-cover"
+                      className={`w-full h-full ${isAnimatedOnly ? 'object-contain' : 'object-cover'}`}
                     />
                     {v.is_favorite && (
                       <Badge className="absolute top-2 left-2">
