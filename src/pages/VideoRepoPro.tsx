@@ -3169,6 +3169,21 @@ Output the VEO3-optimized prompt now.`
                               >
                                 <Eye className="w-3 h-3 mr-1" /> Review
                               </Button>
+                              {project.source === 'chatcut' && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 px-2"
+                                  onClick={() => {
+                                    const realId = project.id.replace(/^chatcut:/, '');
+                                    navigate(`/chatcut-ai?draft=${realId}`);
+                                  }}
+                                  aria-label="Open in Chatcut"
+                                  title="Open in Chatcut"
+                                >
+                                  <Scissors className="w-3.5 h-3.5" />
+                                </Button>
+                              )}
                               <Button
                                 size="sm"
                                 variant="outline"

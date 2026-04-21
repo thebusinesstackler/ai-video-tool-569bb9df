@@ -369,6 +369,7 @@ const ChatcutAI = () => {
   const bgVideoRef = useRef<HTMLVideoElement>(null);
   const videoWrapperRef = useRef<HTMLDivElement>(null);
   const bgFileInputRef = useRef<HTMLInputElement>(null);
+  const pendingDraftIdRef = useRef<string | null>(null);
   // Draft state
   const [draftId, setDraftId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('Untitled Project');
@@ -1102,6 +1103,23 @@ const ChatcutAI = () => {
       } catch { /* ignore parse errors */ }
     }
 
+    // Deep-link: ?draft=<id> auto-loads a specific draft
+    let pendingDraftId: string | null = null;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      pendingDraftId = params.get('draft');
+      if (pendingDraftId) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('draft');
+        window.history.replaceState({}, '', url.toString());
+      }
+    } catch { /* ignore */ }
+
+    if (pendingDraftId) {
+      pendingDraftIdRef.current = pendingDraftId;
+      return;
+    }
+
     // Load drafts on mount (only if no Vizard handoff)
     if (videoUrl) return;
     supabase
@@ -1267,6 +1285,15 @@ const ChatcutAI = () => {
     setShowDraftPicker(false);
     toast({ title: 'Draft loaded', description: `Resumed "${data.name}"` });
   }, [user, toast, resetProject]);
+
+  // Consume pending deep-link draft id once loadDraft is available
+  useEffect(() => {
+    const pending = pendingDraftIdRef.current;
+    if (pending && user) {
+      pendingDraftIdRef.current = null;
+      loadDraft(pending);
+    }
+  }, [user, loadDraft]);
 
   const uploadVideo = useCallback(async (file: File) => {
     if (!user) return;
