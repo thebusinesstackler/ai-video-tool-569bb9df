@@ -20,6 +20,7 @@ interface Scene {
   startFrame?: string;
   endFrame?: string;
   templateId?: string;
+  cameraAngle?: string;
 }
 
 interface VoiceoverData {
