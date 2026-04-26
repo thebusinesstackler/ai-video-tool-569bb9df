@@ -2092,6 +2092,29 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
                         </div>
                       </div>
 
+                      {/* Output format */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-muted-foreground flex-shrink-0">Format</span>
+                        <div className="inline-flex rounded-lg border border-border/60 bg-background p-0.5">
+                          <button
+                            type="button"
+                            onClick={() => setOutputFormat('9:16')}
+                            className={`px-2.5 py-1 text-[11px] rounded-md transition-colors ${outputFormat === '9:16' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                            title="Optimized for Instagram Reels, TikTok, and YouTube Shorts"
+                          >
+                            Reel 9:16
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setOutputFormat('16:9')}
+                            className={`px-2.5 py-1 text-[11px] rounded-md transition-colors ${outputFormat === '16:9' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                            title="Optimized for standard YouTube videos"
+                          >
+                            YouTube 16:9
+                          </button>
+                        </div>
+                      </div>
+
                       {/* Mode + Duration + Send */}
                       <div className="flex items-center gap-2 pt-1">
                         <Select value={mode} onValueChange={(v: 'guided' | 'freeform') => setMode(v)}>
