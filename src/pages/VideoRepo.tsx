@@ -1177,17 +1177,22 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
     setAutoMotionStatus('Picking creative strategy...');
 
     try {
-      const brandLine = brandProfile
-        ? `Brand: ${brandProfile.company_name || 'Lifecykel'}${brandProfile.brand_url ? ' (' + brandProfile.brand_url + ')' : ''}. ${brandProfile.brand_description || ''}`.trim()
-        : 'Brand: Lifecykel — premium mushroom extract drops (Lion\'s Mane, Reishi, Cordyceps, Chaga, Turkey Tail, Tremella). Wellness ritual, feminine, bright daylight.';
+      const brandNameForLine = brandProfile?.company_name?.trim();
+      const brandDescForLine = brandProfile?.brand_description?.trim();
+      const brandUrlForLine = brandProfile?.brand_url?.trim();
+      const brandLine = brandNameForLine || brandDescForLine
+        ? `Brand: ${brandNameForLine || 'Unnamed brand'}${brandUrlForLine ? ' (' + brandUrlForLine + ')' : ''}.${brandDescForLine ? ' ' + brandDescForLine : ''}`.trim()
+        : 'Brand: (no brand profile set — keep visuals product-focused and generic; do NOT invent a brand name, category, or product type. Use only what the reference image / product reference shows.)';
 
       const hasProductRef = Boolean(productImageUrl && !productImageUrl.startsWith('blob:'));
       const productName = selectedProductCtx?.productName || productImageName || null;
       const productBenefits = selectedProductCtx?.benefits?.length ? selectedProductCtx.benefits.join(', ') : null;
 
       const productHint = hasProductRef
-        ? `**LOCKED PRODUCT** — the user has provided a real product image (${productName || 'see reference'}). Both keyframes MUST feature THIS exact bottle/label/shape. Do NOT invent a new product, do NOT swap label colors, do NOT change the dropper style. The hero product is THIS exact product.${productBenefits ? ` Key benefits to evoke visually: ${productBenefits}.` : ''}`
-        : `Subject: a premium dropper bottle of mushroom extract on a clean styled surface.`;
+        ? `**LOCKED PRODUCT** — the user has provided a real product image (${productName || 'see reference'}). Both keyframes MUST feature THIS exact product as shown in the reference (same shape, label, color, packaging). Do NOT invent a new product, do NOT swap label colors, do NOT change the form factor. The hero product is THIS exact product.${productBenefits ? ` Key benefits to evoke visually: ${productBenefits}.` : ''}`
+        : productName
+          ? `Subject: ${productName} on a clean styled surface. Do not invent a category — use only what the name implies.`
+          : `Subject: the product or scene described by the user's prompt on a clean styled surface. Do not invent a brand or product category.`;
 
       const strategyPrompt = `You are a cinematic motion-video director. Pick ONE high-performing strategy from this list and design a 5-second hero motion clip:
 - Macro Pour (extract dropping into water/glass)

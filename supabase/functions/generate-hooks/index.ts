@@ -29,7 +29,7 @@ serve(async (req) => {
 
 ═══ YOUR TRAINING DATA — REAL HIGH-PERFORMING HOOK EXAMPLES ═══
 
-EXAMPLE PRODUCT: Lifecykel Mushroom Extracts (Lion's Mane, Reishi, Cordyceps)
+EXAMPLE PRODUCT: a wellness supplement brand (e.g. mushroom or adaptogen extracts)
 
 HOOK EXAMPLE 1:
 Hook: "Why am I still tired even after taking supplements?"
