@@ -728,7 +728,7 @@ Explicitly state "Follow the ACTION MANIFEST literally — counts are non-negoti
           const taskId = await createWaveSpeedVideo({
             prompt: videoPrompt,
             model: generationModel,
-            aspectRatio: '9:16',
+            aspectRatio: outputFormat,
             duration: soraDuration,
             userId: user?.id,
             source: 'video-repo',
@@ -935,7 +935,7 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
           const taskId = await createWaveSpeedVideo({
             prompt: newVideoPrompt,
             model: followModel,
-            aspectRatio: '9:16',
+            aspectRatio: outputFormat,
             duration: soraDuration,
             userId: user?.id,
             source: 'video-repo',
