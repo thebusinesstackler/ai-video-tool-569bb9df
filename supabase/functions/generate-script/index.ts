@@ -133,6 +133,20 @@ serve(async (req) => {
   }
 
   try {
+    const body = await req.json();
+    const params: ScriptParams = {
+      topic: body.topic,
+      duration: body.duration,
+      secondsPerScene: body.secondsPerScene,
+      style: body.style,
+      audience: body.audience,
+      tone: body.tone,
+      callToAction: body.callToAction,
+      characterId: body.characterId,
+    };
+    const character: Character | undefined = body.character;
+    const prompt = createScriptPrompt(params, character);
+
     try {
       const result = await callClaude({
         messages: [

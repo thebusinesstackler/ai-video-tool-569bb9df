@@ -888,7 +888,7 @@ Return ONLY a JSON array of objects: [{"sceneNumber": N, "narration": "expanded 
           4096
         );
         
-        const extendMatch = extendResult.match(/\[[\s\S]*\]/);
+        const extendMatch = extendResult.text.match(/\[[\s\S]*\]/);
         if (extendMatch) {
           const expanded = JSON.parse(extendMatch[0]);
           for (const exp of expanded) {
