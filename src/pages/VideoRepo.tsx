@@ -2114,6 +2114,20 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
                             YouTube 16:9
                           </button>
                         </div>
+                        <span className="text-[11px] text-muted-foreground flex-shrink-0 ml-2">Bulk</span>
+                        <Select value={String(bulkCount)} onValueChange={(v) => setBulkCount(Number(v))}>
+                          <SelectTrigger className="h-7 text-[11px] w-[110px] rounded-lg bg-background" title="Generate multiple variants in parallel (each with a slight creative variation)">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1">1 video</SelectItem>
+                            <SelectItem value="3">3 videos</SelectItem>
+                            <SelectItem value="4">4 videos</SelectItem>
+                            <SelectItem value="5">5 videos</SelectItem>
+                            <SelectItem value="6">6 videos</SelectItem>
+                            <SelectItem value="7">7 videos</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
 
                       {/* Mode + Duration + Send */}
