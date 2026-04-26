@@ -88,6 +88,24 @@ serve(async (req) => {
       );
     }
 
+    const lengthConfig = MOVIE_LENGTH_CONFIG[movieLength] || MOVIE_LENGTH_CONFIG['quick-reel'];
+
+    const systemPrompt = `You are an expert screenwriter creating a cohesive ${movieLength.replace('-', ' ')} outline.
+
+${lengthConfig.actStructure}
+
+Total target: ${lengthConfig.sceneRange} scenes, approximately ${lengthConfig.duration}.
+
+${characterDescription ? `MAIN CHARACTER (must appear consistently across scenes):\n${characterDescription}\n` : ''}
+${storyBible ? `STORY BIBLE (follow strictly):\n${storyBible}\n` : ''}
+
+Output the outline as a numbered list of scenes. For each scene give:
+- A short scene title
+- 2-4 sentence description (setting, characters present, key action, emotional beat)
+- How it connects to the next scene
+
+The story must feel like ONE cohesive narrative with a clear beginning, middle, and end.`;
+
     console.log(`Generating ${movieLength} outline with ${lengthConfig.sceneRange} scenes`);
 
     try {
