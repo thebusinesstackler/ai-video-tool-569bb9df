@@ -277,6 +277,20 @@ const VideoRepo = () => {
 
       video.onloadedmetadata = () => {
         const duration = video.duration;
+        // Auto-detect output format from reference video aspect
+        if (video.videoWidth && video.videoHeight) {
+          const aspect = video.videoWidth / video.videoHeight;
+          const detected: '9:16' | '16:9' = aspect < 1 ? '9:16' : '16:9';
+          setOutputFormat((prev) => {
+            if (prev !== detected) {
+              toast({
+                title: detected === '9:16' ? 'Detected vertical format' : 'Detected horizontal format',
+                description: `Set to ${detected === '9:16' ? 'Reel (9:16)' : 'YouTube (16:9)'}. You can change this anytime.`,
+              });
+            }
+            return detected;
+          });
+        }
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d')!;
         const frames: string[] = [];
