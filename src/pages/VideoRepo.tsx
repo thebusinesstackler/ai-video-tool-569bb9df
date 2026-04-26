@@ -126,6 +126,7 @@ const VideoRepo = () => {
   const [productPickerOpen, setProductPickerOpen] = useState(false);
   const [selectedProductCtx, setSelectedProductCtx] = useState<SelectedProductContext | null>(null);
   const [inputMode, setInputMode] = useState<'i2v' | 't2v'>('i2v');
+  const [outputFormat, setOutputFormat] = useState<'9:16' | '16:9'>('9:16');
   const [contentStyle, setContentStyle] = useState<ContentArchetypeId>('auto');
   const [brandProfile, setBrandProfile] = useState<{ company_name: string | null; brand_url: string | null; brand_description: string | null } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
