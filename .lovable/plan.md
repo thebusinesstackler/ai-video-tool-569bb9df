@@ -1,37 +1,52 @@
-# Add Format Detection & Selection to Video Repo
+## Problem
 
-Currently the Video Repo page hardcodes `aspectRatio: '9:16'` for every generation. We'll add automatic aspect detection from reference videos plus a manual format toggle that the user can override at any time.
+The Video Repo page is injecting "Lifecykel" branding (mushroom extracts, Lion's Mane, Reishi, etc.) into AI generation prompts even when the logged-in user's profile has no relation to that brand.
 
-## Behavior
+## Root Cause
 
-1. **Auto-detect from reference video** — When a user uploads or imports a reference video, read `videoWidth`/`videoHeight` during frame extraction. If `width/height < 1` (portrait) → set format to **Reel (9:16)**. Otherwise → **YouTube (16:9)**.
-2. **Manual override** — A format selector (segmented control) is always visible in the input area, defaulting to Reel (9:16). User can switch at any time, even after auto-detection.
-3. **Generation respects choice** — All `createWaveSpeedVideo` calls in the main generate path and follow-up regenerate path use the selected aspect ratio instead of the hardcoded `'9:16'`.
+In `src/pages/VideoRepo.tsx` (lines 1180–1182), the `autoGenerateMotionVideo` function builds a `brandLine` for the AI prompt:
 
-## UI Placement
-
-In the chat input area on `/video-repo`, just above the prompt textarea (near the existing reference/product chips around line 2005), add a small segmented control:
-
-```text
-Format: [ Reel 9:16 ] [ YouTube 16:9 ]
-         Instagram /     Standard
-         TikTok / Shorts  YouTube
+```ts
+const brandLine = brandProfile
+  ? `Brand: ${brandProfile.company_name || 'Lifecykel'}${...}. ${brandProfile.brand_description || ''}`
+  : 'Brand: Lifecykel — premium mushroom extract drops (Lion\'s Mane, Reishi, Cordyceps, Chaga, Turkey Tail, Tremella). Wellness ritual, feminine, bright daylight.';
 ```
 
-When auto-detection fires, show a brief toast: *"Detected vertical format — set to Reel (9:16). You can change this anytime."*
+Two leaks:
+1. If `brandProfile` exists but `company_name` is empty → falls back to the literal string `'Lifecykel'`.
+2. If `brandProfile` is null entirely → falls back to a fully Lifecykel-themed paragraph.
 
-## Technical Changes
+Either path silently brands every motion video generated on accounts that haven't filled out their profile (e.g. your current account).
 
-**`src/pages/VideoRepo.tsx`**
-- Add state: `const [outputFormat, setOutputFormat] = useState<'9:16' | '16:9'>('9:16')`.
-- In the local `extractFrames` function (~line 277) and after URL-import frame extraction (~line 410), once `video.onloadedmetadata` fires, compute `aspect = videoWidth / videoHeight` and call `setOutputFormat(aspect < 1 ? '9:16' : '16:9')`. Show the detection toast once per upload.
-- Apply the same detection inside the file-drop handler that sets `referenceVideoFile` (search for `setReferenceVideoFile` callers).
-- Replace the two hardcoded `aspectRatio: '9:16'` in the Sora/Wan generation path (line ~716) and follow-up regenerate path (line ~923) with `aspectRatio: outputFormat`.
-- Add a `ToggleGroup` (or two `Button`s) above the prompt input bound to `outputFormat`.
+A similar but lighter mention exists in `src/pages/VideoRepoPro.tsx` line 1926 ("TheraNovex healthcare & Lifecykel wellness") inside the AI Reel Director system brief — also a hardcoded brand reference that should be made generic.
 
-**No DB / edge function changes** — `createWaveSpeedVideo` already accepts `aspectRatio` as a parameter and Sora-2 / Wan-2.5-i2v support both `9:16` and `16:9`.
+## Fix
 
-## Out of Scope
+### 1. `src/pages/VideoRepo.tsx` — replace brand fallback with neutral, profile-driven text
 
-- Keyframe motion path (line 1089) stays at `16:9` since it's a separate flow.
-- No persistence of the user's format preference across sessions (can be added later if desired).
+Replace the hardcoded `brandLine` with a generic version that uses whatever profile data exists, and falls back to a brand-neutral instruction when nothing is set:
+
+- If `brandProfile.company_name` exists → use it verbatim, no fallback name.
+- If `brandProfile` has a `brand_description` → use it.
+- If neither exists → emit a neutral line like `"Brand: (no brand profile set — keep visuals product-focused and generic; do not invent a brand name or category)."`
+- If `productName` is known, weave that in instead of assuming "mushroom extract drops".
+
+Also rewrite the `productHint` "Subject: a premium dropper bottle of mushroom extract..." default (line 1190) to a neutral subject line that uses `productName` when available, otherwise just says `"Subject: the product provided by the user."`
+
+### 2. `src/pages/VideoRepoPro.tsx` line 1926 — neutralize the director brief
+
+Change `"a high-performance UGC ad platform (TheraNovex healthcare & Lifecykel wellness)"` to `"a high-performance UGC ad platform"` — those two brand names should not bleed into every user's prompt.
+
+### 3. Sanity sweep (no edits needed, just verifying)
+
+- `supabase/functions/podcast-director/index.ts` — already correctly gated behind a `/lifecykel/i` check on `brandName`/`userEmail`/`websiteUrl`. Won't trigger for unrelated accounts. ✅
+- `supabase/functions/generate-hooks/index.ts` — uses Lifecykel only as a one-line "EXAMPLE PRODUCT" inside the system prompt. Low risk but I'll genericize it to "EXAMPLE PRODUCT: a wellness supplement brand" so it can't bias outputs.
+- `supabase/functions/chatcut-director/index.ts` — references Lifecykel as a spelling/vocab guard (only activated when brand vocabulary actually contains it) and one example payload. Safe to leave; not leaking into unrelated accounts.
+
+## Files to edit
+
+- `src/pages/VideoRepo.tsx` (brand fallback + product subject default)
+- `src/pages/VideoRepoPro.tsx` (director brief intro line)
+- `supabase/functions/generate-hooks/index.ts` (genericize example product line)
+
+No database, no schema, no new dependencies.
