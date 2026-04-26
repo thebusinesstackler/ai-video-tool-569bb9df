@@ -127,6 +127,7 @@ const VideoRepo = () => {
   const [selectedProductCtx, setSelectedProductCtx] = useState<SelectedProductContext | null>(null);
   const [inputMode, setInputMode] = useState<'i2v' | 't2v'>('i2v');
   const [outputFormat, setOutputFormat] = useState<'9:16' | '16:9'>('9:16');
+  const [bulkCount, setBulkCount] = useState<number>(1);
   const [contentStyle, setContentStyle] = useState<ContentArchetypeId>('auto');
   const [brandProfile, setBrandProfile] = useState<{ company_name: string | null; brand_url: string | null; brand_description: string | null } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -724,62 +725,80 @@ Explicitly state "Follow the ACTION MANIFEST literally — counts are non-negoti
           setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `🎬 Generating with Sora 2...` } : m));
         }
         console.log('[VideoRepo] Generation routing:', { generationModel, hasImage: !!persistentImageUrl, persistentImageUrl, useProductLock, isT2V });
+        // Build N variants. 3 base creative variations cycled across bulkCount.
+        const variantHints = [
+          '', // base
+          '\n\n[Variation B] Try a different opening hook angle and slightly faster pacing while keeping the same product, characters, setting, and overall message.',
+          '\n\n[Variation C] Use an alternate camera framing (e.g. tighter close-up or wider establishing shot) and a different lighting mood while keeping the same product, characters, setting, and overall message.',
+        ];
+        const totalVariants = Math.max(1, bulkCount);
+        const variantPrompts = Array.from({ length: totalVariants }, (_, i) => videoPrompt + variantHints[i % variantHints.length]);
+
+        if (totalVariants > 1) {
+          setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `🎬 Bulk generating ${totalVariants} variants in parallel...` } : m));
+        }
+
+        const runOne = async (variantPrompt: string, idx: number) => {
+          try {
+            const taskId = await createWaveSpeedVideo({
+              prompt: variantPrompt,
+              model: generationModel,
+              aspectRatio: outputFormat,
+              duration: soraDuration,
+              userId: user?.id,
+              source: 'video-repo',
+              ...(persistentImageUrl ? { imageUrls: [persistentImageUrl] } : {}),
+            });
+            let attempts = 0;
+            const maxAttempts = 120;
+            while (attempts < maxAttempts) {
+              await new Promise((r) => setTimeout(r, 5000));
+              const job = await getWaveSpeedVideoJob(taskId);
+              if (job.status === 'completed' && job.videoUrl) {
+                if (user) {
+                  await supabase.from('generated_images').insert({
+                    user_id: user.id,
+                    image_url: job.videoUrl,
+                    prompt: variantPrompt,
+                    source: 'video-repo',
+                    reference_image_url: persistentImageUrl,
+                  });
+                }
+                const resultMsg: ChatMessage = {
+                  id: `result-${Date.now()}-${idx}`,
+                  role: 'assistant',
+                  content: totalVariants > 1 ? `✅ Variant ${idx + 1} of ${totalVariants} ready!` : '✅ Your UGC ad video is ready! You can download it or use it directly.',
+                  videoResult: { url: job.videoUrl, status: 'completed' },
+                };
+                setMessages((prev) => prev.concat(resultMsg));
+                return job.videoUrl;
+              }
+              if (job.status === 'failed') throw new Error(job.error || 'Video generation failed');
+              attempts++;
+            }
+            throw new Error('Video generation timed out.');
+          } catch (e: any) {
+            const errorMsg: ChatMessage = {
+              id: `error-${Date.now()}-${idx}`,
+              role: 'assistant',
+              content: `⚠️ Variant ${idx + 1} failed: ${e.message}`,
+            };
+            setMessages((prev) => prev.concat(errorMsg));
+            return null;
+          }
+        };
+
         try {
-          const taskId = await createWaveSpeedVideo({
-            prompt: videoPrompt,
-            model: generationModel,
-            aspectRatio: outputFormat,
-            duration: soraDuration,
-            userId: user?.id,
-            source: 'video-repo',
-            ...(persistentImageUrl ? { imageUrls: [persistentImageUrl] } : {}),
-          });
-
-          let attempts = 0;
-          const maxAttempts = 120;
-          while (attempts < maxAttempts) {
-            await new Promise((r) => setTimeout(r, 5000));
-            const job = await getWaveSpeedVideoJob(taskId);
-
-            if (job.status === 'completed' && job.videoUrl) {
-              // Update DB with generated video
-              if (projectId) {
-                await supabase.from('video_repo_projects').update({
-                  generated_video_url: job.videoUrl,
-                  status: 'completed',
-                }).eq('id', projectId);
-              }
-
-              // Save to generated_images for gallery integration
-              if (user) {
-                await supabase.from('generated_images').insert({
-                  user_id: user.id,
-                  image_url: job.videoUrl,
-                  prompt: videoPrompt,
-                  source: 'video-repo',
-                  reference_image_url: persistentImageUrl,
-                });
-              }
-
-              const resultMsg: ChatMessage = {
-                id: `result-${Date.now()}`,
-                role: 'assistant',
-                content: '✅ Your UGC ad video is ready! You can download it or use it directly.',
-                videoResult: { url: job.videoUrl, status: 'completed' },
-              };
-              setMessages((prev) => prev.filter((m) => m.id !== generatingMsg.id).concat(resultMsg));
-              fetchHistory();
-              break;
-            }
-            if (job.status === 'failed') {
-              throw new Error(job.error || 'Video generation failed');
-            }
-            attempts++;
+          const results = await Promise.all(variantPrompts.map((p, i) => runOne(p, i)));
+          const firstUrl = results.find((u) => !!u) || null;
+          if (projectId && firstUrl) {
+            await supabase.from('video_repo_projects').update({
+              generated_video_url: firstUrl,
+              status: 'completed',
+            }).eq('id', projectId);
           }
-
-          if (attempts >= maxAttempts) {
-            throw new Error('Video generation timed out. Check your video queue for updates.');
-          }
+          setMessages((prev) => prev.filter((m) => m.id !== generatingMsg.id));
+          fetchHistory();
         } catch (genErr: any) {
           if (projectId) {
             await supabase.from('video_repo_projects').update({ status: 'failed' }).eq('id', projectId);
@@ -2113,6 +2132,20 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
                             YouTube 16:9
                           </button>
                         </div>
+                        <span className="text-[11px] text-muted-foreground flex-shrink-0 ml-2">Bulk</span>
+                        <Select value={String(bulkCount)} onValueChange={(v) => setBulkCount(Number(v))}>
+                          <SelectTrigger className="h-7 text-[11px] w-[110px] rounded-lg bg-background" title="Generate multiple variants in parallel (each with a slight creative variation)">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1">1 video</SelectItem>
+                            <SelectItem value="3">3 videos</SelectItem>
+                            <SelectItem value="4">4 videos</SelectItem>
+                            <SelectItem value="5">5 videos</SelectItem>
+                            <SelectItem value="6">6 videos</SelectItem>
+                            <SelectItem value="7">7 videos</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
 
                       {/* Mode + Duration + Send */}
