@@ -1923,7 +1923,7 @@ Output the VEO3-optimized prompt now.`
     }
     setIsEnhancing(true);
     try {
-      const directorBrief = `You are the AI Reel Director for a high-performance UGC ad platform (TheraNovex healthcare & Lifecykel wellness). Rewrite the user's prompt into a richly-detailed ${singleDuration}-second cinematic ad brief for ONE continuous Sora-2 take (no stitching, no segments). Apply these rules:
+      const directorBrief = `You are the AI Reel Director for a high-performance UGC ad platform. Rewrite the user's prompt into a richly-detailed ${singleDuration}-second cinematic ad brief for ONE continuous Sora-2 take (no stitching, no segments). Apply these rules:
 
 - Movement-First UGC aesthetic: bright natural daylight, unretouched, handheld energy, vibrant color.
 - Structure: Hook (first 2-3s, psychological trigger) → Problem → Product reveal → 1-2 specific benefits → CTA — all inside ${singleDuration}s as ONE continuous take.
