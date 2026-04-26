@@ -126,6 +126,7 @@ const VideoRepo = () => {
   const [productPickerOpen, setProductPickerOpen] = useState(false);
   const [selectedProductCtx, setSelectedProductCtx] = useState<SelectedProductContext | null>(null);
   const [inputMode, setInputMode] = useState<'i2v' | 't2v'>('i2v');
+  const [outputFormat, setOutputFormat] = useState<'9:16' | '16:9'>('9:16');
   const [contentStyle, setContentStyle] = useState<ContentArchetypeId>('auto');
   const [brandProfile, setBrandProfile] = useState<{ company_name: string | null; brand_url: string | null; brand_description: string | null } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -276,6 +277,20 @@ const VideoRepo = () => {
 
       video.onloadedmetadata = () => {
         const duration = video.duration;
+        // Auto-detect output format from reference video aspect
+        if (video.videoWidth && video.videoHeight) {
+          const aspect = video.videoWidth / video.videoHeight;
+          const detected: '9:16' | '16:9' = aspect < 1 ? '9:16' : '16:9';
+          setOutputFormat((prev) => {
+            if (prev !== detected) {
+              toast({
+                title: detected === '9:16' ? 'Detected vertical format' : 'Detected horizontal format',
+                description: `Set to ${detected === '9:16' ? 'Reel (9:16)' : 'YouTube (16:9)'}. You can change this anytime.`,
+              });
+            }
+            return detected;
+          });
+        }
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d')!;
         const frames: string[] = [];
@@ -713,7 +728,7 @@ Explicitly state "Follow the ACTION MANIFEST literally — counts are non-negoti
           const taskId = await createWaveSpeedVideo({
             prompt: videoPrompt,
             model: generationModel,
-            aspectRatio: '9:16',
+            aspectRatio: outputFormat,
             duration: soraDuration,
             userId: user?.id,
             source: 'video-repo',
@@ -920,7 +935,7 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
           const taskId = await createWaveSpeedVideo({
             prompt: newVideoPrompt,
             model: followModel,
-            aspectRatio: '9:16',
+            aspectRatio: outputFormat,
             duration: soraDuration,
             userId: user?.id,
             source: 'video-repo',
@@ -2074,6 +2089,29 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
                               {isDownloadingUrl ? '...' : 'Import'}
                             </Button>
                           )}
+                        </div>
+                      </div>
+
+                      {/* Output format */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-muted-foreground flex-shrink-0">Format</span>
+                        <div className="inline-flex rounded-lg border border-border/60 bg-background p-0.5">
+                          <button
+                            type="button"
+                            onClick={() => setOutputFormat('9:16')}
+                            className={`px-2.5 py-1 text-[11px] rounded-md transition-colors ${outputFormat === '9:16' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                            title="Optimized for Instagram Reels, TikTok, and YouTube Shorts"
+                          >
+                            Reel 9:16
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setOutputFormat('16:9')}
+                            className={`px-2.5 py-1 text-[11px] rounded-md transition-colors ${outputFormat === '16:9' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                            title="Optimized for standard YouTube videos"
+                          >
+                            YouTube 16:9
+                          </button>
                         </div>
                       </div>
 
