@@ -711,6 +711,9 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
     } catch (err: any) {
       console.error('Generation error:', err);
       const msg = err?.message || 'Unknown error';
+      if (podcastProjectId) {
+        await supabase.from('podcast_projects').update({ status: 'failed', error: msg }).eq('id', podcastProjectId);
+      }
       const isCredits = /credits?\s*(exhausted|run out|insufficient)|top\s*up|insufficient.*balance/i.test(msg);
       toast({
         title: isCredits ? '⚠️ WaveSpeed Credits Exhausted' : 'Generation Failed',
