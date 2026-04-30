@@ -552,7 +552,7 @@ Return ONLY a JSON object:
   "visualDescription": "Brief visual direction for the character in a professional studio setting"
 }`
               },
-              { role: 'user', content: `Write a ${dur}-second talking head script for:\n\n${message}` }
+              { role: 'user', content: `Write a ${dur}-second talking head script for:\n\n${effectiveMessage}` }
             ]
           }
         });
