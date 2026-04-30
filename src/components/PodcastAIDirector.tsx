@@ -148,15 +148,23 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
       const done = generationProgress >= 100 || !!finalVideoUrl;
       setMessages(prev => {
         const filtered = prev.filter(m => !m.content.startsWith(STATUS_PREFIX));
+        // If the video already arrived, the embed + follow-up effect handle it.
+        if (done) return filtered;
+        if (generationError) {
+          return [
+            ...filtered,
+            {
+              role: 'assistant',
+              content: `⚠️ Generation hit an issue: ${generationError}. Click **Generate Video** again on the script above to retry — your script is preserved.`,
+            },
+          ];
+        }
+        // Still rendering in the background — keep a status bubble alive.
         return [
           ...filtered,
           {
             role: 'assistant',
-            content: done
-              ? `✅ **Your video is ready!** It's saved here so you can come back to it anytime.`
-              : generationError
-                ? `⚠️ Generation hit an issue: ${generationError}. Click **Generate Video** again on the script above to retry — your script is preserved.`
-                : `${STATUS_PREFIX}⚙️ **Still rendering in the background...** _Marcus will keep checking and post the video here when it finishes._`,
+            content: `${STATUS_PREFIX}⚙️ **Still rendering in the background...** _Marcus will keep checking and post the video here when it finishes._`,
           },
         ];
       });
