@@ -971,7 +971,22 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
         {/* Left Panel — AI Creative Director */}
         <div className="lg:w-[420px] xl:w-[460px] border-r border-border flex flex-col bg-background order-2 lg:order-1 min-h-[300px] lg:min-h-0 lg:h-full">
           <PodcastAIDirector
-            onUseScript={(script) => { setMessage(script); setActiveTab('talking-head'); }}
+            onUseScript={(script) => {
+              setMessage(script);
+              setActiveTab('talking-head');
+              if (!selectedTwin) {
+                toast({ title: 'Pick an AI Twin', description: 'Select a character on the right, then press Generate.', variant: 'destructive' });
+                return;
+              }
+              // Use script directly as narration — skip the AI rewrite step.
+              const preset: ScriptVariation = {
+                id: `marcus-${Date.now()}`,
+                label: 'Marcus script',
+                narration: script,
+                visualDescription: `Talking-head selfie of ${selectedTwin.name} delivering the script naturally on iPhone front camera.`,
+              } as ScriptVariation;
+              setTimeout(() => { generate(preset); }, 50);
+            }}
             onUseBatchPlan={handleBatchPlan}
             selectedCharacterName={selectedTwin?.name}
             brandContext={{
