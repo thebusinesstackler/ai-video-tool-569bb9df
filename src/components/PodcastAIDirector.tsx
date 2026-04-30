@@ -414,7 +414,7 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
             className="text-[10px] cursor-pointer hover:bg-primary/10 hover:border-primary/30 transition-colors"
             onClick={() => send('Generate a ready-to-use talking-head script based on my first input. Include the estimated duration and camera movement suggestions, then wrap the exact spoken script in SCRIPT_SUGGESTION tags.')}
           >
-            <Sparkles className="w-3 h-3 mr-1" /> Generate Video Script
+            <Sparkles className="w-3 h-3 mr-1" /> Rewrite Script
           </Badge>
         </div>
       )}
