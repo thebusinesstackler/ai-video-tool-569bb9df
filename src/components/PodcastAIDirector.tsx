@@ -148,15 +148,23 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
       const done = generationProgress >= 100 || !!finalVideoUrl;
       setMessages(prev => {
         const filtered = prev.filter(m => !m.content.startsWith(STATUS_PREFIX));
+        // If the video already arrived, the embed + follow-up effect handle it.
+        if (done) return filtered;
+        if (generationError) {
+          return [
+            ...filtered,
+            {
+              role: 'assistant',
+              content: `⚠️ Generation hit an issue: ${generationError}. Click **Generate Video** again on the script above to retry — your script is preserved.`,
+            },
+          ];
+        }
+        // Still rendering in the background — keep a status bubble alive.
         return [
           ...filtered,
           {
             role: 'assistant',
-            content: done
-              ? `✅ **Your video is ready!** It's saved here so you can come back to it anytime.`
-              : generationError
-                ? `⚠️ Generation hit an issue: ${generationError}. Click **Generate Video** again on the script above to retry — your script is preserved.`
-                : `${STATUS_PREFIX}⚙️ **Still rendering in the background...** _Marcus will keep checking and post the video here when it finishes._`,
+            content: `${STATUS_PREFIX}⚙️ **Still rendering in the background...** _Marcus will keep checking and post the video here when it finishes._`,
           },
         ];
       });
@@ -165,15 +173,23 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
 
   // When a finished video URL arrives, embed it as a special chat message
   // so the user sees the result inline AND it persists across navigation.
+  // Then immediately follow up with creative variation suggestions.
   const lastVideoRef = useRef<string | null>(null);
   useEffect(() => {
     if (finalVideoUrl && finalVideoUrl !== lastVideoRef.current) {
       lastVideoRef.current = finalVideoUrl;
       setMessages(prev => {
         if (prev.some(m => m.content === `${VIDEO_PREFIX}${finalVideoUrl}`)) return prev;
+        const cleaned = prev.filter(
+          m => !m.content.startsWith(STATUS_PREFIX) && !m.content.startsWith('⚠️ Generation stopped before finishing')
+        );
         return [
-          ...prev.filter(m => !m.content.startsWith(STATUS_PREFIX) && !m.content.startsWith('⚠️ Generation stopped before finishing')),
+          ...cleaned,
           { role: 'assistant', content: `${VIDEO_PREFIX}${finalVideoUrl}` },
+          {
+            role: 'assistant',
+            content: `🎬 **Nailed it!** Want me to spin another version? Just tell me what to change — or pick one:\n\n- 👤 **Different person** — try another AI Twin or let me cast a new face\n- 🎙️ **More natural voice** — slower, more expressive delivery\n- ⏱️ **Longer cut** — go deeper (90s, 2 min, even 5 min long-form)\n- 🎥 **Different angle or setting** — kitchen, outdoor, car selfie, golden hour…\n- 🎯 **Different hook or CTA** — same topic, fresh opening\n\nJust say the word and I'll write the next one.`,
+          },
         ];
       });
     }

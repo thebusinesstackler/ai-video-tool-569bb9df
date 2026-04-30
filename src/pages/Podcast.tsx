@@ -361,19 +361,36 @@ const Podcast = () => {
     }
   };
 
-  // Build TTS body
+  // Build TTS body — match voice to the character on screen.
+  // Priority: 1) the user's cloned voice for that twin, 2) a gender + age/tone
+  // matched OpenAI voice, 3) safe default. Slow, expressive pacing for natural delivery.
   const buildTtsBody = (text: string, twin: AITwin) => {
-    const isFemale = twin.gender?.toLowerCase() === 'female' || twin.gender?.toLowerCase() === 'woman';
+    const gender = (twin.gender || '').toLowerCase();
+    const isFemale = gender === 'female' || gender === 'woman';
+    const desc = (twin.face_description || '').toLowerCase();
+
+    // Pick a voice that fits the visible character. OpenAI voice library:
+    //   female: nova (warm), shimmer (bright young), alloy (neutral mature)
+    //   male:   echo (calm mature), onyx (deep authoritative), fable (warm storyteller)
+    let voice: string;
+    if (isFemale) {
+      if (/young|teen|girl|bright|playful|energetic/.test(desc)) voice = 'shimmer';
+      else if (/mature|older|professional|calm/.test(desc)) voice = 'alloy';
+      else voice = 'nova';
+    } else {
+      if (/deep|authoritative|older|mature|gruff|baritone/.test(desc)) voice = 'onyx';
+      else if (/warm|friendly|storyteller|narrator/.test(desc)) voice = 'fable';
+      else voice = 'echo';
+    }
+
     const body: Record<string, any> = {
       text,
-      speed: 0.82,
+      speed: 0.85, // slow, expressive — gives room for natural pauses
       gender: twin.gender || (isFemale ? 'female' : 'male'),
-      voice: isFemale ? 'nova' : 'echo',
+      voice,
     };
-    if (twin.voice_cloning_key) {
-      body.voiceCloningKey = twin.voice_cloning_key;
-      return body;
-    }
+    // Cloned voice always wins — that's literally the character's real voice.
+    if (twin.voice_cloning_key) body.voiceCloningKey = twin.voice_cloning_key;
     return body;
   };
 
@@ -698,15 +715,41 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
         podcastProjectId = project?.id || null;
       }
 
-      // Step 4: Create lip-sync video
+      // Step 4: Create lip-sync video — pass a STRUCTURED JSON prompt describing
+      // voice match, expression beats, and pacing so the model has explicit direction.
       setProgressStatus('Rendering video with lip-sync...');
+      const videoDirection = {
+        style: 'natural expressive talking-head selfie',
+        camera: 'iPhone front camera, slight low angle, subtle handheld micro-shake',
+        subject: {
+          description: twinForGeneration.face_description || twinForGeneration.name,
+          gender: twinForGeneration.gender || 'unspecified',
+          voice_match: 'Voice MUST match the visible age, gender, and energy of this exact person — no mismatched timbre.',
+        },
+        delivery: {
+          pace: 'slow and deliberate (~2 words/sec)',
+          pauses: 'natural breathing and brief pauses between thoughts',
+          tone: 'warm, conversational, authentic',
+        },
+        expression: [
+          'expressive eyebrows that lift on key words',
+          'soft natural smiles where the line is positive',
+          'small head tilts and gentle nods between sentences',
+          'warm direct eye contact with camera',
+          'visible breathing — not robotic',
+        ],
+        lipsync: 'precise jaw and lip motion exactly matching the audio phonemes',
+        avoid: ['stiff/robotic motion', 'fast cartoonish gestures', 'mismatched voice', 'glossy retouched look', 'on-screen text'],
+        lighting: 'natural daylight, unretouched authentic realism',
+      };
+      const structuredPrompt = `Follow this JSON direction precisely:\n${JSON.stringify(videoDirection, null, 2)}`;
       const { data: videoData, error: videoErr } = await supabase.functions.invoke('wavespeed-video', {
         body: {
           action: 'create',
           model: 'infinitetalk-hd',
           imageUrls: [sceneImg],
           audioUrl: ttsUrl,
-          prompt: `Natural expressive talking-head selfie. The person speaks calmly and deliberately with realistic pauses, visible breathing, expressive eyebrows, warm eye contact, subtle smiles, small head tilts, gentle nods, and accurate lip-sync/jaw motion. Match the voice to the person's age, gender, and face. Keep movements human and restrained, not robotic. Subtle handheld iPhone micro-shake, natural daylight, authentic unpolished realism.`,
+          prompt: structuredPrompt,
           aspectRatio,
           userId: user?.id,
           source: 'podcast',
