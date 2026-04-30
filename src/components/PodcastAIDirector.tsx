@@ -344,7 +344,7 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
                                         'mt-0.5 w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center',
                                         isOn ? 'bg-primary border-primary' : 'border-muted-foreground/40'
                                       )}>
-                                        {isOn && <Copy className="w-2 h-2 text-primary-foreground rotate-0" style={{ clipPath: 'polygon(20% 50%, 45% 75%, 85% 25%, 75% 15%, 45% 55%, 30% 40%)' }} />}
+                                        {isOn && <Check className="w-2.5 h-2.5 text-primary-foreground" strokeWidth={3} />}
                                       </span>
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between gap-2">
