@@ -974,20 +974,27 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
             onUseScript={(script) => {
               setMessage(script);
               setActiveTab('talking-head');
-              if (!selectedTwin) {
-                toast({ title: 'Pick an AI Twin', description: 'Select a character on the right, then press Generate.', variant: 'destructive' });
+              // Auto-pick the best-fit avatar if none selected: first available twin.
+              let twinForRun = selectedTwin;
+              if (!twinForRun && twins.length > 0) {
+                twinForRun = twins[0];
+                setSelectedTwinId(twinForRun.id);
+                toast({ title: `Featuring ${twinForRun.name}`, description: 'Auto-selected your avatar for this video.' });
+              }
+              if (!twinForRun) {
+                toast({ title: 'No AI Twin available', description: 'Create an AI Twin first, then try again.', variant: 'destructive' });
                 return;
               }
-              // Use script directly as narration — skip the AI rewrite step.
               const preset: ScriptVariation = {
                 id: `marcus-${Date.now()}`,
                 styleLabel: 'Marcus',
                 settingLabel: 'Selfie',
                 hook: script.split(/[.!?]/)[0]?.trim() || '',
                 narration: script,
-                visualDescription: `Talking-head selfie of ${selectedTwin.name} delivering the script naturally on iPhone front camera.`,
+                visualDescription: `Talking-head selfie of ${twinForRun.name} delivering the script naturally on iPhone front camera.`,
               };
-              setTimeout(() => { generate(preset); }, 50);
+              // Defer so React commits the new selectedTwinId before generate() reads it.
+              setTimeout(() => { generate(preset); }, 100);
             }}
             onUseBatchPlan={handleBatchPlan}
             selectedCharacterName={selectedTwin?.name}
