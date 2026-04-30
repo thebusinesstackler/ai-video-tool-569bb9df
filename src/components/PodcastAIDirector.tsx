@@ -117,34 +117,59 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
     }
   }, [messages]);
 
-  // Marcus narrates the generation pipeline live in chat.
-  const lastStatusRef = useRef<string>('');
+  // Marcus narrates the generation pipeline IN PLACE — one status bubble that
+  // updates rather than spamming new messages, so the script + plan stay visible.
   const wasGeneratingRef = useRef<boolean>(false);
   useEffect(() => {
-    if (isGenerating && generationStatus && generationStatus !== lastStatusRef.current) {
-      lastStatusRef.current = generationStatus;
+    if (isGenerating && generationStatus) {
       const pct = Math.round(generationProgress);
-      setMessages(prev => [
-        ...prev,
-        { role: 'assistant', content: `⚙️ **${generationStatus}** _(${pct}%)_` },
-      ]);
+      const statusContent = `${STATUS_PREFIX}⚙️ **${generationStatus}** _(${pct}%)_`;
+      setMessages(prev => {
+        const lastIdx = prev.length - 1;
+        const last = prev[lastIdx];
+        if (last?.role === 'assistant' && last.content.startsWith(STATUS_PREFIX)) {
+          if (last.content === statusContent) return prev;
+          return prev.map((m, i) => i === lastIdx ? { ...m, content: statusContent } : m);
+        }
+        return [...prev, { role: 'assistant', content: statusContent }];
+      });
     }
     if (isGenerating) wasGeneratingRef.current = true;
     if (!isGenerating && wasGeneratingRef.current) {
       wasGeneratingRef.current = false;
-      lastStatusRef.current = '';
       const done = generationProgress >= 100;
-      setMessages(prev => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: done
-            ? `✅ **Your video is ready!** Check the preview on the right — you can download it or generate another variation.`
-            : `⚠️ Generation stopped before finishing. Check the right panel for any error details, then click **Generate Video** again to retry.`,
-        },
-      ]);
+      setMessages(prev => {
+        const filtered = prev.filter(m => !m.content.startsWith(STATUS_PREFIX));
+        return [
+          ...filtered,
+          {
+            role: 'assistant',
+            content: done
+              ? `✅ **Your video is ready!** It's saved here so you can come back to it anytime.`
+              : `⚠️ Generation stopped before finishing. Click **Generate Video** again on the script above to retry — your script is preserved.`,
+          },
+        ];
+      });
     }
   }, [isGenerating, generationStatus, generationProgress]);
+
+  // When a finished video URL arrives, embed it as a special chat message
+  // so the user sees the result inline AND it persists across navigation.
+  const lastVideoRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (finalVideoUrl && finalVideoUrl !== lastVideoRef.current) {
+      lastVideoRef.current = finalVideoUrl;
+      setMessages(prev => {
+        if (prev.some(m => m.content === `${VIDEO_PREFIX}${finalVideoUrl}`)) return prev;
+        return [...prev, { role: 'assistant', content: `${VIDEO_PREFIX}${finalVideoUrl}` }];
+      });
+    }
+  }, [finalVideoUrl]);
+
+  const clearChat = () => {
+    setMessages([]);
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+  };
 
   const extractScript = (text: string): string | null => {
     const match = text.match(/<SCRIPT_SUGGESTION>([\s\S]*?)<\/SCRIPT_SUGGESTION>/);
