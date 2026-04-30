@@ -775,9 +775,18 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
     } catch (err: any) {
       console.error('Generation error:', err);
       const msg = err?.message || 'Unknown error';
-      if (podcastProjectId) {
+      const stillProcessing = /timed out|status|Failed to get video job status/i.test(msg) && !!backgroundTask?.taskId;
+      if (podcastProjectId && !stillProcessing) {
         await supabase.from('podcast_projects').update({ status: 'failed', error: msg }).eq('id', podcastProjectId);
       }
+      if (stillProcessing) {
+        setProgressStatus('Still rendering in the background...');
+        setProgress(prev => Math.max(prev, 95));
+        setGenerationError(null);
+        toast({ title: 'Still rendering', description: 'Marcus will keep checking and show the video here when WaveSpeed finishes.' });
+        return;
+      }
+      setGenerationError(msg);
       const isCredits = /credits?\s*(exhausted|run out|insufficient)|top\s*up|insufficient.*balance/i.test(msg);
       toast({
         title: isCredits ? '⚠️ WaveSpeed Credits Exhausted' : 'Generation Failed',
