@@ -204,6 +204,10 @@ const Podcast = () => {
           google_voice_id: t.google_voice_id,
         }));
         setTwins(mapped);
+        // Auto-select the first twin so "Use This Script" always has an avatar to feature.
+        if (mapped.length > 0) {
+          setSelectedTwinId(prev => prev ?? mapped[0].id);
+        }
       } catch (err) {
         console.error('Failed to load twins:', err);
       } finally {
