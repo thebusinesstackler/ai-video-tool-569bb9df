@@ -452,7 +452,7 @@ Vary across these axes:
 ${hasBrand ? '- Product/angle: each script should naturally feature a different product or benefit from the brand catalog above' : ''}
 
 Rules per script:
-- ~${wordTarget} words (target ${dur}s at ~2.5 words/sec)
+- ~${wordTarget} words (target ${dur}s at ~2.0 words/sec for slower expressive delivery)
 - Natural spoken language, short sentences (8-15 words)
 - Strong hook in first sentence
 - ${hasBrand ? `Mention the brand or a specific product naturally (don't be salesy). Speak to the right audience for that product.` : 'Strong narrative arc.'}
