@@ -976,7 +976,7 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
         {/* Left Panel — AI Creative Director */}
         <div className="lg:w-[420px] xl:w-[460px] border-r border-border flex flex-col bg-background order-2 lg:order-1 min-h-[300px] lg:min-h-0 lg:h-full">
           <PodcastAIDirector
-            onUseScript={(script) => {
+            onUseScript={async (script) => {
               setMessage(script);
               setActiveTab('talking-head');
               // Auto-pick the best-fit avatar if none selected: first available twin.
@@ -986,10 +986,52 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                 setSelectedTwinId(twinForRun.id);
                 toast({ title: `Featuring ${twinForRun.name}`, description: 'Auto-selected your avatar for this video.' });
               }
+
+              // No AI Twin at all — synthesize a person that fits the script using AI.
               if (!twinForRun) {
-                toast({ title: 'No AI Twin available', description: 'Create an AI Twin first, then try again.', variant: 'destructive' });
-                return;
+                try {
+                  toast({ title: '🎭 Generating a person to match your script…', description: 'No AI Twin selected — creating one with AI.' });
+                  const { data: { session } } = await supabase.auth.getSession();
+                  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+                  const personPrompt = `Photorealistic iPhone front-camera selfie portrait of a real-looking person who would naturally deliver this talking-head script. Pick gender, age, ethnicity, wardrobe, and setting that BEST FITS the tone and topic of the script. Natural daylight, unretouched, authentic, looking directly at camera, mid-sentence expression. ${ASPECT_FRAMING[aspectRatio]} NO text, NO watermarks.\n\nSCRIPT:\n"""${script}"""`;
+                  const res = await fetch(`${SUPABASE_URL}/functions/v1/ai`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      messages: [{ role: 'user', content: [{ type: 'text', text: personPrompt }] }],
+                      model: 'google/gemini-3.1-flash-image-preview',
+                      modalities: ['image', 'text'],
+                    }),
+                  });
+                  const imgData = await res.json();
+                  let portrait = imgData.imageUrl || imgData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+                  if (portrait?.startsWith('data:') && user) {
+                    const m = portrait.match(/^data:([^;]+);base64,(.+)$/);
+                    if (m) {
+                      const bytes = Uint8Array.from(atob(m[2]), c => c.charCodeAt(0));
+                      const fn = `${user.id}/podcast/${Date.now()}-synthetic-person.png`;
+                      const { data: up } = await supabase.storage.from('reels').upload(fn, bytes, { contentType: m[1], upsert: true });
+                      if (up) portrait = supabase.storage.from('reels').getPublicUrl(fn).data.publicUrl;
+                    }
+                  }
+                  if (!portrait) throw new Error('Could not generate person image');
+                  twinForRun = {
+                    id: `synthetic-${Date.now()}`,
+                    name: 'AI Person',
+                    reference_images: [portrait],
+                    voice_cloning_key: undefined,
+                    voice_sample_url: undefined,
+                    face_description: 'AI-generated person matching the script tone',
+                    gender: 'unspecified',
+                    voice_engine: 'speechify',
+                  } as AITwin;
+                } catch (err: any) {
+                  console.error('Synthetic person generation failed:', err);
+                  toast({ title: 'Could not synthesize person', description: err.message || 'Please create an AI Twin first.', variant: 'destructive' });
+                  return;
+                }
               }
+
               const preset: ScriptVariation = {
                 id: `marcus-${Date.now()}`,
                 styleLabel: 'Marcus',
