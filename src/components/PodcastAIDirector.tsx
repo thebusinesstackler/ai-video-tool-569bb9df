@@ -9,8 +9,8 @@ import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 import directorAvatar from '@/assets/ai-director-avatar.jpg';
 import {
-  Sparkles, Send, Target, Video, Users, Lightbulb,
-  Copy, ArrowRight, Loader2, Bot, Wand2, Layers, Check
+  Sparkles, Send, Target, Users, Lightbulb,
+  Copy, ArrowRight, Loader2, Wand2, Layers, Check
 } from 'lucide-react';
 
 type Message = { role: 'user' | 'assistant'; content: string };
@@ -297,7 +297,7 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
                                 if (script) onUseScript(script);
                               }}
                             >
-                              <ArrowRight className="w-3 h-3 mr-1" /> Use This Script
+                              <ArrowRight className="w-3 h-3 mr-1" /> Generate Video
                             </Button>
                             <Button
                               size="sm"
@@ -412,23 +412,9 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
           <Badge
             variant="outline"
             className="text-[10px] cursor-pointer hover:bg-primary/10 hover:border-primary/30 transition-colors"
-            onClick={() => send('Generate a ready-to-use script based on our discussion')}
+            onClick={() => send('Generate a ready-to-use talking-head script based on my first input. Include the estimated duration and camera movement suggestions, then wrap the exact spoken script in SCRIPT_SUGGESTION tags.')}
           >
-            <Sparkles className="w-3 h-3 mr-1" /> Generate script
-          </Badge>
-          <Badge
-            variant="outline"
-            className="text-[10px] cursor-pointer hover:bg-primary/10 hover:border-primary/30 transition-colors"
-            onClick={() => send('Suggest target audience for this content')}
-          >
-            <Target className="w-3 h-3 mr-1" /> Suggest audience
-          </Badge>
-          <Badge
-            variant="outline"
-            className="text-[10px] cursor-pointer hover:bg-primary/10 hover:border-primary/30 transition-colors"
-            onClick={() => send('What camera angle and style should I use?')}
-          >
-            <Video className="w-3 h-3 mr-1" /> Camera & style
+            <Sparkles className="w-3 h-3 mr-1" /> Generate Video Script
           </Badge>
         </div>
       )}
