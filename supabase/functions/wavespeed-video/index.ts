@@ -32,6 +32,30 @@ interface WaveSpeedVideoJob {
   error?: string;
 }
 
+function findVideoUrl(value: unknown, depth = 0): string | undefined {
+  if (!value || depth > 5) return undefined;
+  if (typeof value === 'string') return /^https?:\/\//i.test(value) ? value : undefined;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findVideoUrl(item, depth + 1);
+      if (found) return found;
+    }
+    return undefined;
+  }
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    for (const key of ['video', 'video_url', 'url', 'file_url', 'output_url', 'download_url']) {
+      const found = findVideoUrl(obj[key], depth + 1);
+      if (found) return found;
+    }
+    for (const nested of Object.values(obj)) {
+      const found = findVideoUrl(nested, depth + 1);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
