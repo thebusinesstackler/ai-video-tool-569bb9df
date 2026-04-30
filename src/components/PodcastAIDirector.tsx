@@ -67,8 +67,21 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
+  const [planSelections, setPlanSelections] = useState<Record<string, Set<number>>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const togglePlanIdx = (msgKey: string, idx: number, total: number) => {
+    setPlanSelections(prev => {
+      const current = prev[msgKey] ?? new Set<number>(Array.from({ length: total }, (_, i) => i));
+      const next = new Set(current);
+      if (next.has(idx)) next.delete(idx); else next.add(idx);
+      return { ...prev, [msgKey]: next };
+    });
+  };
+  const getSelected = (msgKey: string, total: number) => {
+    return planSelections[msgKey] ?? new Set<number>(Array.from({ length: total }, (_, i) => i));
+  };
 
   useEffect(() => {
     if (scrollRef.current) {
