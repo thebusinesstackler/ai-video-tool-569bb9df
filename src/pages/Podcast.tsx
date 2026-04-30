@@ -1023,6 +1023,10 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
     if (activeTab === 'history') loadHistory();
   }, [activeTab, loadHistory]);
 
+  useEffect(() => {
+    recoverPodcastTasks().finally(() => loadHistory());
+  }, [recoverPodcastTasks, loadHistory]);
+
   const deleteHistoryItem = async (id: string) => {
     if (!confirm('Delete this podcast project?')) return;
     await supabase.from('podcast_projects').delete().eq('id', id);
