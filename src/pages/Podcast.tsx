@@ -1181,6 +1181,7 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
             isGenerating={isGenerating}
             generationStatus={progressStatus}
             generationProgress={progress}
+            generationError={generationError}
             finalVideoUrl={videoUrl}
           />
         </div>
