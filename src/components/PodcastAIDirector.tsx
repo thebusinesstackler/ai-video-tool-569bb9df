@@ -95,6 +95,35 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
     }
   }, [messages]);
 
+  // Marcus narrates the generation pipeline live in chat.
+  const lastStatusRef = useRef<string>('');
+  const wasGeneratingRef = useRef<boolean>(false);
+  useEffect(() => {
+    if (isGenerating && generationStatus && generationStatus !== lastStatusRef.current) {
+      lastStatusRef.current = generationStatus;
+      const pct = Math.round(generationProgress);
+      setMessages(prev => [
+        ...prev,
+        { role: 'assistant', content: `⚙️ **${generationStatus}** _(${pct}%)_` },
+      ]);
+    }
+    if (isGenerating) wasGeneratingRef.current = true;
+    if (!isGenerating && wasGeneratingRef.current) {
+      wasGeneratingRef.current = false;
+      lastStatusRef.current = '';
+      const done = generationProgress >= 100;
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: done
+            ? `✅ **Your video is ready!** Check the preview on the right — you can download it or generate another variation.`
+            : `⚠️ Generation stopped before finishing. Check the right panel for any error details, then click **Generate Video** again to retry.`,
+        },
+      ]);
+    }
+  }, [isGenerating, generationStatus, generationProgress]);
+
   const extractScript = (text: string): string | null => {
     const match = text.match(/<SCRIPT_SUGGESTION>([\s\S]*?)<\/SCRIPT_SUGGESTION>/);
     return match ? match[1].trim() : null;
