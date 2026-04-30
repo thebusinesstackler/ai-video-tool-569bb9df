@@ -821,27 +821,15 @@ serve(async (req) => {
         }
       }
 
-      // Get video URL from response - different models return URLs in different fields
-      let videoUrl = (taskData.outputs && taskData.outputs.length > 0) 
-        ? taskData.outputs[0] 
-        : undefined;
-      
-      // Fallback: check alternative response fields used by Sora-2 and other models
-      if (!videoUrl && status === 'completed') {
-        videoUrl = taskData.output?.video 
-          || (typeof taskData.output === 'string' ? taskData.output : undefined)
-          || taskData.result 
-          || taskData.video_url 
-          || taskData.url
-          || taskData.file_url
-          || undefined;
-        
-        // Log full response keys when completed but no URL found for debugging
+      // Get video URL from response — WaveSpeed models nest results differently.
+      const videoUrl = findVideoUrl(taskData);
+
+      if (status === 'completed') {
         if (!videoUrl) {
           console.error('[wavespeed-video] Completed but no video URL found! Response keys:', Object.keys(taskData));
           console.error('[wavespeed-video] Full taskData:', JSON.stringify(taskData).substring(0, 2000));
         } else {
-          console.log('[wavespeed-video] Found video URL via fallback field');
+          console.log('[wavespeed-video] Found completed video URL:', videoUrl);
         }
       }
 
