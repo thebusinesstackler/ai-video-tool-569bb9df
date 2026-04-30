@@ -85,7 +85,9 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) return parsed;
       }
-    } catch {}
+    } catch {
+      // Ignore invalid saved chat payloads.
+    }
     return [];
   });
   const [input, setInput] = useState('');
@@ -98,7 +100,9 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
-    } catch {}
+    } catch {
+      // Ignore private browsing/storage write failures.
+    }
   }, [messages]);
 
   const togglePlanIdx = (msgKey: string, idx: number, total: number) => {
@@ -175,7 +179,9 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
 
   const clearChat = () => {
     setMessages([]);
-    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+    try { localStorage.removeItem(STORAGE_KEY); } catch {
+      // Ignore private browsing/storage write failures.
+    }
   };
 
   const extractScript = (text: string): string | null => {
