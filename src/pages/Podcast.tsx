@@ -174,7 +174,7 @@ const Podcast = () => {
       .select('task_id,source_id,status,video_url')
       .eq('user_id', user.id)
       .eq('source', 'podcast')
-      .in('status', ['pending', 'processing'])
+      .in('status', ['pending', 'processing', 'completed'])
       .not('source_id', 'is', null)
       .order('created_at', { ascending: false })
       .limit(10);
@@ -185,7 +185,7 @@ const Podcast = () => {
         body: { action: 'status', taskId: task.task_id }
       });
       const url = status?.videoUrl || task.video_url;
-      if (status?.status === 'completed' && url) {
+      if ((status?.status === 'completed' || task.status === 'completed') && url) {
         await supabase.from('podcast_projects').update({ video_url: url, status: 'done', error: null }).eq('id', task.source_id);
         recoveredUrl = recoveredUrl || url;
         setVideoUrl(prev => prev || url);
