@@ -151,7 +151,7 @@ const Podcast = () => {
   useEffect(() => {
     if (!message.trim()) return;
     const words = message.trim().split(/\s+/).length;
-    const estimatedSeconds = Math.round(words / 2.5);
+    const estimatedSeconds = Math.round(words / 2.0);
     const closest = DURATION_OPTIONS.reduce((best, opt) => {
       const diff = Math.abs(parseInt(opt.value) - estimatedSeconds);
       return diff < Math.abs(parseInt(best.value) - estimatedSeconds) ? opt : best;
@@ -424,7 +424,7 @@ const Podcast = () => {
     setActiveVariationId(null);
     try {
       const dur = parseInt(duration);
-      const wordTarget = Math.round(dur * 2.5);
+      const wordTarget = Math.round(dur * 2.0);
 
       const brandBlock = [
         brandContext.brandName && `Brand: ${brandContext.brandName}`,
@@ -527,7 +527,7 @@ Return ONLY valid JSON:
 
     try {
       const dur = parseInt(duration);
-      const wordTarget = Math.round(dur * 2.5);
+      const wordTarget = Math.round(dur * 2.0);
 
       // Step 1: Use preset script if provided, else generate one
       let narration: string;
