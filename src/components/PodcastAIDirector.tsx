@@ -366,9 +366,35 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
                   )}>
                     {msg.role === 'assistant' ? (
                       <div className="space-y-2">
-                        <div className="prose prose-sm dark:prose-invert max-w-none [&>*:last-child]:mb-0 [&>ul]:my-1 [&>ol]:my-1 [&>p]:my-1">
-                          <ReactMarkdown>{stripScriptTags(msg.content)}</ReactMarkdown>
-                        </div>
+                        {msg.content.startsWith(VIDEO_PREFIX) ? (
+                          <div className="space-y-2">
+                            <p className="text-xs font-medium text-primary">🎬 Video ready</p>
+                            <video
+                              src={`${msg.content.slice(VIDEO_PREFIX.length)}#t=0.5`}
+                              controls
+                              preload="metadata"
+                              className="w-full rounded-lg border border-border"
+                            />
+                            <a
+                              href={msg.content.slice(VIDEO_PREFIX.length)}
+                              download
+                              className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+                            >
+                              <ArrowRight className="w-3 h-3" /> Download
+                            </a>
+                          </div>
+                        ) : msg.content.startsWith(STATUS_PREFIX) ? (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                            <div className="prose prose-sm dark:prose-invert max-w-none [&>*]:my-0">
+                              <ReactMarkdown>{msg.content.slice(STATUS_PREFIX.length)}</ReactMarkdown>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="prose prose-sm dark:prose-invert max-w-none [&>*:last-child]:mb-0 [&>ul]:my-1 [&>ol]:my-1 [&>p]:my-1">
+                            <ReactMarkdown>{stripScriptTags(msg.content)}</ReactMarkdown>
+                          </div>
+                        )}
                         {extractScript(msg.content) && (
                           <div className="flex gap-2 pt-2 mt-2 border-t border-border/50">
                             <Button
