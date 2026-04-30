@@ -782,7 +782,7 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
       console.error('Generation error:', err);
       const msg = err?.message || 'Unknown error';
       const isCredits = /credits?\s*(exhausted|run out|insufficient)|top\s*up|insufficient.*balance/i.test(msg);
-      const stillProcessing = !!activeTaskId && !isCredits;
+      const stillProcessing = !!activeTaskId && !isCredits && /timed out|status|Failed to get video job status/i.test(msg);
       if (podcastProjectId && !stillProcessing) {
         await supabase.from('podcast_projects').update({ status: 'failed', error: msg }).eq('id', podcastProjectId);
       }
