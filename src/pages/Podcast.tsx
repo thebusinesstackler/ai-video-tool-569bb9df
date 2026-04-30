@@ -615,6 +615,29 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
       const sceneImg = await generateSceneImage(imgPrompt, twinForGeneration, productImgUrl);
       setProgress(45);
 
+      const activeVar = variations.find(v => v.id === activeVariationId);
+      let podcastProjectId: string | null = null;
+      if (user) {
+        const { data: project } = await supabase.from('podcast_projects').insert({
+          user_id: user.id,
+          topic: (message.trim() || effectiveMessage).slice(0, 200) || 'Untitled podcast',
+          hook: activeVar?.hook || null,
+          narration,
+          visual_description: visualDesc || null,
+          style_label: activeVar?.styleLabel || preset?.styleLabel || null,
+          setting_label: activeVar?.settingLabel || preset?.settingLabel || null,
+          audience: activeVar?.audience || null,
+          featured_product: activeVar?.featuredProduct || null,
+          twin_id: isUuid(twinForGeneration.id) ? twinForGeneration.id : null,
+          twin_name: twinForGeneration.name || null,
+          duration: dur,
+          audio_url: ttsUrl,
+          scene_image_url: sceneImg,
+          status: 'processing',
+        }).select('id').single();
+        podcastProjectId = project?.id || null;
+      }
+
       // Step 4: Create lip-sync video
       setProgressStatus('Rendering video with lip-sync...');
       const { data: videoData, error: videoErr } = await supabase.functions.invoke('wavespeed-video', {
@@ -627,6 +650,7 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
           aspectRatio,
           userId: user?.id,
           source: 'podcast',
+          sourceId: podcastProjectId,
         }
       });
       if (videoErr) throw videoErr;
