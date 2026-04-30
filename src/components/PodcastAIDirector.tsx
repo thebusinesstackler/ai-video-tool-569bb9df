@@ -58,7 +58,12 @@ interface PodcastAIDirectorProps {
   isGenerating?: boolean;
   generationStatus?: string;
   generationProgress?: number;
+  finalVideoUrl?: string | null;
 }
+
+const STORAGE_KEY = 'podcast-marcus-chat-v1';
+const STATUS_PREFIX = '__STATUS__::';
+const VIDEO_PREFIX = '__VIDEO__::';
 
 export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
   onUseScript,
@@ -69,13 +74,30 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
   isGenerating = false,
   generationStatus = '',
   generationProgress = 0,
+  finalVideoUrl = null,
 }) => {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  });
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [planSelections, setPlanSelections] = useState<Record<string, Set<number>>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Persist chat across navigation.
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    } catch {}
+  }, [messages]);
 
   const togglePlanIdx = (msgKey: string, idx: number, total: number) => {
     setPlanSelections(prev => {
