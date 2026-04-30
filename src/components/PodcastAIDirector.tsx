@@ -404,11 +404,6 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
                               onClick={() => {
                                 const script = extractScript(msg.content);
                                 if (!script) return;
-                                // Inline chat acknowledgement so the user sees the click registered.
-                                setMessages(prev => [...prev, {
-                                  role: 'assistant',
-                                  content: `🎬 **Got it — sending this script to WaveSpeed now.**\n\nYou'll see live progress on the right panel:\n1. Voiceover (gpt-4o-mini-tts)\n2. Character portrait (Gemini)\n3. Lip-sync render (WaveSpeed infinitetalk-hd, ~1-4 min)\n\nKeep this tab open.`,
-                                }]);
                                 onUseScript(script);
                               }}
                             >
