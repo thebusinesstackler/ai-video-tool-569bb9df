@@ -55,6 +55,9 @@ interface PodcastAIDirectorProps {
   selectedCharacterName?: string;
   brandContext?: DirectorBrandContext;
   availableTwins?: DirectorAvailableTwin[];
+  isGenerating?: boolean;
+  generationStatus?: string;
+  generationProgress?: number;
 }
 
 export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
@@ -63,6 +66,9 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
   selectedCharacterName,
   brandContext,
   availableTwins,
+  isGenerating = false,
+  generationStatus = '',
+  generationProgress = 0,
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
