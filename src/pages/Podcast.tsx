@@ -777,7 +777,8 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
     } catch (err: any) {
       console.error('Generation error:', err);
       const msg = err?.message || 'Unknown error';
-      const stillProcessing = /timed out|status|Failed to get video job status/i.test(msg) && !!activeTaskId;
+      const isCredits = /credits?\s*(exhausted|run out|insufficient)|top\s*up|insufficient.*balance/i.test(msg);
+      const stillProcessing = !!activeTaskId && !isCredits;
       if (podcastProjectId && !stillProcessing) {
         await supabase.from('podcast_projects').update({ status: 'failed', error: msg }).eq('id', podcastProjectId);
       }
@@ -789,7 +790,6 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
         return;
       }
       setGenerationError(msg);
-      const isCredits = /credits?\s*(exhausted|run out|insufficient)|top\s*up|insufficient.*balance/i.test(msg);
       toast({
         title: isCredits ? '⚠️ WaveSpeed Credits Exhausted' : 'Generation Failed',
         description: isCredits
