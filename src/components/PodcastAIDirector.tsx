@@ -297,13 +297,24 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
                           <div className="flex gap-2 pt-2 mt-2 border-t border-border/50">
                             <Button
                               size="sm"
-                              className="text-xs h-7 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+                              disabled={isGenerating}
+                              className="text-xs h-7 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 disabled:opacity-100"
                               onClick={() => {
                                 const script = extractScript(msg.content);
-                                if (script) onUseScript(script);
+                                if (!script) return;
+                                // Inline chat acknowledgement so the user sees the click registered.
+                                setMessages(prev => [...prev, {
+                                  role: 'assistant',
+                                  content: `🎬 **Got it — sending this script to WaveSpeed now.**\n\nYou'll see live progress on the right panel:\n1. Voiceover (gpt-4o-mini-tts)\n2. Character portrait (Gemini)\n3. Lip-sync render (WaveSpeed infinitetalk-hd, ~1-4 min)\n\nKeep this tab open.`,
+                                }]);
+                                onUseScript(script);
                               }}
                             >
-                              <ArrowRight className="w-3 h-3 mr-1" /> Generate Video
+                              {isGenerating ? (
+                                <><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Generating… {Math.round(generationProgress)}%</>
+                              ) : (
+                                <><ArrowRight className="w-3 h-3 mr-1" /> Generate Video</>
+                              )}
                             </Button>
                             <Button
                               size="sm"
@@ -316,6 +327,11 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
                             >
                               <Copy className="w-3 h-3 mr-1" /> Copy
                             </Button>
+                            {isGenerating && generationStatus && (
+                              <span className="text-[10px] text-muted-foreground self-center ml-1">
+                                {generationStatus}
+                              </span>
+                            )}
                           </div>
                         )}
                         {(() => {
