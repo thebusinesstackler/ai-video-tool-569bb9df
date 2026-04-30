@@ -981,8 +981,7 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
               // Use script directly as narration — skip the AI rewrite step.
               const preset: ScriptVariation = {
                 id: `marcus-${Date.now()}`,
-                label: 'Marcus script',
-                styleLabel: 'Conversational',
+                styleLabel: 'Marcus',
                 settingLabel: 'Selfie',
                 hook: script.split(/[.!?]/)[0]?.trim() || '',
                 narration: script,
