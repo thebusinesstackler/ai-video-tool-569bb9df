@@ -1067,6 +1067,9 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
               gender: t.gender,
               description: t.face_description || t.description,
             }))}
+            isGenerating={isGenerating}
+            generationStatus={progressStatus}
+            generationProgress={progress}
           />
         </div>
 
