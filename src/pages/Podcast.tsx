@@ -622,8 +622,10 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
           model: 'infinitetalk-hd',
           imageUrls: [sceneImg],
           audioUrl: ttsUrl,
-          prompt: `Real person talking naturally on iPhone front camera. Wide fluid mouth movements with visible jaw and lip motion. Natural head movements — slight tilts, nods, eyebrow raises. Subtle handheld camera micro-shake. Casual, authentic energy. NOT cinematic, NOT polished — raw and real like an iPhone selfie video.`,
+          prompt: `Natural expressive talking-head selfie. The person speaks calmly and deliberately with realistic pauses, visible breathing, expressive eyebrows, warm eye contact, subtle smiles, small head tilts, gentle nods, and accurate lip-sync/jaw motion. Match the voice to the person's age, gender, and face. Keep movements human and restrained, not robotic. Subtle handheld iPhone micro-shake, natural daylight, authentic unpolished realism.`,
           aspectRatio,
+          userId: user?.id,
+          source: 'podcast',
         }
       });
       if (videoErr) throw videoErr;
