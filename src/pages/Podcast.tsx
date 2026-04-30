@@ -83,8 +83,17 @@ const Podcast = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressStatus, setProgressStatus] = useState('');
+  const [generationError, setGenerationError] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [backgroundTask, setBackgroundTask] = useState<{ taskId: string; projectId: string | null } | null>(() => {
+    try {
+      const raw = localStorage.getItem('podcast-active-task-v1');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
 
   // 4-variation flow
   const [variations, setVariations] = useState<ScriptVariation[]>([]);
