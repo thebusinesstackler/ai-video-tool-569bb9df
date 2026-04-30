@@ -640,18 +640,31 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
       let finalUrl: string;
       let attempts = 0;
       const maxAttempts = 150;
+      const taskId = videoData.taskId;
       while (attempts < maxAttempts) {
         attempts++;
         await new Promise(r => setTimeout(r, 3000));
-        const { data: status } = await supabase.functions.invoke('wavespeed-video', {
-          body: { action: 'status', taskId: videoData.taskId }
+        const { data: status, error: statusErr } = await supabase.functions.invoke('wavespeed-video', {
+          body: { action: 'status', taskId }
         });
+        if (statusErr) console.warn('WaveSpeed status check failed, retrying:', statusErr);
         if (status?.status === 'completed' && status?.videoUrl) {
           finalUrl = status.videoUrl;
           break;
         }
         if (status?.status === 'failed') throw new Error(status?.error || 'Video failed');
         setProgress(55 + (attempts / maxAttempts) * 40);
+      }
+      if (!finalUrl! && user) {
+        const { data: recovered } = await supabase
+          .from('video_tasks')
+          .select('video_url,status')
+          .eq('user_id', user.id)
+          .eq('task_id', taskId)
+          .maybeSingle();
+        if (recovered?.status === 'completed' && recovered.video_url) {
+          finalUrl = recovered.video_url;
+        }
       }
       if (!finalUrl!) throw new Error('Video timed out');
 
