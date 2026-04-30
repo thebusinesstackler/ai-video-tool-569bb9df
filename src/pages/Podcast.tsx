@@ -449,7 +449,9 @@ const Podcast = () => {
             return pub.publicUrl;
           }
         }
-      } catch {}
+      } catch {
+        // Fall back to the original portrait if upload fails.
+      }
     }
     return imgUrl.startsWith('data:') ? portrait : imgUrl;
   };
