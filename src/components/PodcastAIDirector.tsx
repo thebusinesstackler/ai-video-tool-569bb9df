@@ -83,7 +83,9 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed)) {
+          return parsed.filter((msg: Message) => !msg.content?.startsWith('⚠️ Generation stopped before finishing'));
+        }
       }
     } catch {
       // Ignore invalid saved chat payloads.
@@ -170,7 +172,7 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
       setMessages(prev => {
         if (prev.some(m => m.content === `${VIDEO_PREFIX}${finalVideoUrl}`)) return prev;
         return [
-          ...prev.filter(m => !m.content.startsWith(STATUS_PREFIX)),
+          ...prev.filter(m => !m.content.startsWith(STATUS_PREFIX) && !m.content.startsWith('⚠️ Generation stopped before finishing')),
           { role: 'assistant', content: `${VIDEO_PREFIX}${finalVideoUrl}` },
         ];
       });
