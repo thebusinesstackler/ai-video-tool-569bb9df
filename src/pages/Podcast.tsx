@@ -164,7 +164,9 @@ const Podcast = () => {
       } else {
         localStorage.removeItem('podcast-active-task-v1');
       }
-    } catch {}
+    } catch {
+      // Ignore private browsing/storage write failures.
+    }
   }, [backgroundTask]);
 
   const recoverPodcastTasks = useCallback(async () => {
