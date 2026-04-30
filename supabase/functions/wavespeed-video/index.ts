@@ -34,7 +34,11 @@ interface WaveSpeedVideoJob {
 
 function findVideoUrl(value: unknown, depth = 0): string | undefined {
   if (!value || depth > 5) return undefined;
-  if (typeof value === 'string') return /^https?:\/\//i.test(value) ? value : undefined;
+  if (typeof value === 'string') {
+    if (!/^https?:\/\//i.test(value)) return undefined;
+    if (/\.(png|jpe?g|webp|gif)(\?|$)/i.test(value)) return undefined;
+    return value;
+  }
   if (Array.isArray(value)) {
     for (const item of value) {
       const found = findVideoUrl(item, depth + 1);
@@ -48,7 +52,8 @@ function findVideoUrl(value: unknown, depth = 0): string | undefined {
       const found = findVideoUrl(obj[key], depth + 1);
       if (found) return found;
     }
-    for (const nested of Object.values(obj)) {
+    for (const [key, nested] of Object.entries(obj)) {
+      if (/^(image|input|inputs|request|parameters|prompt|audio)$/i.test(key)) continue;
       const found = findVideoUrl(nested, depth + 1);
       if (found) return found;
     }
