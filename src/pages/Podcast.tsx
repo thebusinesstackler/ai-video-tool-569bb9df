@@ -681,7 +681,16 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
 
     } catch (err: any) {
       console.error('Generation error:', err);
-      toast({ title: 'Generation Failed', description: err.message, variant: 'destructive' });
+      const msg = err?.message || 'Unknown error';
+      const isCredits = /credits?\s*(exhausted|run out|insufficient)|top\s*up|insufficient.*balance/i.test(msg);
+      toast({
+        title: isCredits ? '⚠️ WaveSpeed Credits Exhausted' : 'Generation Failed',
+        description: isCredits
+          ? 'The lip-sync video service is out of credits. Top up your WaveSpeed account, then click Generate Video again — your script is preserved.'
+          : msg,
+        variant: 'destructive',
+        duration: isCredits ? 12000 : 6000,
+      });
     } finally {
       setIsGenerating(false);
     }
