@@ -525,6 +525,7 @@ Return ONLY valid JSON:
     setProgress(5);
     setVideoUrl(null);
     setAudioUrl(null);
+    let podcastProjectId: string | null = null;
 
     try {
       const dur = parseInt(duration);
@@ -616,7 +617,6 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
       setProgress(45);
 
       const activeVar = variations.find(v => v.id === activeVariationId);
-      let podcastProjectId: string | null = null;
       if (user) {
         const { data: project } = await supabase.from('podcast_projects').insert({
           user_id: user.id,
