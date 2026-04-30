@@ -576,8 +576,10 @@ Return ONLY valid JSON:
 
     setIsGenerating(true);
     setProgress(5);
+    setGenerationError(null);
     setVideoUrl(null);
     setAudioUrl(null);
+    setBackgroundTask(null);
     let podcastProjectId: string | null = null;
 
     try {
@@ -719,6 +721,8 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
       let attempts = 0;
       const maxAttempts = 150;
       const taskId = videoData.taskId;
+      setBackgroundTask({ taskId, projectId: podcastProjectId });
+      let consecutiveFailures = 0;
       while (attempts < maxAttempts) {
         attempts++;
         await new Promise(r => setTimeout(r, 3000));
@@ -730,7 +734,12 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
           finalUrl = status.videoUrl;
           break;
         }
-        if (status?.status === 'failed') throw new Error(status?.error || 'Video failed');
+        if (status?.status === 'failed') {
+          consecutiveFailures++;
+          if (consecutiveFailures >= 5) throw new Error(status?.error || 'Video failed');
+        } else if (status?.status) {
+          consecutiveFailures = 0;
+        }
         setProgress(55 + (attempts / maxAttempts) * 40);
       }
       if (!finalUrl && user) {
@@ -747,8 +756,10 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
       if (!finalUrl) throw new Error('Video timed out');
 
       setVideoUrl(finalUrl);
+      setBackgroundTask(null);
       setProgress(100);
       setProgressStatus('Done! 🎬');
+      setGenerationError(null);
 
       // Save to history
       if (podcastProjectId) {
