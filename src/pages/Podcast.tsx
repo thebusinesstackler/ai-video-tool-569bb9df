@@ -982,9 +982,12 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
               const preset: ScriptVariation = {
                 id: `marcus-${Date.now()}`,
                 label: 'Marcus script',
+                styleLabel: 'Conversational',
+                settingLabel: 'Selfie',
+                hook: script.split(/[.!?]/)[0]?.trim() || '',
                 narration: script,
                 visualDescription: `Talking-head selfie of ${selectedTwin.name} delivering the script naturally on iPhone front camera.`,
-              } as ScriptVariation;
+              };
               setTimeout(() => { generate(preset); }, 50);
             }}
             onUseBatchPlan={handleBatchPlan}
