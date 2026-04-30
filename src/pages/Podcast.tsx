@@ -581,6 +581,7 @@ Return ONLY valid JSON:
     setAudioUrl(null);
     setBackgroundTask(null);
     let podcastProjectId: string | null = null;
+    let activeTaskId: string | null = null;
 
     try {
       const dur = parseInt(duration);
@@ -721,6 +722,7 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
       let attempts = 0;
       const maxAttempts = 150;
       const taskId = videoData.taskId;
+      activeTaskId = taskId;
       setBackgroundTask({ taskId, projectId: podcastProjectId });
       let consecutiveFailures = 0;
       while (attempts < maxAttempts) {
@@ -775,7 +777,7 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
     } catch (err: any) {
       console.error('Generation error:', err);
       const msg = err?.message || 'Unknown error';
-      const stillProcessing = /timed out|status|Failed to get video job status/i.test(msg) && !!backgroundTask?.taskId;
+      const stillProcessing = /timed out|status|Failed to get video job status/i.test(msg) && !!activeTaskId;
       if (podcastProjectId && !stillProcessing) {
         await supabase.from('podcast_projects').update({ status: 'failed', error: msg }).eq('id', podcastProjectId);
       }
