@@ -32,6 +32,35 @@ interface WaveSpeedVideoJob {
   error?: string;
 }
 
+function findVideoUrl(value: unknown, depth = 0): string | undefined {
+  if (!value || depth > 5) return undefined;
+  if (typeof value === 'string') {
+    if (!/^https?:\/\//i.test(value)) return undefined;
+    if (/\.(png|jpe?g|webp|gif)(\?|$)/i.test(value)) return undefined;
+    return value;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findVideoUrl(item, depth + 1);
+      if (found) return found;
+    }
+    return undefined;
+  }
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    for (const key of ['video', 'video_url', 'url', 'file_url', 'output_url', 'download_url']) {
+      const found = findVideoUrl(obj[key], depth + 1);
+      if (found) return found;
+    }
+    for (const [key, nested] of Object.entries(obj)) {
+      if (/^(image|input|inputs|request|parameters|prompt|audio)$/i.test(key)) continue;
+      const found = findVideoUrl(nested, depth + 1);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -797,37 +826,26 @@ serve(async (req) => {
         }
       }
 
-      // Get video URL from response - different models return URLs in different fields
-      let videoUrl = (taskData.outputs && taskData.outputs.length > 0) 
-        ? taskData.outputs[0] 
-        : undefined;
-      
-      // Fallback: check alternative response fields used by Sora-2 and other models
-      if (!videoUrl && status === 'completed') {
-        videoUrl = taskData.output?.video 
-          || (typeof taskData.output === 'string' ? taskData.output : undefined)
-          || taskData.result 
-          || taskData.video_url 
-          || taskData.url
-          || taskData.file_url
-          || undefined;
-        
-        // Log full response keys when completed but no URL found for debugging
+      // Get video URL from response — WaveSpeed models nest results differently.
+      const videoUrl = findVideoUrl(taskData);
+      const normalizedStatus = status === 'completed' && !videoUrl ? 'processing' : status;
+
+      if (status === 'completed') {
         if (!videoUrl) {
-          console.error('[wavespeed-video] Completed but no video URL found! Response keys:', Object.keys(taskData));
+          console.warn('[wavespeed-video] Completed status but output URL is not visible yet; continuing to poll. Response keys:', Object.keys(taskData));
           console.error('[wavespeed-video] Full taskData:', JSON.stringify(taskData).substring(0, 2000));
         } else {
-          console.log('[wavespeed-video] Found video URL via fallback field');
+          console.log('[wavespeed-video] Found completed video URL:', videoUrl);
         }
       }
 
       // Update video_tasks table if status is terminal
-      if (status === 'completed' || status === 'failed') {
+      if (normalizedStatus === 'completed' || normalizedStatus === 'failed') {
         try {
-          const updateData: any = { status, updated_at: new Date().toISOString() };
+          const updateData: any = { status: normalizedStatus, updated_at: new Date().toISOString() };
           if (videoUrl) updateData.video_url = videoUrl;
           await dbClient.from('video_tasks').update(updateData).eq('task_id', taskId);
-          console.log('[video_tasks] Updated task status:', taskId, status);
+          console.log('[video_tasks] Updated task status:', taskId, normalizedStatus);
         } catch (updateErr) {
           console.error('[video_tasks] Failed to update task:', updateErr);
         }
@@ -835,8 +853,8 @@ serve(async (req) => {
 
       const jobStatus: WaveSpeedVideoJob = {
         taskId: taskData.id || taskId,
-        status,
-        progress,
+        status: normalizedStatus,
+        progress: normalizedStatus === 'processing' && status === 'completed' ? 95 : progress,
         videoUrl: videoUrl,
         error: taskData.error || undefined
       };

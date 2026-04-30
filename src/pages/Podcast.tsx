@@ -146,12 +146,39 @@ const Podcast = () => {
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   const selectedTwin = twins.find(t => t.id === selectedTwinId);
+  const isUuid = (value?: string | null) => !!value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
+  const recoverPodcastTasks = useCallback(async () => {
+    if (!user?.id) return;
+    const { data: tasks } = await supabase
+      .from('video_tasks')
+      .select('task_id,source_id,status,video_url')
+      .eq('user_id', user.id)
+      .eq('source', 'podcast')
+      .in('status', ['pending', 'processing'])
+      .not('source_id', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    for (const task of tasks || []) {
+      const { data: status } = await supabase.functions.invoke('wavespeed-video', {
+        body: { action: 'status', taskId: task.task_id }
+      });
+      const url = status?.videoUrl || task.video_url;
+      if (status?.status === 'completed' && url) {
+        await supabase.from('podcast_projects').update({ video_url: url, status: 'done', error: null }).eq('id', task.source_id);
+        setVideoUrl(prev => prev || url);
+      } else if (status?.status === 'failed') {
+        await supabase.from('podcast_projects').update({ status: 'failed', error: status?.error || 'Video failed' }).eq('id', task.source_id);
+      }
+    }
+  }, [user?.id]);
 
   // Auto-estimate duration from word count
   useEffect(() => {
     if (!message.trim()) return;
     const words = message.trim().split(/\s+/).length;
-    const estimatedSeconds = Math.round(words / 2.5);
+    const estimatedSeconds = Math.round(words / 2.0);
     const closest = DURATION_OPTIONS.reduce((best, opt) => {
       const diff = Math.abs(parseInt(opt.value) - estimatedSeconds);
       return diff < Math.abs(parseInt(best.value) - estimatedSeconds) ? opt : best;
@@ -307,14 +334,17 @@ const Podcast = () => {
 
   // Build TTS body
   const buildTtsBody = (text: string, twin: AITwin) => {
-    const body: Record<string, any> = { text, speakingRate: 0.92 };
+    const isFemale = twin.gender?.toLowerCase() === 'female' || twin.gender?.toLowerCase() === 'woman';
+    const body: Record<string, any> = {
+      text,
+      speed: 0.82,
+      gender: twin.gender || (isFemale ? 'female' : 'male'),
+      voice: isFemale ? 'nova' : 'echo',
+    };
     if (twin.voice_cloning_key) {
       body.voiceCloningKey = twin.voice_cloning_key;
       return body;
     }
-    const isFemale = twin.gender?.toLowerCase() === 'female';
-    body.voice = isFemale ? 'English_compelling_lady1' : 'English_magnetic_voiced_man';
-    body.gender = twin.gender || 'male';
     return body;
   };
 
@@ -421,7 +451,7 @@ const Podcast = () => {
     setActiveVariationId(null);
     try {
       const dur = parseInt(duration);
-      const wordTarget = Math.round(dur * 2.5);
+      const wordTarget = Math.round(dur * 2.0);
 
       const brandBlock = [
         brandContext.brandName && `Brand: ${brandContext.brandName}`,
@@ -449,7 +479,7 @@ Vary across these axes:
 ${hasBrand ? '- Product/angle: each script should naturally feature a different product or benefit from the brand catalog above' : ''}
 
 Rules per script:
-- ~${wordTarget} words (target ${dur}s at ~2.5 words/sec)
+- ~${wordTarget} words (target ${dur}s at ~2.0 words/sec for slower expressive delivery)
 - Natural spoken language, short sentences (8-15 words)
 - Strong hook in first sentence
 - ${hasBrand ? `Mention the brand or a specific product naturally (don't be salesy). Speak to the right audience for that product.` : 'Strong narrative arc.'}
@@ -521,10 +551,11 @@ Return ONLY valid JSON:
     setProgress(5);
     setVideoUrl(null);
     setAudioUrl(null);
+    let podcastProjectId: string | null = null;
 
     try {
       const dur = parseInt(duration);
-      const wordTarget = Math.round(dur * 2.5);
+      const wordTarget = Math.round(dur * 2.0);
 
       // Step 1: Use preset script if provided, else generate one
       let narration: string;
@@ -611,6 +642,28 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
       const sceneImg = await generateSceneImage(imgPrompt, twinForGeneration, productImgUrl);
       setProgress(45);
 
+      const activeVar = variations.find(v => v.id === activeVariationId);
+      if (user) {
+        const { data: project } = await supabase.from('podcast_projects').insert({
+          user_id: user.id,
+          topic: (message.trim() || effectiveMessage).slice(0, 200) || 'Untitled podcast',
+          hook: activeVar?.hook || null,
+          narration,
+          visual_description: visualDesc || null,
+          style_label: activeVar?.styleLabel || preset?.styleLabel || null,
+          setting_label: activeVar?.settingLabel || preset?.settingLabel || null,
+          audience: activeVar?.audience || null,
+          featured_product: activeVar?.featuredProduct || null,
+          twin_id: isUuid(twinForGeneration.id) ? twinForGeneration.id : null,
+          twin_name: twinForGeneration.name || null,
+          duration: dur,
+          audio_url: ttsUrl,
+          scene_image_url: sceneImg,
+          status: 'processing',
+        }).select('id').single();
+        podcastProjectId = project?.id || null;
+      }
+
       // Step 4: Create lip-sync video
       setProgressStatus('Rendering video with lip-sync...');
       const { data: videoData, error: videoErr } = await supabase.functions.invoke('wavespeed-video', {
@@ -619,8 +672,11 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
           model: 'infinitetalk-hd',
           imageUrls: [sceneImg],
           audioUrl: ttsUrl,
-          prompt: `Real person talking naturally on iPhone front camera. Wide fluid mouth movements with visible jaw and lip motion. Natural head movements — slight tilts, nods, eyebrow raises. Subtle handheld camera micro-shake. Casual, authentic energy. NOT cinematic, NOT polished — raw and real like an iPhone selfie video.`,
+          prompt: `Natural expressive talking-head selfie. The person speaks calmly and deliberately with realistic pauses, visible breathing, expressive eyebrows, warm eye contact, subtle smiles, small head tilts, gentle nods, and accurate lip-sync/jaw motion. Match the voice to the person's age, gender, and face. Keep movements human and restrained, not robotic. Subtle handheld iPhone micro-shake, natural daylight, authentic unpolished realism.`,
           aspectRatio,
+          userId: user?.id,
+          source: 'podcast',
+          sourceId: podcastProjectId,
         }
       });
       if (videoErr) throw videoErr;
@@ -632,15 +688,17 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
 
       // Step 5: Poll until done
       setProgressStatus('Rendering... (1-4 minutes)');
-      let finalUrl: string;
+      let finalUrl: string | null = null;
       let attempts = 0;
       const maxAttempts = 150;
+      const taskId = videoData.taskId;
       while (attempts < maxAttempts) {
         attempts++;
         await new Promise(r => setTimeout(r, 3000));
-        const { data: status } = await supabase.functions.invoke('wavespeed-video', {
-          body: { action: 'status', taskId: videoData.taskId }
+        const { data: status, error: statusErr } = await supabase.functions.invoke('wavespeed-video', {
+          body: { action: 'status', taskId }
         });
+        if (statusErr) console.warn('WaveSpeed status check failed, retrying:', statusErr);
         if (status?.status === 'completed' && status?.videoUrl) {
           finalUrl = status.videoUrl;
           break;
@@ -648,33 +706,30 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
         if (status?.status === 'failed') throw new Error(status?.error || 'Video failed');
         setProgress(55 + (attempts / maxAttempts) * 40);
       }
-      if (!finalUrl!) throw new Error('Video timed out');
+      if (!finalUrl && user) {
+        const { data: recovered } = await supabase
+          .from('video_tasks')
+          .select('video_url,status')
+          .eq('user_id', user.id)
+          .eq('task_id', taskId)
+          .maybeSingle();
+        if (recovered?.status === 'completed' && recovered.video_url) {
+          finalUrl = recovered.video_url;
+        }
+      }
+      if (!finalUrl) throw new Error('Video timed out');
 
       setVideoUrl(finalUrl);
       setProgress(100);
       setProgressStatus('Done! 🎬');
 
       // Save to history
-      if (user) {
-        const activeVar = variations.find(v => v.id === activeVariationId);
-        await supabase.from('podcast_projects').insert({
-          user_id: user.id,
-          topic: message.trim().slice(0, 200) || 'Untitled podcast',
-          hook: activeVar?.hook || null,
-          narration,
-          visual_description: visualDesc || null,
-          style_label: activeVar?.styleLabel || null,
-          setting_label: activeVar?.settingLabel || null,
-          audience: activeVar?.audience || null,
-          featured_product: activeVar?.featuredProduct || null,
-          twin_id: twinForGeneration.id,
-          twin_name: twinForGeneration.name || null,
-          duration: dur,
-          audio_url: ttsUrl,
+      if (podcastProjectId) {
+        await supabase.from('podcast_projects').update({
           video_url: finalUrl,
-          scene_image_url: sceneImg,
           status: 'done',
-        });
+          error: null,
+        }).eq('id', podcastProjectId);
       }
 
       toast({ title: '🎬 Video Ready!', description: 'Your talking head video is complete.' });
@@ -682,6 +737,9 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
     } catch (err: any) {
       console.error('Generation error:', err);
       const msg = err?.message || 'Unknown error';
+      if (podcastProjectId) {
+        await supabase.from('podcast_projects').update({ status: 'failed', error: msg }).eq('id', podcastProjectId);
+      }
       const isCredits = /credits?\s*(exhausted|run out|insufficient)|top\s*up|insufficient.*balance/i.test(msg);
       toast({
         title: isCredits ? '⚠️ WaveSpeed Credits Exhausted' : 'Generation Failed',
@@ -764,7 +822,7 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
       hook: item.plan.hook || null,
       narration: item.plan.narration,
       audience: item.plan.audience || null,
-      twin_id: item.assignedTwinId ?? selectedTwinId,
+      twin_id: isUuid(item.assignedTwinId) ? item.assignedTwinId : isUuid(selectedTwinId) ? selectedTwinId : null,
       twin_name: item.assignedTwinName ?? selectedTwin?.name ?? null,
       duration: item.plan.duration || parseInt(duration) || 60,
       audio_url: item.audioUrl || null,
@@ -965,6 +1023,10 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
     if (activeTab === 'history') loadHistory();
   }, [activeTab, loadHistory]);
 
+  useEffect(() => {
+    recoverPodcastTasks().finally(() => loadHistory());
+  }, [recoverPodcastTasks, loadHistory]);
+
   const deleteHistoryItem = async (id: string) => {
     if (!confirm('Delete this podcast project?')) return;
     await supabase.from('podcast_projects').delete().eq('id', id);
@@ -1002,7 +1064,7 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                   toast({ title: '🎭 Generating a person to match your script…', description: 'No AI Twin selected — creating one with AI.' });
                   const { data: { session } } = await supabase.auth.getSession();
                   const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-                  const personPrompt = `Photorealistic iPhone front-camera selfie portrait of a real-looking person who would naturally deliver this talking-head script. Pick gender, age, ethnicity, wardrobe, and setting that BEST FITS the tone and topic of the script. Natural daylight, unretouched, authentic, looking directly at camera, mid-sentence expression. ${ASPECT_FRAMING[aspectRatio]} NO text, NO watermarks.\n\nSCRIPT:\n"""${script}"""`;
+                  const personPrompt = `Photorealistic iPhone front-camera selfie portrait of a real-looking person who would naturally deliver this talking-head script. Pick gender, age, ethnicity, wardrobe, and setting that BEST FITS the tone and topic of the script. Natural daylight, unretouched, authentic, looking directly at camera, mid-sentence with warm expressive eyes and relaxed eyebrows. ${ASPECT_FRAMING[aspectRatio]} NO text, NO watermarks.\n\nSCRIPT:\n"""${script}"""`;
                   const res = await fetch(`${SUPABASE_URL}/functions/v1/ai`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
@@ -1031,7 +1093,7 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                     voice_cloning_key: undefined,
                     voice_sample_url: undefined,
                     face_description: 'AI-generated person matching the script tone',
-                    gender: 'unspecified',
+                    gender: /\b(woman|female|mother|girl|she|her)\b/i.test(script) ? 'female' : 'male',
                     voice_engine: 'speechify',
                   } as AITwin;
                 } catch (err: any) {
@@ -1047,7 +1109,7 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                 settingLabel: 'Selfie',
                 hook: script.split(/[.!?]/)[0]?.trim() || '',
                 narration: script,
-                visualDescription: `Talking-head selfie of ${twinForRun.name} delivering the script naturally on iPhone front camera.`,
+                visualDescription: `Talking-head selfie of ${twinForRun.name} delivering the script naturally on iPhone front camera with expressive eyes, small eyebrow lifts, soft head tilts, and calm pauses between thoughts.`,
               };
               generate(preset, script, twinForRun);
             }}
@@ -1189,7 +1251,7 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                   <div className="flex items-center justify-between">
                     {message.trim() ? (
                       <p className="text-xs text-muted-foreground">
-                        ~{message.trim().split(/\s+/).length} words • est. {Math.round(message.trim().split(/\s+/).length / 2.5)}s
+                        ~{message.trim().split(/\s+/).length} words • est. {Math.round(message.trim().split(/\s+/).length / 2.0)}s
                       </p>
                     ) : (
                       <p className="text-xs text-muted-foreground">💡 Tip: Use the AI Director to brainstorm content ideas</p>
@@ -1354,11 +1416,11 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                       className="h-8 w-20 text-sm rounded-lg"
                     />
                     <span className="text-xs text-muted-foreground">
-                      seconds (~{Math.round((parseInt(duration) || 0) * 2.5)} words)
+                          seconds (~{Math.round((parseInt(duration) || 0) * 2.0)} words)
                     </span>
                   </div>
                   <p className="text-[10px] text-muted-foreground/70">
-                    Range: {MIN_DURATION}–{MAX_DURATION}s. Scripts auto-target ~2.5 words/sec.
+                    Range: {MIN_DURATION}–{MAX_DURATION}s. Scripts auto-target ~2.0 words/sec for slower, expressive delivery.
                   </p>
                 </div>
 
