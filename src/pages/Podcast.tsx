@@ -1005,7 +1005,7 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                   toast({ title: '🎭 Generating a person to match your script…', description: 'No AI Twin selected — creating one with AI.' });
                   const { data: { session } } = await supabase.auth.getSession();
                   const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-                  const personPrompt = `Photorealistic iPhone front-camera selfie portrait of a real-looking person who would naturally deliver this talking-head script. Pick gender, age, ethnicity, wardrobe, and setting that BEST FITS the tone and topic of the script. Natural daylight, unretouched, authentic, looking directly at camera, mid-sentence expression. ${ASPECT_FRAMING[aspectRatio]} NO text, NO watermarks.\n\nSCRIPT:\n"""${script}"""`;
+                  const personPrompt = `Photorealistic iPhone front-camera selfie portrait of a real-looking person who would naturally deliver this talking-head script. Pick gender, age, ethnicity, wardrobe, and setting that BEST FITS the tone and topic of the script. Natural daylight, unretouched, authentic, looking directly at camera, mid-sentence with warm expressive eyes and relaxed eyebrows. ${ASPECT_FRAMING[aspectRatio]} NO text, NO watermarks.\n\nSCRIPT:\n"""${script}"""`;
                   const res = await fetch(`${SUPABASE_URL}/functions/v1/ai`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
@@ -1034,7 +1034,7 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                     voice_cloning_key: undefined,
                     voice_sample_url: undefined,
                     face_description: 'AI-generated person matching the script tone',
-                    gender: 'unspecified',
+                    gender: /\b(woman|female|mother|girl|she|her)\b/i.test(script) ? 'female' : 'male',
                     voice_engine: 'speechify',
                   } as AITwin;
                 } catch (err: any) {
@@ -1050,7 +1050,7 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                 settingLabel: 'Selfie',
                 hook: script.split(/[.!?]/)[0]?.trim() || '',
                 narration: script,
-                visualDescription: `Talking-head selfie of ${twinForRun.name} delivering the script naturally on iPhone front camera.`,
+                visualDescription: `Talking-head selfie of ${twinForRun.name} delivering the script naturally on iPhone front camera with expressive eyes, small eyebrow lifts, soft head tilts, and calm pauses between thoughts.`,
               };
               generate(preset, script, twinForRun);
             }}
