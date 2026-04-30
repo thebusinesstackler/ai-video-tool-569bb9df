@@ -998,8 +998,7 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                 narration: script,
                 visualDescription: `Talking-head selfie of ${twinForRun.name} delivering the script naturally on iPhone front camera.`,
               };
-              // Defer so React commits the new selectedTwinId before generate() reads it.
-              setTimeout(() => { generate(preset); }, 100);
+              generate(preset, script, twinForRun);
             }}
             onUseBatchPlan={handleBatchPlan}
             selectedCharacterName={selectedTwin?.name}
