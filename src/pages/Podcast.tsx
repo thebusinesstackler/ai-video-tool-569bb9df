@@ -637,7 +637,7 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
 
       // Step 5: Poll until done
       setProgressStatus('Rendering... (1-4 minutes)');
-      let finalUrl: string;
+      let finalUrl: string | null = null;
       let attempts = 0;
       const maxAttempts = 150;
       const taskId = videoData.taskId;
@@ -655,7 +655,7 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
         if (status?.status === 'failed') throw new Error(status?.error || 'Video failed');
         setProgress(55 + (attempts / maxAttempts) * 40);
       }
-      if (!finalUrl! && user) {
+      if (!finalUrl && user) {
         const { data: recovered } = await supabase
           .from('video_tasks')
           .select('video_url,status')
@@ -666,7 +666,7 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
           finalUrl = recovered.video_url;
         }
       }
-      if (!finalUrl!) throw new Error('Video timed out');
+      if (!finalUrl) throw new Error('Video timed out');
 
       setVideoUrl(finalUrl);
       setProgress(100);
