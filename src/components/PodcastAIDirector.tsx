@@ -58,6 +58,7 @@ interface PodcastAIDirectorProps {
   isGenerating?: boolean;
   generationStatus?: string;
   generationProgress?: number;
+  generationError?: string | null;
   finalVideoUrl?: string | null;
 }
 
@@ -74,6 +75,7 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
   isGenerating = false,
   generationStatus = '',
   generationProgress = 0,
+  generationError = null,
   finalVideoUrl = null,
 }) => {
   const [messages, setMessages] = useState<Message[]>(() => {
@@ -81,9 +83,13 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed)) {
+          return parsed.filter((msg: Message) => !msg.content?.startsWith('⚠️ Generation stopped before finishing'));
+        }
       }
-    } catch {}
+    } catch {
+      // Ignore invalid saved chat payloads.
+    }
     return [];
   });
   const [input, setInput] = useState('');
@@ -96,7 +102,9 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
-    } catch {}
+    } catch {
+      // Ignore private browsing/storage write failures.
+    }
   }, [messages]);
 
   const togglePlanIdx = (msgKey: string, idx: number, total: number) => {
@@ -137,7 +145,7 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
     if (isGenerating) wasGeneratingRef.current = true;
     if (!isGenerating && wasGeneratingRef.current) {
       wasGeneratingRef.current = false;
-      const done = generationProgress >= 100;
+      const done = generationProgress >= 100 || !!finalVideoUrl;
       setMessages(prev => {
         const filtered = prev.filter(m => !m.content.startsWith(STATUS_PREFIX));
         return [
@@ -146,12 +154,14 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
             role: 'assistant',
             content: done
               ? `✅ **Your video is ready!** It's saved here so you can come back to it anytime.`
-              : `⚠️ Generation stopped before finishing. Click **Generate Video** again on the script above to retry — your script is preserved.`,
+              : generationError
+                ? `⚠️ Generation hit an issue: ${generationError}. Click **Generate Video** again on the script above to retry — your script is preserved.`
+                : `${STATUS_PREFIX}⚙️ **Still rendering in the background...** _Marcus will keep checking and post the video here when it finishes._`,
           },
         ];
       });
     }
-  }, [isGenerating, generationStatus, generationProgress]);
+  }, [isGenerating, generationStatus, generationProgress, generationError, finalVideoUrl]);
 
   // When a finished video URL arrives, embed it as a special chat message
   // so the user sees the result inline AND it persists across navigation.
@@ -161,14 +171,19 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
       lastVideoRef.current = finalVideoUrl;
       setMessages(prev => {
         if (prev.some(m => m.content === `${VIDEO_PREFIX}${finalVideoUrl}`)) return prev;
-        return [...prev, { role: 'assistant', content: `${VIDEO_PREFIX}${finalVideoUrl}` }];
+        return [
+          ...prev.filter(m => !m.content.startsWith(STATUS_PREFIX) && !m.content.startsWith('⚠️ Generation stopped before finishing')),
+          { role: 'assistant', content: `${VIDEO_PREFIX}${finalVideoUrl}` },
+        ];
       });
     }
   }, [finalVideoUrl]);
 
   const clearChat = () => {
     setMessages([]);
-    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+    try { localStorage.removeItem(STORAGE_KEY); } catch {
+      // Ignore private browsing/storage write failures.
+    }
   };
 
   const extractScript = (text: string): string | null => {

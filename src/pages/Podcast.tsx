@@ -83,8 +83,17 @@ const Podcast = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressStatus, setProgressStatus] = useState('');
+  const [generationError, setGenerationError] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [backgroundTask, setBackgroundTask] = useState<{ taskId: string; projectId: string | null } | null>(() => {
+    try {
+      const raw = localStorage.getItem('podcast-active-task-v1');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
 
   // 4-variation flow
   const [variations, setVariations] = useState<ScriptVariation[]>([]);
@@ -148,6 +157,18 @@ const Podcast = () => {
   const selectedTwin = twins.find(t => t.id === selectedTwinId);
   const isUuid = (value?: string | null) => !!value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
+  useEffect(() => {
+    try {
+      if (backgroundTask?.taskId) {
+        localStorage.setItem('podcast-active-task-v1', JSON.stringify(backgroundTask));
+      } else {
+        localStorage.removeItem('podcast-active-task-v1');
+      }
+    } catch {
+      // Ignore private browsing/storage write failures.
+    }
+  }, [backgroundTask]);
+
   const recoverPodcastTasks = useCallback(async () => {
     if (!user?.id) return;
     const { data: tasks } = await supabase
@@ -155,22 +176,30 @@ const Podcast = () => {
       .select('task_id,source_id,status,video_url')
       .eq('user_id', user.id)
       .eq('source', 'podcast')
-      .in('status', ['pending', 'processing'])
+      .in('status', ['pending', 'processing', 'completed'])
       .not('source_id', 'is', null)
       .order('created_at', { ascending: false })
       .limit(10);
 
+    let recoveredUrl: string | null = null;
     for (const task of tasks || []) {
       const { data: status } = await supabase.functions.invoke('wavespeed-video', {
         body: { action: 'status', taskId: task.task_id }
       });
       const url = status?.videoUrl || task.video_url;
-      if (status?.status === 'completed' && url) {
+      if ((status?.status === 'completed' || task.status === 'completed') && url) {
         await supabase.from('podcast_projects').update({ video_url: url, status: 'done', error: null }).eq('id', task.source_id);
+        recoveredUrl = recoveredUrl || url;
         setVideoUrl(prev => prev || url);
+        setBackgroundTask(prev => prev?.taskId === task.task_id ? null : prev);
       } else if (status?.status === 'failed') {
         await supabase.from('podcast_projects').update({ status: 'failed', error: status?.error || 'Video failed' }).eq('id', task.source_id);
       }
+    }
+    if (recoveredUrl) {
+      setProgress(100);
+      setProgressStatus('Done! 🎬');
+      setGenerationError(null);
     }
   }, [user?.id]);
 
@@ -420,7 +449,9 @@ const Podcast = () => {
             return pub.publicUrl;
           }
         }
-      } catch {}
+      } catch {
+        // Fall back to the original portrait if upload fails.
+      }
     }
     return imgUrl.startsWith('data:') ? portrait : imgUrl;
   };
@@ -549,9 +580,12 @@ Return ONLY valid JSON:
 
     setIsGenerating(true);
     setProgress(5);
+    setGenerationError(null);
     setVideoUrl(null);
     setAudioUrl(null);
+    setBackgroundTask(null);
     let podcastProjectId: string | null = null;
+    let activeTaskId: string | null = null;
 
     try {
       const dur = parseInt(duration);
@@ -692,6 +726,9 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
       let attempts = 0;
       const maxAttempts = 150;
       const taskId = videoData.taskId;
+      activeTaskId = taskId;
+      setBackgroundTask({ taskId, projectId: podcastProjectId });
+      let consecutiveFailures = 0;
       while (attempts < maxAttempts) {
         attempts++;
         await new Promise(r => setTimeout(r, 3000));
@@ -703,7 +740,12 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
           finalUrl = status.videoUrl;
           break;
         }
-        if (status?.status === 'failed') throw new Error(status?.error || 'Video failed');
+        if (status?.status === 'failed') {
+          consecutiveFailures++;
+          if (consecutiveFailures >= 5) throw new Error(status?.error || 'Video failed');
+        } else if (status?.status) {
+          consecutiveFailures = 0;
+        }
         setProgress(55 + (attempts / maxAttempts) * 40);
       }
       if (!finalUrl && user) {
@@ -720,8 +762,10 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
       if (!finalUrl) throw new Error('Video timed out');
 
       setVideoUrl(finalUrl);
+      setBackgroundTask(null);
       setProgress(100);
       setProgressStatus('Done! 🎬');
+      setGenerationError(null);
 
       // Save to history
       if (podcastProjectId) {
@@ -737,10 +781,19 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
     } catch (err: any) {
       console.error('Generation error:', err);
       const msg = err?.message || 'Unknown error';
-      if (podcastProjectId) {
+      const isCredits = /credits?\s*(exhausted|run out|insufficient)|top\s*up|insufficient.*balance/i.test(msg);
+      const stillProcessing = !!activeTaskId && !isCredits && /timed out|status|Failed to get video job status/i.test(msg);
+      if (podcastProjectId && !stillProcessing) {
         await supabase.from('podcast_projects').update({ status: 'failed', error: msg }).eq('id', podcastProjectId);
       }
-      const isCredits = /credits?\s*(exhausted|run out|insufficient)|top\s*up|insufficient.*balance/i.test(msg);
+      if (stillProcessing) {
+        setProgressStatus('Still rendering in the background...');
+        setProgress(prev => Math.max(prev, 95));
+        setGenerationError(null);
+        toast({ title: 'Still rendering', description: 'Marcus will keep checking and show the video here when WaveSpeed finishes.' });
+        return;
+      }
+      setGenerationError(msg);
       toast({
         title: isCredits ? '⚠️ WaveSpeed Credits Exhausted' : 'Generation Failed',
         description: isCredits
@@ -1027,6 +1080,41 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
     recoverPodcastTasks().finally(() => loadHistory());
   }, [recoverPodcastTasks, loadHistory]);
 
+  useEffect(() => {
+    if (!user?.id || !backgroundTask?.taskId || videoUrl) return;
+    let cancelled = false;
+    const check = async () => {
+      const { data: status } = await supabase.functions.invoke('wavespeed-video', {
+        body: { action: 'status', taskId: backgroundTask.taskId }
+      });
+      if (cancelled) return;
+      if (status?.status === 'completed' && status?.videoUrl) {
+        if (backgroundTask.projectId) {
+          await supabase.from('podcast_projects').update({ video_url: status.videoUrl, status: 'done', error: null }).eq('id', backgroundTask.projectId);
+        }
+        setVideoUrl(status.videoUrl);
+        setProgress(100);
+        setProgressStatus('Done! 🎬');
+        setGenerationError(null);
+        setBackgroundTask(null);
+        loadHistory();
+      } else if (status?.status === 'failed') {
+        setGenerationError(status?.error || 'Video failed');
+        setProgressStatus('Generation failed');
+        setBackgroundTask(null);
+      } else {
+        setProgress(prev => Math.max(prev, Math.min(98, status?.progress || 95)));
+        setProgressStatus('Still rendering in the background...');
+      }
+    };
+    check();
+    const id = window.setInterval(check, 10000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [user?.id, backgroundTask, videoUrl, loadHistory]);
+
   const deleteHistoryItem = async (id: string) => {
     if (!confirm('Delete this podcast project?')) return;
     await supabase.from('podcast_projects').delete().eq('id', id);
@@ -1132,6 +1220,7 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
             isGenerating={isGenerating}
             generationStatus={progressStatus}
             generationProgress={progress}
+            generationError={generationError}
             finalVideoUrl={videoUrl}
           />
         </div>
