@@ -179,6 +179,7 @@ const Podcast = () => {
       .order('created_at', { ascending: false })
       .limit(10);
 
+    let recoveredUrl: string | null = null;
     for (const task of tasks || []) {
       const { data: status } = await supabase.functions.invoke('wavespeed-video', {
         body: { action: 'status', taskId: task.task_id }
@@ -186,10 +187,17 @@ const Podcast = () => {
       const url = status?.videoUrl || task.video_url;
       if (status?.status === 'completed' && url) {
         await supabase.from('podcast_projects').update({ video_url: url, status: 'done', error: null }).eq('id', task.source_id);
+        recoveredUrl = recoveredUrl || url;
         setVideoUrl(prev => prev || url);
+        setBackgroundTask(prev => prev?.taskId === task.task_id ? null : prev);
       } else if (status?.status === 'failed') {
         await supabase.from('podcast_projects').update({ status: 'failed', error: status?.error || 'Video failed' }).eq('id', task.source_id);
       }
+    }
+    if (recoveredUrl) {
+      setProgress(100);
+      setProgressStatus('Done! 🎬');
+      setGenerationError(null);
     }
   }, [user?.id]);
 
