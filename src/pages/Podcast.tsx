@@ -148,6 +148,32 @@ const Podcast = () => {
   const selectedTwin = twins.find(t => t.id === selectedTwinId);
   const isUuid = (value?: string | null) => !!value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
+  const recoverPodcastTasks = useCallback(async () => {
+    if (!user?.id) return;
+    const { data: tasks } = await supabase
+      .from('video_tasks')
+      .select('task_id,source_id,status,video_url')
+      .eq('user_id', user.id)
+      .eq('source', 'podcast')
+      .in('status', ['pending', 'processing'])
+      .not('source_id', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    for (const task of tasks || []) {
+      const { data: status } = await supabase.functions.invoke('wavespeed-video', {
+        body: { action: 'status', taskId: task.task_id }
+      });
+      const url = status?.videoUrl || task.video_url;
+      if (status?.status === 'completed' && url) {
+        await supabase.from('podcast_projects').update({ video_url: url, status: 'done', error: null }).eq('id', task.source_id);
+        setVideoUrl(prev => prev || url);
+      } else if (status?.status === 'failed') {
+        await supabase.from('podcast_projects').update({ status: 'failed', error: status?.error || 'Video failed' }).eq('id', task.source_id);
+      }
+    }
+  }, [user?.id]);
+
   // Auto-estimate duration from word count
   useEffect(() => {
     if (!message.trim()) return;
