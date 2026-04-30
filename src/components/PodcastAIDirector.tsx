@@ -303,6 +303,16 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
             <Loader2 className="w-3 h-3 mr-1 animate-spin" /> Thinking
           </Badge>
         )}
+        {!isStreaming && messages.length > 0 && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={clearChat}
+            className="ml-auto text-[10px] h-7 px-2 text-muted-foreground hover:text-foreground"
+          >
+            Clear
+          </Button>
+        )}
       </div>
 
       {/* Messages Area */}
