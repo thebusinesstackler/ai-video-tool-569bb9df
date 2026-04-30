@@ -1442,7 +1442,7 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                         <div className="flex gap-2">
                           <Button
                             className="flex-1 h-11 rounded-xl bg-gradient-to-r from-primary to-primary/80"
-                            onClick={startBulkGeneration}
+                            onClick={() => startBulkGeneration()}
                             disabled={isBulkRunning || twins.length === 0 || bulkItems.filter(i => i.selected && i.status !== 'done').length === 0}
                           >
                             {isBulkRunning ? (
