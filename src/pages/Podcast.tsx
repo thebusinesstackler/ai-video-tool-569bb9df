@@ -733,8 +733,8 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
     });
 
     // Auto-start bulk generation so the user immediately sees progress.
-    // Defer one tick so React commits the new bulkItems before startBulkGeneration reads them.
-    setTimeout(() => { startBulkGeneration(); }, 50);
+    // Pass items directly to avoid stale-closure read of bulkItems state.
+    setTimeout(() => { startBulkGeneration(items); }, 50);
   };
 
   const updateBulkItem = (id: string, patch: Partial<BulkItem>) => {
