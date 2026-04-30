@@ -849,7 +849,7 @@ serve(async (req) => {
       const jobStatus: WaveSpeedVideoJob = {
         taskId: taskData.id || taskId,
         status: normalizedStatus,
-        progress: normalizedStatus === 'processing' ? Math.max(95, progress) : progress,
+        progress: normalizedStatus === 'processing' && status === 'completed' ? 95 : progress,
         videoUrl: videoUrl,
         error: taskData.error || undefined
       };
