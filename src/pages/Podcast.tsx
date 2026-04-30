@@ -1076,6 +1076,41 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
     recoverPodcastTasks().finally(() => loadHistory());
   }, [recoverPodcastTasks, loadHistory]);
 
+  useEffect(() => {
+    if (!user?.id || !backgroundTask?.taskId || videoUrl) return;
+    let cancelled = false;
+    const check = async () => {
+      const { data: status } = await supabase.functions.invoke('wavespeed-video', {
+        body: { action: 'status', taskId: backgroundTask.taskId }
+      });
+      if (cancelled) return;
+      if (status?.status === 'completed' && status?.videoUrl) {
+        if (backgroundTask.projectId) {
+          await supabase.from('podcast_projects').update({ video_url: status.videoUrl, status: 'done', error: null }).eq('id', backgroundTask.projectId);
+        }
+        setVideoUrl(status.videoUrl);
+        setProgress(100);
+        setProgressStatus('Done! 🎬');
+        setGenerationError(null);
+        setBackgroundTask(null);
+        loadHistory();
+      } else if (status?.status === 'failed') {
+        setGenerationError(status?.error || 'Video failed');
+        setProgressStatus('Generation failed');
+        setBackgroundTask(null);
+      } else {
+        setProgress(prev => Math.max(prev, Math.min(98, status?.progress || 95)));
+        setProgressStatus('Still rendering in the background...');
+      }
+    };
+    check();
+    const id = window.setInterval(check, 10000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [user?.id, backgroundTask, videoUrl, loadHistory]);
+
   const deleteHistoryItem = async (id: string) => {
     if (!confirm('Delete this podcast project?')) return;
     await supabase.from('podcast_projects').delete().eq('id', id);
