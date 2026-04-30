@@ -858,12 +858,13 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
     return selectedTwin || null;
   };
 
-  const startBulkGeneration = async () => {
+  const startBulkGeneration = async (overrideItems?: BulkItem[]) => {
     if (twins.length === 0) {
       toast({ title: 'No AI twins available', description: 'Create at least one AI Twin first.', variant: 'destructive' });
       return;
     }
-    const queue = bulkItems.filter(i => i.selected && i.status !== 'done');
+    const source = overrideItems ?? bulkItems;
+    const queue = source.filter(i => i.selected && i.status !== 'done');
     if (queue.length === 0) {
       toast({ title: 'Nothing selected', description: 'Tick at least one script.', variant: 'destructive' });
       return;
