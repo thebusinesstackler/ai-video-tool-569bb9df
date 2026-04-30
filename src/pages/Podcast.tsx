@@ -361,19 +361,36 @@ const Podcast = () => {
     }
   };
 
-  // Build TTS body
+  // Build TTS body — match voice to the character on screen.
+  // Priority: 1) the user's cloned voice for that twin, 2) a gender + age/tone
+  // matched OpenAI voice, 3) safe default. Slow, expressive pacing for natural delivery.
   const buildTtsBody = (text: string, twin: AITwin) => {
-    const isFemale = twin.gender?.toLowerCase() === 'female' || twin.gender?.toLowerCase() === 'woman';
+    const gender = (twin.gender || '').toLowerCase();
+    const isFemale = gender === 'female' || gender === 'woman';
+    const desc = (twin.face_description || '').toLowerCase();
+
+    // Pick a voice that fits the visible character. OpenAI voice library:
+    //   female: nova (warm), shimmer (bright young), alloy (neutral mature)
+    //   male:   echo (calm mature), onyx (deep authoritative), fable (warm storyteller)
+    let voice: string;
+    if (isFemale) {
+      if (/young|teen|girl|bright|playful|energetic/.test(desc)) voice = 'shimmer';
+      else if (/mature|older|professional|calm/.test(desc)) voice = 'alloy';
+      else voice = 'nova';
+    } else {
+      if (/deep|authoritative|older|mature|gruff|baritone/.test(desc)) voice = 'onyx';
+      else if (/warm|friendly|storyteller|narrator/.test(desc)) voice = 'fable';
+      else voice = 'echo';
+    }
+
     const body: Record<string, any> = {
       text,
-      speed: 0.82,
+      speed: 0.85, // slow, expressive — gives room for natural pauses
       gender: twin.gender || (isFemale ? 'female' : 'male'),
-      voice: isFemale ? 'nova' : 'echo',
+      voice,
     };
-    if (twin.voice_cloning_key) {
-      body.voiceCloningKey = twin.voice_cloning_key;
-      return body;
-    }
+    // Cloned voice always wins — that's literally the character's real voice.
+    if (twin.voice_cloning_key) body.voiceCloningKey = twin.voice_cloning_key;
     return body;
   };
 
