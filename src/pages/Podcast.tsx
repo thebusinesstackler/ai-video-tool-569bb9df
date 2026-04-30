@@ -501,8 +501,9 @@ Return ONLY valid JSON:
   };
 
   // Main: Generate Script + Video
-  const generate = async (preset?: ScriptVariation) => {
-    if (!preset && !message.trim()) {
+  const generate = async (preset?: ScriptVariation, overrideMessage?: string) => {
+    const effectiveMessage = (overrideMessage ?? message).trim();
+    if (!preset && !effectiveMessage) {
       toast({ title: 'Message required', description: 'Enter what you want to say or pick a variation.', variant: 'destructive' });
       return;
     }
@@ -551,7 +552,7 @@ Return ONLY a JSON object:
   "visualDescription": "Brief visual direction for the character in a professional studio setting"
 }`
               },
-              { role: 'user', content: `Write a ${dur}-second talking head script for:\n\n${message}` }
+              { role: 'user', content: `Write a ${dur}-second talking head script for:\n\n${effectiveMessage}` }
             ]
           }
         });
@@ -733,8 +734,8 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
     });
 
     // Auto-start bulk generation so the user immediately sees progress.
-    // Defer one tick so React commits the new bulkItems before startBulkGeneration reads them.
-    setTimeout(() => { startBulkGeneration(); }, 50);
+    // Pass items directly to avoid stale-closure read of bulkItems state.
+    setTimeout(() => { startBulkGeneration(items); }, 50);
   };
 
   const updateBulkItem = (id: string, patch: Partial<BulkItem>) => {
@@ -858,12 +859,13 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
     return selectedTwin || null;
   };
 
-  const startBulkGeneration = async () => {
+  const startBulkGeneration = async (overrideItems?: BulkItem[]) => {
     if (twins.length === 0) {
       toast({ title: 'No AI twins available', description: 'Create at least one AI Twin first.', variant: 'destructive' });
       return;
     }
-    const queue = bulkItems.filter(i => i.selected && i.status !== 'done');
+    const source = overrideItems ?? bulkItems;
+    const queue = source.filter(i => i.selected && i.status !== 'done');
     if (queue.length === 0) {
       toast({ title: 'Nothing selected', description: 'Tick at least one script.', variant: 'destructive' });
       return;
@@ -969,7 +971,24 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
         {/* Left Panel — AI Creative Director */}
         <div className="lg:w-[420px] xl:w-[460px] border-r border-border flex flex-col bg-background order-2 lg:order-1 min-h-[300px] lg:min-h-0 lg:h-full">
           <PodcastAIDirector
-            onUseScript={(script) => { setMessage(script); setActiveTab('talking-head'); }}
+            onUseScript={(script) => {
+              setMessage(script);
+              setActiveTab('talking-head');
+              if (!selectedTwin) {
+                toast({ title: 'Pick an AI Twin', description: 'Select a character on the right, then press Generate.', variant: 'destructive' });
+                return;
+              }
+              // Use script directly as narration — skip the AI rewrite step.
+              const preset: ScriptVariation = {
+                id: `marcus-${Date.now()}`,
+                styleLabel: 'Marcus',
+                settingLabel: 'Selfie',
+                hook: script.split(/[.!?]/)[0]?.trim() || '',
+                narration: script,
+                visualDescription: `Talking-head selfie of ${selectedTwin.name} delivering the script naturally on iPhone front camera.`,
+              };
+              setTimeout(() => { generate(preset); }, 50);
+            }}
             onUseBatchPlan={handleBatchPlan}
             selectedCharacterName={selectedTwin?.name}
             brandContext={{
@@ -1441,7 +1460,7 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                         <div className="flex gap-2">
                           <Button
                             className="flex-1 h-11 rounded-xl bg-gradient-to-r from-primary to-primary/80"
-                            onClick={startBulkGeneration}
+                            onClick={() => startBulkGeneration()}
                             disabled={isBulkRunning || twins.length === 0 || bulkItems.filter(i => i.selected && i.status !== 'done').length === 0}
                           >
                             {isBulkRunning ? (
