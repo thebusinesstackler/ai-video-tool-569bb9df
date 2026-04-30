@@ -698,26 +698,12 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
       setProgressStatus('Done! 🎬');
 
       // Save to history
-      if (user) {
-        const activeVar = variations.find(v => v.id === activeVariationId);
-        await supabase.from('podcast_projects').insert({
-          user_id: user.id,
-          topic: message.trim().slice(0, 200) || 'Untitled podcast',
-          hook: activeVar?.hook || null,
-          narration,
-          visual_description: visualDesc || null,
-          style_label: activeVar?.styleLabel || null,
-          setting_label: activeVar?.settingLabel || null,
-          audience: activeVar?.audience || null,
-          featured_product: activeVar?.featuredProduct || null,
-          twin_id: isUuid(twinForGeneration.id) ? twinForGeneration.id : null,
-          twin_name: twinForGeneration.name || null,
-          duration: dur,
-          audio_url: ttsUrl,
+      if (podcastProjectId) {
+        await supabase.from('podcast_projects').update({
           video_url: finalUrl,
-          scene_image_url: sceneImg,
           status: 'done',
-        });
+          error: null,
+        }).eq('id', podcastProjectId);
       }
 
       toast({ title: '🎬 Video Ready!', description: 'Your talking head video is complete.' });
