@@ -307,14 +307,17 @@ const Podcast = () => {
 
   // Build TTS body
   const buildTtsBody = (text: string, twin: AITwin) => {
-    const body: Record<string, any> = { text, speakingRate: 0.92 };
+    const isFemale = twin.gender?.toLowerCase() === 'female' || twin.gender?.toLowerCase() === 'woman';
+    const body: Record<string, any> = {
+      text,
+      speed: 0.82,
+      gender: twin.gender || (isFemale ? 'female' : 'male'),
+      voice: isFemale ? 'nova' : 'echo',
+    };
     if (twin.voice_cloning_key) {
       body.voiceCloningKey = twin.voice_cloning_key;
       return body;
     }
-    const isFemale = twin.gender?.toLowerCase() === 'female';
-    body.voice = isFemale ? 'English_compelling_lady1' : 'English_magnetic_voiced_man';
-    body.gender = twin.gender || 'male';
     return body;
   };
 
