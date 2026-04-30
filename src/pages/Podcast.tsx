@@ -501,8 +501,9 @@ Return ONLY valid JSON:
   };
 
   // Main: Generate Script + Video
-  const generate = async (preset?: ScriptVariation) => {
-    if (!preset && !message.trim()) {
+  const generate = async (preset?: ScriptVariation, overrideMessage?: string) => {
+    const effectiveMessage = (overrideMessage ?? message).trim();
+    if (!preset && !effectiveMessage) {
       toast({ title: 'Message required', description: 'Enter what you want to say or pick a variation.', variant: 'destructive' });
       return;
     }
