@@ -823,10 +823,11 @@ serve(async (req) => {
 
       // Get video URL from response — WaveSpeed models nest results differently.
       const videoUrl = findVideoUrl(taskData);
+      const normalizedStatus = status === 'completed' && !videoUrl ? 'processing' : status;
 
       if (status === 'completed') {
         if (!videoUrl) {
-          console.error('[wavespeed-video] Completed but no video URL found! Response keys:', Object.keys(taskData));
+          console.warn('[wavespeed-video] Completed status but output URL is not visible yet; continuing to poll. Response keys:', Object.keys(taskData));
           console.error('[wavespeed-video] Full taskData:', JSON.stringify(taskData).substring(0, 2000));
         } else {
           console.log('[wavespeed-video] Found completed video URL:', videoUrl);
@@ -834,12 +835,12 @@ serve(async (req) => {
       }
 
       // Update video_tasks table if status is terminal
-      if (status === 'completed' || status === 'failed') {
+      if (normalizedStatus === 'completed' || normalizedStatus === 'failed') {
         try {
-          const updateData: any = { status, updated_at: new Date().toISOString() };
+          const updateData: any = { status: normalizedStatus, updated_at: new Date().toISOString() };
           if (videoUrl) updateData.video_url = videoUrl;
           await dbClient.from('video_tasks').update(updateData).eq('task_id', taskId);
-          console.log('[video_tasks] Updated task status:', taskId, status);
+          console.log('[video_tasks] Updated task status:', taskId, normalizedStatus);
         } catch (updateErr) {
           console.error('[video_tasks] Failed to update task:', updateErr);
         }
@@ -847,8 +848,8 @@ serve(async (req) => {
 
       const jobStatus: WaveSpeedVideoJob = {
         taskId: taskData.id || taskId,
-        status,
-        progress,
+        status: normalizedStatus,
+        progress: normalizedStatus === 'processing' ? Math.max(95, progress) : progress,
         videoUrl: videoUrl,
         error: taskData.error || undefined
       };
