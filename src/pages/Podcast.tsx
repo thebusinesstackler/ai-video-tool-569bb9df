@@ -1207,7 +1207,7 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                   <div className="flex items-center justify-between">
                     {message.trim() ? (
                       <p className="text-xs text-muted-foreground">
-                        ~{message.trim().split(/\s+/).length} words • est. {Math.round(message.trim().split(/\s+/).length / 2.5)}s
+                        ~{message.trim().split(/\s+/).length} words • est. {Math.round(message.trim().split(/\s+/).length / 2.0)}s
                       </p>
                     ) : (
                       <p className="text-xs text-muted-foreground">💡 Tip: Use the AI Director to brainstorm content ideas</p>
@@ -1372,11 +1372,11 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                       className="h-8 w-20 text-sm rounded-lg"
                     />
                     <span className="text-xs text-muted-foreground">
-                      seconds (~{Math.round((parseInt(duration) || 0) * 2.5)} words)
+                          seconds (~{Math.round((parseInt(duration) || 0) * 2.0)} words)
                     </span>
                   </div>
                   <p className="text-[10px] text-muted-foreground/70">
-                    Range: {MIN_DURATION}–{MAX_DURATION}s. Scripts auto-target ~2.5 words/sec.
+                    Range: {MIN_DURATION}–{MAX_DURATION}s. Scripts auto-target ~2.0 words/sec for slower, expressive delivery.
                   </p>
                 </div>
 
