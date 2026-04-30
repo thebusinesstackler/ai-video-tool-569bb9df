@@ -10,7 +10,7 @@ import ReactMarkdown from 'react-markdown';
 import directorAvatar from '@/assets/ai-director-avatar.jpg';
 import {
   Sparkles, Send, Target, Video, Users, Lightbulb,
-  Copy, ArrowRight, Loader2, Bot, Wand2, Layers
+  Copy, ArrowRight, Loader2, Bot, Wand2, Layers, Check
 } from 'lucide-react';
 
 type Message = { role: 'user' | 'assistant'; content: string };
