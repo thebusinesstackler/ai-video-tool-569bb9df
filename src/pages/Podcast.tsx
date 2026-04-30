@@ -726,11 +726,15 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
 
     const distinctCast = new Set(items.map(i => i.assignedTwinName).filter(Boolean));
     toast({
-      title: `${plans.length} videos queued`,
+      title: `${plans.length} videos queued — starting now`,
       description: distinctCast.size > 1
-        ? `Cast across ${distinctCast.size} AI twins. Review, then bulk generate.`
-        : 'Review, select, then bulk generate.',
+        ? `Cast across ${distinctCast.size} AI twins. Generating sequentially.`
+        : 'Generating sequentially. You can stop at any time.',
     });
+
+    // Auto-start bulk generation so the user immediately sees progress.
+    // Defer one tick so React commits the new bulkItems before startBulkGeneration reads them.
+    setTimeout(() => { startBulkGeneration(); }, 50);
   };
 
   const updateBulkItem = (id: string, patch: Partial<BulkItem>) => {
