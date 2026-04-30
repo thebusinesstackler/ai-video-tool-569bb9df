@@ -505,13 +505,14 @@ Return ONLY valid JSON:
   };
 
   // Main: Generate Script + Video
-  const generate = async (preset?: ScriptVariation, overrideMessage?: string) => {
+  const generate = async (preset?: ScriptVariation, overrideMessage?: string, overrideTwin?: AITwin) => {
     const effectiveMessage = (overrideMessage ?? message).trim();
+    const twinForGeneration = overrideTwin ?? selectedTwin;
     if (!preset && !effectiveMessage) {
       toast({ title: 'Message required', description: 'Enter what you want to say or pick a variation.', variant: 'destructive' });
       return;
     }
-    if (!selectedTwin) {
+    if (!twinForGeneration) {
       toast({ title: 'Select a character', description: 'Pick an AI Twin first.', variant: 'destructive' });
       return;
     }
@@ -541,7 +542,7 @@ Return ONLY valid JSON:
                 content: `You are a scriptwriter for talking-head videos. Write a natural, conversational monologue.
 
 Target: ${dur} seconds (~${wordTarget} words).
-Character: ${selectedTwin.face_description || selectedTwin.name}
+Character: ${twinForGeneration.face_description || twinForGeneration.name}
 
 Rules:
 - Write naturally, as a real person talks on camera
@@ -569,7 +570,7 @@ Return ONLY a JSON object:
           visualDesc = parsed.visualDescription || '';
         } catch {
           narration = content.replace(/```[\s\S]*?```/g, '').trim();
-          visualDesc = `Professional studio, ${selectedTwin.face_description || selectedTwin.name} speaking to camera`;
+          visualDesc = `Professional studio, ${twinForGeneration.face_description || twinForGeneration.name} speaking to camera`;
         }
       }
 
@@ -582,7 +583,7 @@ Return ONLY a JSON object:
         ttsUrl = customAudioUrl;
       } else {
         setProgressStatus('Generating voiceover...');
-        ttsUrl = await generateTTS(narration, selectedTwin, 'podcast');
+        ttsUrl = await generateTTS(narration, twinForGeneration, 'podcast');
       }
       setAudioUrl(ttsUrl);
       setProgress(30);
@@ -600,14 +601,14 @@ Return ONLY a JSON object:
         ? `\nFEATURED PRODUCT: The person should be naturally holding or showing the product visible in the second reference image (preserve product label/colors exactly).`
         : '';
       const imgPrompt = `Photorealistic selfie of this EXACT person filmed on an iPhone front camera.
-CHARACTER: ${selectedTwin.face_description || selectedTwin.name}
-GENDER: ${selectedTwin.gender || 'unspecified'}
+CHARACTER: ${twinForGeneration.face_description || twinForGeneration.name}
+GENDER: ${twinForGeneration.gender || 'unspecified'}
 CAMERA: iPhone front-facing camera, slight low angle, arm's length distance
 ASPECT RATIO: ${aspectRatio} — ${ASPECT_FRAMING[aspectRatio]}
 SETTING & STYLE: ${visualDesc || 'Casual real environment — home office or living room, natural window light'}
 EXPRESSION: Mid-sentence speaking, relaxed and authentic, looking directly at camera${productLine}
 QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, NO watermarks.`;
-      const sceneImg = await generateSceneImage(imgPrompt, selectedTwin, productImgUrl);
+      const sceneImg = await generateSceneImage(imgPrompt, twinForGeneration, productImgUrl);
       setProgress(45);
 
       // Step 4: Create lip-sync video
@@ -666,8 +667,8 @@ QUALITY: Ultra photorealistic, natural skin with pores, no retouching. NO text, 
           setting_label: activeVar?.settingLabel || null,
           audience: activeVar?.audience || null,
           featured_product: activeVar?.featuredProduct || null,
-          twin_id: selectedTwinId,
-          twin_name: selectedTwin?.name || null,
+          twin_id: twinForGeneration.id,
+          twin_name: twinForGeneration.name || null,
           duration: dur,
           audio_url: ttsUrl,
           video_url: finalUrl,
