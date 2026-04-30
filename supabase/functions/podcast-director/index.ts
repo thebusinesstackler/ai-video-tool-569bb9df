@@ -49,7 +49,7 @@ LIFECYKEL — DEEP BRAND CONTEXT (you know this brand intimately):
 - Audience: wellness-focused women 25-45, ritual-driven, skeptical of generic supplements, value clean science + feminine aesthetic.
 - Voice: warm, knowing, ritual-first, "specific + ritual" framing. NEVER generic ("supports wellness"). ALWAYS specific ("the 7am drop in your coffee that turns brain fog into 4-hour focus").
 - Strategy framework for every video: HOOK (6+ seconds, 15-25 words, scroll-stopping) → PROBLEM (the specific friction in her day) → DROPPER RITUAL (when/where/how she takes it) → 3 SPECIFIC BENEFITS (felt outcomes, not health claims) → CTA (try the ritual, link in bio).
-- Pacing: ~2.5 words/second. 60s video ≈ 150 words. 90s ≈ 225 words. 120s ≈ 300 words.
+- Pacing: ~2.0 words/second for slow expressive delivery. 60s video ≈ 120 words. 90s ≈ 180 words. 120s ≈ 240 words.
 - Aesthetic: bright natural daylight, unretouched 'iPhone selfie' realness, never glossy/corporate.
 `.trim()
     : "";
