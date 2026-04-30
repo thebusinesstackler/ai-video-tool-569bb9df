@@ -315,35 +315,63 @@ export const PodcastAIDirector: React.FC<PodcastAIDirectorProps> = ({
                         {(() => {
                           const plan = extractPlan(msg.content);
                           if (!plan || plan.length === 0) return null;
+                          const msgKey = `msg-${i}`;
+                          const selected = getSelected(msgKey, plan.length);
+                          const selectedCount = selected.size;
                           return (
                             <div className="space-y-2 pt-2 mt-2 border-t border-border/50">
                               <div className="flex items-center gap-2">
                                 <Badge className="text-[10px] bg-primary/15 text-primary border-primary/30">
-                                  <Layers className="w-3 h-3 mr-1" /> {plan.length} videos planned
+                                  <Layers className="w-3 h-3 mr-1" /> {selectedCount} of {plan.length} selected
                                 </Badge>
                               </div>
-                              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                                {plan.map((p, idx) => (
-                                  <div key={idx} className="text-[11px] p-2 rounded-md bg-background/60 border border-border/50">
-                                    <div className="flex items-center justify-between gap-2">
-                                      <p className="font-medium text-foreground line-clamp-1 flex-1">{idx + 1}. {p.topic}</p>
-                                      {p.twinName && (
-                                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-primary/40 text-primary shrink-0">
-                                          🎭 {p.twinName}
-                                        </Badge>
+                              <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                                {plan.map((p, idx) => {
+                                  const isOn = selected.has(idx);
+                                  return (
+                                    <button
+                                      key={idx}
+                                      type="button"
+                                      onClick={() => togglePlanIdx(msgKey, idx, plan.length)}
+                                      className={cn(
+                                        'w-full text-left text-[11px] p-2 rounded-md border transition flex items-start gap-2',
+                                        isOn
+                                          ? 'bg-primary/10 border-primary/40'
+                                          : 'bg-background/60 border-border/50 opacity-60'
                                       )}
-                                    </div>
-                                    {p.hook && <p className="text-muted-foreground line-clamp-1 mt-0.5">"{p.hook}"</p>}
-                                  </div>
-                                ))}
+                                    >
+                                      <span className={cn(
+                                        'mt-0.5 w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center',
+                                        isOn ? 'bg-primary border-primary' : 'border-muted-foreground/40'
+                                      )}>
+                                        {isOn && <Copy className="w-2 h-2 text-primary-foreground rotate-0" style={{ clipPath: 'polygon(20% 50%, 45% 75%, 85% 25%, 75% 15%, 45% 55%, 30% 40%)' }} />}
+                                      </span>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between gap-2">
+                                          <p className="font-medium text-foreground line-clamp-1 flex-1">{idx + 1}. {p.topic}</p>
+                                          {p.twinName && (
+                                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-primary/40 text-primary shrink-0">
+                                              🎭 {p.twinName}
+                                            </Badge>
+                                          )}
+                                        </div>
+                                        {p.hook && <p className="text-muted-foreground line-clamp-1 mt-0.5">"{p.hook}"</p>}
+                                      </div>
+                                    </button>
+                                  );
+                                })}
                               </div>
                               {onUseBatchPlan && (
                                 <Button
                                   size="sm"
+                                  disabled={selectedCount === 0}
                                   className="w-full text-xs h-8 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
-                                  onClick={() => onUseBatchPlan(plan)}
+                                  onClick={() => {
+                                    const picked = plan.filter((_, idx) => selected.has(idx));
+                                    onUseBatchPlan(picked);
+                                  }}
                                 >
-                                  <ArrowRight className="w-3 h-3 mr-1" /> Send to Bulk Queue
+                                  <ArrowRight className="w-3 h-3 mr-1" /> Send {selectedCount} to Bulk Queue & Start
                                 </Button>
                               )}
                             </div>
