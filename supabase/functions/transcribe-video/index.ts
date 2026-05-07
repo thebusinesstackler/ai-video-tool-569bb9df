@@ -39,6 +39,20 @@ async function transcribeWithWhisper(videoBlob: Blob, apiKey: string) {
   };
 }
 
+async function blobToDataUrl(blob: Blob) {
+  const arrayBuffer = await blob.arrayBuffer();
+  const uint8Array = new Uint8Array(arrayBuffer);
+  let binary = '';
+  const chunkSize = 8192;
+  for (let i = 0; i < uint8Array.length; i += chunkSize) {
+    const chunk = uint8Array.slice(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  const base64Video = btoa(binary);
+  const mimeType = blob.type || 'video/mp4';
+  return `data:${mimeType};base64,${base64Video}`;
+}
+
 async function transcribeWithGemini(videoSource: Blob | string, apiKey: string) {
   console.log('Falling back to Gemini for transcription...');
 
