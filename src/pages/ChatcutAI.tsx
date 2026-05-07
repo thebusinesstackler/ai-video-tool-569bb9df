@@ -4317,8 +4317,47 @@ const ChatcutAI = () => {
                     </ScrollArea>
                   </TabsContent>
 
-                  <TabsContent value="transcript" className="flex-1 overflow-hidden m-0 p-0">
-                    <ScrollArea className="h-full px-3 py-2">
+                  <TabsContent value="transcript" className="flex-1 overflow-hidden m-0 p-0 flex flex-col">
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+                      <span className="text-xs text-muted-foreground">
+                        {transcriptSegments.length > 0 ? `${transcriptSegments.length} segment${transcriptSegments.length === 1 ? '' : 's'}` : 'No transcript yet'}
+                      </span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs gap-1"
+                        disabled={!videoUrl || isTranscribing}
+                        onClick={async () => {
+                          if (!videoUrl) {
+                            toast({ title: 'No video', description: 'Load a video on the timeline first.', variant: 'destructive' });
+                            return;
+                          }
+                          setIsTranscribing(true);
+                          setMessages(prev => [...prev, { role: 'assistant', content: '🎙️ Pulling the voiceover from your timeline video — transcribing now…' }]);
+                          try {
+                            const { data, error } = await supabase.functions.invoke('transcribe-video', { body: { videoUrl } });
+                            if (error) throw error;
+                            if (!data || (!data.text && !(data.segments || []).length)) {
+                              throw new Error('Transcription returned empty — the audio may be silent or the file too large.');
+                            }
+                            setTranscript(data);
+                            const wc = (data?.text || '').split(/\s+/).filter(Boolean).length;
+                            setMessages(prev => [...prev, { role: 'assistant', content: `✅ Transcribed **${wc} words** across ${(data.segments || []).length} segments. Ready to caption, cut fillers, or punch up the hook.` }]);
+                            toast({ title: 'Transcript ready', description: `${wc} words pulled from your video.` });
+                          } catch (e: any) {
+                            console.error('[ChatcutAI] re-transcribe failed', e);
+                            setMessages(prev => [...prev, { role: 'assistant', content: `⚠️ Transcription failed: ${e?.message || 'unknown error'}.\n\nThings to try:\n• File may be >25MB — re-upload a shorter/lower-res mp4\n• Make sure the audio track isn't muted in the source\n• If imported from TikTok, the audio may have been stripped — re-import with audio` }]);
+                            toast({ title: 'Transcription failed', description: e?.message || 'unknown error', variant: 'destructive' });
+                          } finally {
+                            setIsTranscribing(false);
+                          }
+                        }}
+                      >
+                        {isTranscribing ? <><Loader2 className="w-3 h-3 animate-spin" /> Transcribing…</> : <>🎙️ {transcriptSegments.length > 0 ? 'Re-transcribe' : 'Pull voiceover'}</>}
+                      </Button>
+                    </div>
+                    <ScrollArea className="flex-1 px-3 py-2">
                       {transcriptSegments.length > 0 ? (
                         <div className="space-y-1 text-sm">
                           {transcriptSegments.map((seg: any, i: number, arr: any[]) => {
@@ -4348,7 +4387,7 @@ const ChatcutAI = () => {
                         </div>
                       ) : (
                         <p className="text-sm text-muted-foreground text-center py-8">
-                          {isTranscribing ? 'Transcribing...' : 'Upload a video to see the transcript'}
+                          {isTranscribing ? 'Transcribing…' : videoUrl ? 'No transcript yet — click "Pull voiceover" above to extract it.' : 'Upload a video to see the transcript'}
                         </p>
                       )}
                     </ScrollArea>
