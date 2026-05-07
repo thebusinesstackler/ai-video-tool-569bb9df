@@ -306,6 +306,80 @@ const ProjectNameInput = ({ value, onSave }: { value: string; onSave: (v: string
   );
 };
 
+const hasTranscriptPayload = (data: any) => Boolean(
+  data &&
+  data.success !== false &&
+  ((typeof data.text === 'string' && data.text.trim()) || (Array.isArray(data.segments) && data.segments.length > 0))
+);
+
+const extractAudioTrackToStorage = async (sourceUrl: string, userId: string): Promise<string> => {
+  if (typeof window === 'undefined' || !('MediaRecorder' in window)) {
+    throw new Error('Audio extraction is not supported in this browser.');
+  }
+  const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
+  if (!AudioContextCtor) throw new Error('Audio extraction is not supported in this browser.');
+
+  const video = document.createElement('video');
+  video.crossOrigin = 'anonymous';
+  video.preload = 'auto';
+  video.playsInline = true;
+  video.muted = true;
+  video.src = sourceUrl;
+
+  await new Promise<void>((resolve, reject) => {
+    const timeout = window.setTimeout(() => reject(new Error('Could not load video audio track.')), 15000);
+    video.addEventListener('loadedmetadata', () => { window.clearTimeout(timeout); resolve(); }, { once: true });
+    video.addEventListener('error', () => { window.clearTimeout(timeout); reject(new Error('Could not read this video file.')); }, { once: true });
+  });
+
+  const audioCtx = new AudioContextCtor();
+  const source = audioCtx.createMediaElementSource(video);
+  const destination = audioCtx.createMediaStreamDestination();
+  source.connect(destination);
+  if (!destination.stream.getAudioTracks().length) {
+    await audioCtx.close();
+    throw new Error('No readable audio track found in this video.');
+  }
+
+  const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
+  const chunks: BlobPart[] = [];
+  const recorder = new MediaRecorder(destination.stream, { mimeType });
+  recorder.ondataavailable = (event) => { if (event.data.size > 0) chunks.push(event.data); };
+
+  const stopped = new Promise<void>((resolve) => { recorder.onstop = () => resolve(); });
+  const playbackDone = new Promise<void>((resolve, reject) => {
+    const maxWaitMs = Math.min(Math.max(((Number.isFinite(video.duration) ? video.duration : 60) + 10) * 1000, 30000), 360000);
+    const timeout = window.setTimeout(() => reject(new Error('Audio extraction timed out. Try a shorter clip.')), maxWaitMs);
+    video.addEventListener('ended', () => { window.clearTimeout(timeout); resolve(); }, { once: true });
+    video.addEventListener('error', () => { window.clearTimeout(timeout); reject(new Error('Audio extraction failed during playback.')); }, { once: true });
+  });
+
+  try {
+    await audioCtx.resume();
+    recorder.start(1000);
+    video.currentTime = 0;
+    await video.play();
+    video.muted = false;
+    await playbackDone;
+  } finally {
+    video.pause();
+    if (recorder.state !== 'inactive') recorder.stop();
+  }
+
+  await stopped;
+  source.disconnect();
+  await audioCtx.close();
+
+  const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+  if (audioBlob.size < 1000) throw new Error('Extracted audio was empty.');
+
+  const path = `${userId}/${Date.now()}-extracted-voiceover.webm`;
+  const { error } = await supabase.storage.from('raw-footage').upload(path, audioBlob, { contentType: 'audio/webm' });
+  if (error) throw error;
+  const { data } = supabase.storage.from('raw-footage').getPublicUrl(path);
+  return data.publicUrl;
+};
+
 const ChatcutAI = () => {
   const { user } = useAuth();
   const { toast } = useToast();
