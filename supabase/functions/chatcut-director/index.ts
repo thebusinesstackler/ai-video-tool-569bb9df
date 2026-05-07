@@ -1138,23 +1138,26 @@ When the user says "direct this", "commercial polish", "make it look like an ad"
     // Director brain: top-tier reasoning model for shot decisions, motion-graphics
     // planning, placement/treatment/subjectAction choices, and multi-tool orchestration.
     const DIRECTOR_MODEL = "openai/gpt-5.5";
-    // Vision-capable fallback for the rare case the director model can't see images yet.
+    const FALLBACK_MODEL = "openai/gpt-5.2";
     const VISION_FALLBACK_MODEL = "google/gemini-2.5-pro";
     const hasFrames = Array.isArray(videoFrames) && videoFrames.length > 0;
-    const modelToUse = DIRECTOR_MODEL;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const callGateway = (model: string) => fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: modelToUse,
-        messages: allMessages,
-        stream: true,
-      }),
+      body: JSON.stringify({ model, messages: allMessages, stream: true }),
     });
+
+    let response = await callGateway(DIRECTOR_MODEL);
+
+    // Auto-fallback to gpt-5.2 if 5.5 is gated (402 needs credits, 403 not entitled, 404 unavailable).
+    if (!response.ok && [402, 403, 404].includes(response.status)) {
+      console.warn(`[chatcut-director] ${DIRECTOR_MODEL} returned ${response.status}, falling back to ${FALLBACK_MODEL}`);
+      response = await callGateway(FALLBACK_MODEL);
+    }
 
     if (!response.ok) {
       if (response.status === 429) {
@@ -1163,7 +1166,7 @@ When the user says "direct this", "commercial polish", "make it look like an ad"
         });
       }
       if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Credits required. Please add funds to continue." }), {
+        return new Response(JSON.stringify({ error: "Credits required. Please add funds in Settings → Workspace → Usage to continue." }), {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
