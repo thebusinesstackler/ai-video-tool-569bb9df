@@ -3235,7 +3235,14 @@ const ChatcutAI = () => {
         }
       }
       const actions = parseActions(assistantSoFar);
-      if (actions.length > 0) executeActions(actions);
+      if (actions.length > 0) {
+        if (autoApplyActions) {
+          executeActions(actions);
+        } else {
+          // Stash the proposed actions for user approval
+          setPendingActions({ actions, messageIndex: messages.length /* assistant msg index = current length before flush */ });
+        }
+      }
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally {
