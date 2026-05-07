@@ -2864,10 +2864,74 @@ const ChatcutAI = () => {
     }
   };
 
+  // Detect TikTok / YouTube / Instagram URLs pasted into the chat input
+  const SOCIAL_URL_RE = /(https?:\/\/(?:www\.|m\.|vm\.)?(?:tiktok\.com|youtube\.com|youtu\.be|instagram\.com)\/[^\s)]+)/i;
+
+  const importFromSocialUrl = useCallback(async (url: string) => {
+    if (!user) {
+      toast({ title: 'Sign in required', description: 'Log in to import videos.', variant: 'destructive' });
+      return;
+    }
+    setIsLoading(true);
+    setMessages(prev => [...prev, { role: 'assistant', content: `🔗 Got it — pulling that video down now. This can take 10–30s for TikTok/IG…` }]);
+    try {
+      const finalUrl = await downloadSocialVideoToStorage(url, (title, description, variant) => {
+        toast({ title, description, variant });
+      });
+      setVideoUrl(finalUrl);
+      const tempVideo = document.createElement('video');
+      tempVideo.src = finalUrl;
+      await new Promise<void>((resolve) => {
+        tempVideo.addEventListener('loadedmetadata', () => resolve(), { once: true });
+        setTimeout(() => resolve(), 8000);
+      });
+      const dur = isFinite(tempVideo.duration) ? tempVideo.duration : 0;
+      setTimelineClips([{
+        id: crypto.randomUUID(),
+        name: 'Imported social clip',
+        url: finalUrl,
+        duration: dur,
+        startAt: 0,
+      }]);
+      if (dur > 0) setDuration(dur);
+
+      setIsTranscribing(true);
+      setMessages(prev => [...prev, { role: 'assistant', content: `📥 Video loaded on the timeline. Transcribing the voiceover now…` }]);
+      try {
+        const { data: txData, error: txError } = await supabase.functions.invoke('transcribe-video', {
+          body: { videoUrl: finalUrl },
+        });
+        if (txError) throw txError;
+        setTranscript(txData);
+        const wc = (txData?.text || '').split(/\s+/).filter(Boolean).length;
+        setMessages(prev => [...prev, { role: 'assistant', content: `✅ Pulled the voiceover — **${wc} words** transcribed. Open the **Transcript** tab to review, or tell me what to do next (clean captions, add B-roll, punch up hook, etc.).` }]);
+      } catch (e: any) {
+        setMessages(prev => [...prev, { role: 'assistant', content: `⚠️ The video imported but transcription failed: ${e?.message || 'unknown error'}. The clip is on your timeline — you can still edit it.` }]);
+      } finally {
+        setIsTranscribing(false);
+      }
+    } catch (err: any) {
+      setMessages(prev => [...prev, { role: 'assistant', content: `❌ Couldn't import that link: **${err?.message || 'unknown error'}**.\n\nTry one of:\n• Re-upload the video file directly (drag & drop)\n• Paste a different mirror of the link\n• If TikTok blocked it, use a downloader like ssstik.io and upload the .mp4` }]);
+      toast({ title: 'Import failed', description: err?.message || 'unknown error', variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, toast]);
+
   const sendMessage = async (text?: string) => {
     const messageText = text || input.trim();
     if (!messageText || isLoading) return;
     setInput('');
+
+    // If user pasted a TikTok/YouTube/IG URL, treat it as an import instead of a Marco prompt
+    const socialMatch = messageText.match(SOCIAL_URL_RE);
+    if (socialMatch && !selectedReference) {
+      const url = socialMatch[1];
+      setMessages(prev => [...prev, { role: 'user', content: messageText }]);
+      await importFromSocialUrl(url);
+      return;
+    }
+
     // If the user pinned a media reference, prepend it to the message so Marco knows EXACTLY
     // which clip/frame/product to act on.
     const ref = selectedReference;
