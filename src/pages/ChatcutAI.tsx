@@ -312,6 +312,14 @@ const ChatcutAI = () => {
   const { mode: creatorMode } = useCreatorMode();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
+  // Plan → Confirm → Execute: hold parsed actions for user approval before applying
+  const [pendingActions, setPendingActions] = useState<{ actions: TimelineAction[]; messageIndex: number } | null>(null);
+  const [autoApplyActions, setAutoApplyActions] = useState<boolean>(() => {
+    try { return localStorage.getItem('chatcut-auto-apply-actions') === '1'; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('chatcut-auto-apply-actions', autoApplyActions ? '1' : '0'); } catch {}
+  }, [autoApplyActions]);
   // Media reference: when the user clicks the 🎯 button on a media tile, we pin it as
   // a reference so the next chat message tells Marco EXACTLY which clip/frame/product to use.
   type SelectedReference =
