@@ -1377,6 +1377,25 @@ const ChatcutAI = () => {
     }
   }, [user, loadDraft]);
 
+  const transcribeMediaWithFallback = useCallback(async (sourceUrl: string, allowAudioFallback = true) => {
+    const runTranscription = async (targetUrl: string) => {
+      const { data, error } = await supabase.functions.invoke('transcribe-video', { body: { videoUrl: targetUrl } });
+      if (error) throw error;
+      if (data?.success === false) throw new Error(data.error || 'Transcription failed');
+      if (!hasTranscriptPayload(data)) throw new Error('Transcription returned empty — the audio may be silent or the file too large.');
+      return data;
+    };
+
+    try {
+      return await runTranscription(sourceUrl);
+    } catch (initialError) {
+      if (!allowAudioFallback || !user) throw initialError;
+      setMessages(prev => [...prev, { role: 'assistant', content: 'The full video was too large for transcription, so I’m extracting just the audio track and trying again…' }]);
+      const audioUrl = await extractAudioTrackToStorage(sourceUrl, user.id);
+      return await runTranscription(audioUrl);
+    }
+  }, [user]);
+
   const uploadVideo = useCallback(async (file: File) => {
     if (!user) return;
     setIsUploading(true);
@@ -1405,11 +1424,7 @@ const ChatcutAI = () => {
       toast({ title: 'Video uploaded', description: 'Your footage is ready for editing.' });
 
       setIsTranscribing(true);
-      const { data: txData, error: txError } = await supabase.functions.invoke('transcribe-video', {
-        body: { videoUrl: urlData.publicUrl },
-      });
-      if (txError) throw txError;
-      if (txData?.success === false) throw new Error(txData.error || 'Transcription failed');
+      const txData = await transcribeMediaWithFallback(urlData.publicUrl);
       setTranscript(txData);
       setIsTranscribing(false);
 
@@ -1424,7 +1439,7 @@ const ChatcutAI = () => {
     } finally {
       setIsUploading(false);
     }
-  }, [user, toast]);
+  }, [user, toast, transcribeMediaWithFallback]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
