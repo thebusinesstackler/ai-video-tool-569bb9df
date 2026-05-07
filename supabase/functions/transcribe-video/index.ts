@@ -93,9 +93,7 @@ Rules:
             { type: 'text', text: 'Transcribe this video with timestamps:' },
             {
               type: 'image_url',
-              image_url: {
-                url: `data:${mimeType};base64,${base64Video}`,
-              },
+              image_url: { url: dataUrl },
             },
           ],
         },
