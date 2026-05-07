@@ -2988,11 +2988,7 @@ const ChatcutAI = () => {
       setIsTranscribing(true);
       setMessages(prev => [...prev, { role: 'assistant', content: `📥 Video loaded on the timeline. Transcribing the voiceover now…` }]);
       try {
-        const { data: txData, error: txError } = await supabase.functions.invoke('transcribe-video', {
-          body: { videoUrl: finalUrl },
-        });
-        if (txError) throw txError;
-        if (txData?.success === false) throw new Error(txData.error || 'Transcription failed');
+        const txData = await transcribeMediaWithFallback(finalUrl);
         setTranscript(txData);
         const wc = (txData?.text || '').split(/\s+/).filter(Boolean).length;
         setMessages(prev => [...prev, { role: 'assistant', content: `✅ Pulled the voiceover — **${wc} words** transcribed. Open the **Transcript** tab to review, or tell me what to do next (clean captions, add B-roll, punch up hook, etc.).` }]);
@@ -3007,7 +3003,7 @@ const ChatcutAI = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [user, toast]);
+  }, [user, toast, transcribeMediaWithFallback]);
 
   const sendMessage = async (text?: string) => {
     const messageText = text || input.trim();
