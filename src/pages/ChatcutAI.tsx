@@ -4423,12 +4423,7 @@ const ChatcutAI = () => {
                           setIsTranscribing(true);
                           setMessages(prev => [...prev, { role: 'assistant', content: '🎙️ Pulling the voiceover from your timeline video — transcribing now…' }]);
                           try {
-                            const { data, error } = await supabase.functions.invoke('transcribe-video', { body: { videoUrl } });
-                            if (error) throw error;
-                            if (data?.success === false) throw new Error(data.error || 'Transcription failed');
-                            if (!data || (!data.text && !(data.segments || []).length)) {
-                              throw new Error('Transcription returned empty — the audio may be silent or the file too large.');
-                            }
+                            const data = await transcribeMediaWithFallback(videoUrl);
                             setTranscript(data);
                             const wc = (data?.text || '').split(/\s+/).filter(Boolean).length;
                             setMessages(prev => [...prev, { role: 'assistant', content: `✅ Transcribed **${wc} words** across ${(data.segments || []).length} segments. Ready to caption, cut fillers, or punch up the hook.` }]);
