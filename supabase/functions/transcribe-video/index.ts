@@ -39,22 +39,26 @@ async function transcribeWithWhisper(videoBlob: Blob, apiKey: string) {
   };
 }
 
-async function transcribeWithGemini(videoBlob: Blob, apiKey: string) {
+async function transcribeWithGemini(videoSource: Blob | string, apiKey: string) {
   console.log('Falling back to Gemini for transcription...');
 
-  // Convert video to base64
-  const arrayBuffer = await videoBlob.arrayBuffer();
-  const uint8Array = new Uint8Array(arrayBuffer);
-  let binary = '';
-  // Process in chunks to avoid stack overflow
-  const chunkSize = 8192;
-  for (let i = 0; i < uint8Array.length; i += chunkSize) {
-    const chunk = uint8Array.slice(i, i + chunkSize);
-    binary += String.fromCharCode(...chunk);
+  let dataUrl: string;
+  if (typeof videoSource === 'string') {
+    // Pass URL directly — gateway will fetch it
+    dataUrl = videoSource;
+  } else {
+    const arrayBuffer = await videoSource.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.slice(i, i + chunkSize);
+      binary += String.fromCharCode(...chunk);
+    }
+    const base64Video = btoa(binary);
+    const mimeType = videoSource.type || 'video/mp4';
+    dataUrl = `data:${mimeType};base64,${base64Video}`;
   }
-  const base64Video = btoa(binary);
-
-  const mimeType = videoBlob.type || 'video/mp4';
 
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
