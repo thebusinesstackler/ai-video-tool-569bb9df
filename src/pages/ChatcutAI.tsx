@@ -312,6 +312,14 @@ const ChatcutAI = () => {
   const { mode: creatorMode } = useCreatorMode();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
+  // Plan → Confirm → Execute: hold parsed actions for user approval before applying
+  const [pendingActions, setPendingActions] = useState<{ actions: TimelineAction[]; messageIndex: number } | null>(null);
+  const [autoApplyActions, setAutoApplyActions] = useState<boolean>(() => {
+    try { return localStorage.getItem('chatcut-auto-apply-actions') === '1'; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('chatcut-auto-apply-actions', autoApplyActions ? '1' : '0'); } catch {}
+  }, [autoApplyActions]);
   // Media reference: when the user clicks the 🎯 button on a media tile, we pin it as
   // a reference so the next chat message tells Marco EXACTLY which clip/frame/product to use.
   type SelectedReference =
@@ -3227,7 +3235,14 @@ const ChatcutAI = () => {
         }
       }
       const actions = parseActions(assistantSoFar);
-      if (actions.length > 0) executeActions(actions);
+      if (actions.length > 0) {
+        if (autoApplyActions) {
+          executeActions(actions);
+        } else {
+          // Stash the proposed actions for user approval
+          setPendingActions({ actions, messageIndex: messages.length /* assistant msg index = current length before flush */ });
+        }
+      }
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally {
@@ -4160,6 +4175,66 @@ const ChatcutAI = () => {
                             )}
                           </div>
                         ))}
+                        {pendingActions && pendingActions.actions.length > 0 && (
+                          <div className="ml-9 -mt-1 rounded-lg border border-primary/40 bg-primary/5 p-3 space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="text-xs font-semibold text-primary">
+                                {AGENT_NAME} wants to make {pendingActions.actions.length} change{pendingActions.actions.length === 1 ? '' : 's'}
+                              </div>
+                              <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={autoApplyActions}
+                                  onChange={(e) => setAutoApplyActions(e.target.checked)}
+                                  className="h-3 w-3 accent-primary"
+                                />
+                                Auto-apply
+                              </label>
+                            </div>
+                            <ul className="space-y-1 max-h-44 overflow-auto pr-1">
+                              {pendingActions.actions.map((a, ai) => {
+                                const at = typeof a.at === 'number' ? ` @ ${a.at.toFixed(1)}s` : (typeof a.start === 'number' ? ` @ ${a.start.toFixed(1)}s` : '');
+                                const dur = typeof a.duration === 'number' ? ` · ${a.duration.toFixed(1)}s` : '';
+                                const summary = a.text || a.prompt || a.reason || a.caption || a.label || a.intent || a.treatment || '';
+                                return (
+                                  <li key={ai} className="text-[11px] text-foreground/80 flex items-start gap-1.5">
+                                    <span className="text-primary mt-0.5">•</span>
+                                    <div className="min-w-0">
+                                      <span className="font-mono text-primary/90">{a.action}</span>
+                                      <span className="text-muted-foreground">{at}{dur}</span>
+                                      {summary && <span className="block text-muted-foreground line-clamp-2">{String(summary).slice(0, 140)}</span>}
+                                    </div>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                            <div className="flex gap-1.5 pt-1">
+                              <Button
+                                type="button"
+                                size="sm"
+                                className="h-7 text-xs flex-1"
+                                onClick={() => {
+                                  executeActions(pendingActions.actions);
+                                  setPendingActions(null);
+                                }}
+                              >
+                                ✓ Approve & Apply
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                onClick={() => {
+                                  setPendingActions(null);
+                                  setMessages(prev => [...prev, { role: 'assistant', content: 'Got it — I won\'t apply those changes. Tell me what to tweak and I\'ll re-plan. 🎬' }]);
+                                }}
+                              >
+                                ✕ Reject
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                         {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <img src={agentAvatar} alt={AGENT_NAME} className="w-6 h-6 rounded-full flex-shrink-0 animate-pulse" loading="lazy" width={24} height={24} />
