@@ -179,11 +179,15 @@ serve(async (req) => {
       if (!LOVABLE_API_KEY) {
         throw new Error('No transcription service available');
       }
-      // Gemini has a ~20MB inline limit; check size
-      if (videoBlob.size > 20 * 1024 * 1024) {
-        throw new Error('Video too large for fallback transcription (max 20MB). Please use a shorter clip.');
+      // For large videos, pass the URL directly so the gateway streams it
+      // (avoids the ~20MB inline base64 limit)
+      const useUrlMode = videoBlob.size > 20 * 1024 * 1024;
+      if (useUrlMode) {
+        console.log('Video > 20MB, passing URL directly to Gemini');
+        result = await transcribeWithGemini(videoUrl, LOVABLE_API_KEY);
+      } else {
+        result = await transcribeWithGemini(videoBlob, LOVABLE_API_KEY);
       }
-      result = await transcribeWithGemini(videoBlob, LOVABLE_API_KEY);
       console.log('Gemini transcription complete, text length:', result.text?.length);
     }
 
