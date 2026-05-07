@@ -306,6 +306,80 @@ const ProjectNameInput = ({ value, onSave }: { value: string; onSave: (v: string
   );
 };
 
+const hasTranscriptPayload = (data: any) => Boolean(
+  data &&
+  data.success !== false &&
+  ((typeof data.text === 'string' && data.text.trim()) || (Array.isArray(data.segments) && data.segments.length > 0))
+);
+
+const extractAudioTrackToStorage = async (sourceUrl: string, userId: string): Promise<string> => {
+  if (typeof window === 'undefined' || !('MediaRecorder' in window)) {
+    throw new Error('Audio extraction is not supported in this browser.');
+  }
+  const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
+  if (!AudioContextCtor) throw new Error('Audio extraction is not supported in this browser.');
+
+  const video = document.createElement('video');
+  video.crossOrigin = 'anonymous';
+  video.preload = 'auto';
+  video.playsInline = true;
+  video.muted = true;
+  video.src = sourceUrl;
+
+  await new Promise<void>((resolve, reject) => {
+    const timeout = window.setTimeout(() => reject(new Error('Could not load video audio track.')), 15000);
+    video.addEventListener('loadedmetadata', () => { window.clearTimeout(timeout); resolve(); }, { once: true });
+    video.addEventListener('error', () => { window.clearTimeout(timeout); reject(new Error('Could not read this video file.')); }, { once: true });
+  });
+
+  const audioCtx = new AudioContextCtor();
+  const source = audioCtx.createMediaElementSource(video);
+  const destination = audioCtx.createMediaStreamDestination();
+  source.connect(destination);
+  if (!destination.stream.getAudioTracks().length) {
+    await audioCtx.close();
+    throw new Error('No readable audio track found in this video.');
+  }
+
+  const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
+  const chunks: BlobPart[] = [];
+  const recorder = new MediaRecorder(destination.stream, { mimeType });
+  recorder.ondataavailable = (event) => { if (event.data.size > 0) chunks.push(event.data); };
+
+  const stopped = new Promise<void>((resolve) => { recorder.onstop = () => resolve(); });
+  const playbackDone = new Promise<void>((resolve, reject) => {
+    const maxWaitMs = Math.min(Math.max(((Number.isFinite(video.duration) ? video.duration : 60) + 10) * 1000, 30000), 360000);
+    const timeout = window.setTimeout(() => reject(new Error('Audio extraction timed out. Try a shorter clip.')), maxWaitMs);
+    video.addEventListener('ended', () => { window.clearTimeout(timeout); resolve(); }, { once: true });
+    video.addEventListener('error', () => { window.clearTimeout(timeout); reject(new Error('Audio extraction failed during playback.')); }, { once: true });
+  });
+
+  try {
+    await audioCtx.resume();
+    recorder.start(1000);
+    video.currentTime = 0;
+    await video.play();
+    video.muted = false;
+    await playbackDone;
+  } finally {
+    video.pause();
+    if (recorder.state !== 'inactive') recorder.stop();
+  }
+
+  await stopped;
+  source.disconnect();
+  await audioCtx.close();
+
+  const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+  if (audioBlob.size < 1000) throw new Error('Extracted audio was empty.');
+
+  const path = `${userId}/${Date.now()}-extracted-voiceover.webm`;
+  const { error } = await supabase.storage.from('raw-footage').upload(path, audioBlob, { contentType: 'audio/webm' });
+  if (error) throw error;
+  const { data } = supabase.storage.from('raw-footage').getPublicUrl(path);
+  return data.publicUrl;
+};
+
 const ChatcutAI = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -1303,6 +1377,25 @@ const ChatcutAI = () => {
     }
   }, [user, loadDraft]);
 
+  const transcribeMediaWithFallback = useCallback(async (sourceUrl: string, allowAudioFallback = true) => {
+    const runTranscription = async (targetUrl: string) => {
+      const { data, error } = await supabase.functions.invoke('transcribe-video', { body: { videoUrl: targetUrl } });
+      if (error) throw error;
+      if (data?.success === false) throw new Error(data.error || 'Transcription failed');
+      if (!hasTranscriptPayload(data)) throw new Error('Transcription returned empty — the audio may be silent or the file too large.');
+      return data;
+    };
+
+    try {
+      return await runTranscription(sourceUrl);
+    } catch (initialError) {
+      if (!allowAudioFallback || !user) throw initialError;
+      setMessages(prev => [...prev, { role: 'assistant', content: 'The full video was too large for transcription, so I’m extracting just the audio track and trying again…' }]);
+      const audioUrl = await extractAudioTrackToStorage(sourceUrl, user.id);
+      return await runTranscription(audioUrl);
+    }
+  }, [user]);
+
   const uploadVideo = useCallback(async (file: File) => {
     if (!user) return;
     setIsUploading(true);
@@ -1331,10 +1424,7 @@ const ChatcutAI = () => {
       toast({ title: 'Video uploaded', description: 'Your footage is ready for editing.' });
 
       setIsTranscribing(true);
-      const { data: txData, error: txError } = await supabase.functions.invoke('transcribe-video', {
-        body: { videoUrl: urlData.publicUrl },
-      });
-      if (txError) throw txError;
+      const txData = await transcribeMediaWithFallback(urlData.publicUrl);
       setTranscript(txData);
       setIsTranscribing(false);
 
@@ -1349,7 +1439,7 @@ const ChatcutAI = () => {
     } finally {
       setIsUploading(false);
     }
-  }, [user, toast]);
+  }, [user, toast, transcribeMediaWithFallback]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -2898,10 +2988,7 @@ const ChatcutAI = () => {
       setIsTranscribing(true);
       setMessages(prev => [...prev, { role: 'assistant', content: `📥 Video loaded on the timeline. Transcribing the voiceover now…` }]);
       try {
-        const { data: txData, error: txError } = await supabase.functions.invoke('transcribe-video', {
-          body: { videoUrl: finalUrl },
-        });
-        if (txError) throw txError;
+        const txData = await transcribeMediaWithFallback(finalUrl);
         setTranscript(txData);
         const wc = (txData?.text || '').split(/\s+/).filter(Boolean).length;
         setMessages(prev => [...prev, { role: 'assistant', content: `✅ Pulled the voiceover — **${wc} words** transcribed. Open the **Transcript** tab to review, or tell me what to do next (clean captions, add B-roll, punch up hook, etc.).` }]);
@@ -2916,7 +3003,7 @@ const ChatcutAI = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [user, toast]);
+  }, [user, toast, transcribeMediaWithFallback]);
 
   const sendMessage = async (text?: string) => {
     const messageText = text || input.trim();
@@ -4336,11 +4423,7 @@ const ChatcutAI = () => {
                           setIsTranscribing(true);
                           setMessages(prev => [...prev, { role: 'assistant', content: '🎙️ Pulling the voiceover from your timeline video — transcribing now…' }]);
                           try {
-                            const { data, error } = await supabase.functions.invoke('transcribe-video', { body: { videoUrl } });
-                            if (error) throw error;
-                            if (!data || (!data.text && !(data.segments || []).length)) {
-                              throw new Error('Transcription returned empty — the audio may be silent or the file too large.');
-                            }
+                            const data = await transcribeMediaWithFallback(videoUrl);
                             setTranscript(data);
                             const wc = (data?.text || '').split(/\s+/).filter(Boolean).length;
                             setMessages(prev => [...prev, { role: 'assistant', content: `✅ Transcribed **${wc} words** across ${(data.segments || []).length} segments. Ready to caption, cut fillers, or punch up the hook.` }]);

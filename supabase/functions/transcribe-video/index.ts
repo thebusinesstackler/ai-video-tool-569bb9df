@@ -39,25 +39,33 @@ async function transcribeWithWhisper(videoBlob: Blob, apiKey: string) {
   };
 }
 
+async function blobToDataUrl(blob: Blob) {
+  const arrayBuffer = await blob.arrayBuffer();
+  const uint8Array = new Uint8Array(arrayBuffer);
+  let binary = '';
+  const chunkSize = 8192;
+  for (let i = 0; i < uint8Array.length; i += chunkSize) {
+    const chunk = uint8Array.slice(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  const base64Video = btoa(binary);
+  const mimeType = blob.type || 'video/mp4';
+  return `data:${mimeType};base64,${base64Video}`;
+}
+
 async function transcribeWithGemini(videoSource: Blob | string, apiKey: string) {
   console.log('Falling back to Gemini for transcription...');
 
   let dataUrl: string;
   if (typeof videoSource === 'string') {
-    // Pass URL directly — gateway will fetch it
-    dataUrl = videoSource;
-  } else {
-    const arrayBuffer = await videoSource.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-    let binary = '';
-    const chunkSize = 8192;
-    for (let i = 0; i < uint8Array.length; i += chunkSize) {
-      const chunk = uint8Array.slice(i, i + chunkSize);
-      binary += String.fromCharCode(...chunk);
+    const videoResp = await fetch(videoSource);
+    if (!videoResp.ok) {
+      throw new Error(`Failed to download video for Gemini fallback: ${videoResp.status}`);
     }
-    const base64Video = btoa(binary);
-    const mimeType = videoSource.type || 'video/mp4';
-    dataUrl = `data:${mimeType};base64,${base64Video}`;
+    const videoBlob = await videoResp.blob();
+    dataUrl = await blobToDataUrl(videoBlob);
+  } else {
+    dataUrl = await blobToDataUrl(videoSource);
   }
 
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -68,6 +76,7 @@ async function transcribeWithGemini(videoSource: Blob | string, apiKey: string) 
     },
     body: JSON.stringify({
       model: 'google/gemini-2.5-flash',
+      max_tokens: 8192,
       messages: [
         {
           role: 'system',
@@ -179,15 +188,10 @@ serve(async (req) => {
       if (!LOVABLE_API_KEY) {
         throw new Error('No transcription service available');
       }
-      // For large videos, pass the URL directly so the gateway streams it
-      // (avoids the ~20MB inline base64 limit)
-      const useUrlMode = videoBlob.size > 20 * 1024 * 1024;
-      if (useUrlMode) {
-        console.log('Video > 20MB, passing URL directly to Gemini');
-        result = await transcribeWithGemini(videoUrl, LOVABLE_API_KEY);
-      } else {
-        result = await transcribeWithGemini(videoBlob, LOVABLE_API_KEY);
+      if (videoBlob.size > 20 * 1024 * 1024) {
+        throw new Error('Video too large for full-video transcription. Extract the audio track and try again.');
       }
+      result = await transcribeWithGemini(videoBlob, LOVABLE_API_KEY);
       console.log('Gemini transcription complete, text length:', result.text?.length);
     }
 
