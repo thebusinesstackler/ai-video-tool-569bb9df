@@ -1335,6 +1335,7 @@ const ChatcutAI = () => {
         body: { videoUrl: urlData.publicUrl },
       });
       if (txError) throw txError;
+      if (txData?.success === false) throw new Error(txData.error || 'Transcription failed');
       setTranscript(txData);
       setIsTranscribing(false);
 
@@ -2902,6 +2903,7 @@ const ChatcutAI = () => {
           body: { videoUrl: finalUrl },
         });
         if (txError) throw txError;
+        if (txData?.success === false) throw new Error(txData.error || 'Transcription failed');
         setTranscript(txData);
         const wc = (txData?.text || '').split(/\s+/).filter(Boolean).length;
         setMessages(prev => [...prev, { role: 'assistant', content: `✅ Pulled the voiceover — **${wc} words** transcribed. Open the **Transcript** tab to review, or tell me what to do next (clean captions, add B-roll, punch up hook, etc.).` }]);
@@ -4338,6 +4340,7 @@ const ChatcutAI = () => {
                           try {
                             const { data, error } = await supabase.functions.invoke('transcribe-video', { body: { videoUrl } });
                             if (error) throw error;
+                            if (data?.success === false) throw new Error(data.error || 'Transcription failed');
                             if (!data || (!data.text && !(data.segments || []).length)) {
                               throw new Error('Transcription returned empty — the audio may be silent or the file too large.');
                             }
