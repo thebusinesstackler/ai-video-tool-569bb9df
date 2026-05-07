@@ -44,20 +44,14 @@ async function transcribeWithGemini(videoSource: Blob | string, apiKey: string) 
 
   let dataUrl: string;
   if (typeof videoSource === 'string') {
-    // Pass URL directly — gateway will fetch it
-    dataUrl = videoSource;
-  } else {
-    const arrayBuffer = await videoSource.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-    let binary = '';
-    const chunkSize = 8192;
-    for (let i = 0; i < uint8Array.length; i += chunkSize) {
-      const chunk = uint8Array.slice(i, i + chunkSize);
-      binary += String.fromCharCode(...chunk);
+    const videoResp = await fetch(videoSource);
+    if (!videoResp.ok) {
+      throw new Error(`Failed to download video for Gemini fallback: ${videoResp.status}`);
     }
-    const base64Video = btoa(binary);
-    const mimeType = videoSource.type || 'video/mp4';
-    dataUrl = `data:${mimeType};base64,${base64Video}`;
+    const videoBlob = await videoResp.blob();
+    dataUrl = await blobToDataUrl(videoBlob);
+  } else {
+    dataUrl = await blobToDataUrl(videoSource);
   }
 
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -68,6 +62,7 @@ async function transcribeWithGemini(videoSource: Blob | string, apiKey: string) 
     },
     body: JSON.stringify({
       model: 'google/gemini-2.5-flash',
+      max_tokens: 8192,
       messages: [
         {
           role: 'system',
