@@ -1137,14 +1137,11 @@ When the user says "direct this", "commercial polish", "make it look like an ad"
     // ── MODEL ROUTING ──────────────────────────────────────────────────────
     // Director brain: top-tier reasoning model for shot decisions, motion-graphics
     // planning, placement/treatment/subjectAction choices, and multi-tool orchestration.
-    // (Once "openai/gpt-5.4" is published on the Lovable AI Gateway, swap this one constant.)
-    const DIRECTOR_MODEL = "openai/gpt-5.2";
+    const DIRECTOR_MODEL = "openai/gpt-5.5";
     // Vision-capable fallback for the rare case the director model can't see images yet.
     const VISION_FALLBACK_MODEL = "google/gemini-2.5-pro";
     const hasFrames = Array.isArray(videoFrames) && videoFrames.length > 0;
     const modelToUse = DIRECTOR_MODEL;
-    // NOTE: Lovable AI Gateway does not currently accept the OpenAI `reasoning` parameter.
-    // Reasoning effort is implicit in the model tier (gpt-5.2 ≈ high). Re-enable when supported.
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
