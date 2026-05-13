@@ -2102,6 +2102,8 @@ const MovieSceneCreator = () => {
       let framesDone = 0;
 
       // Helper: invoke generate-scene-image with up to N attempts. Returns uploaded URL or null.
+      // IMPORTANT: edge function caps referenceImages at 4 and characterDescription at 1000 chars
+      // — sending more produces a 400 ("non-2xx") and silently leaves the scene "pending".
       const tryGenerateFrame = async (
         prompt: string,
         refs: string[],
@@ -2109,15 +2111,34 @@ const MovieSceneCreator = () => {
         label: string,
         attempts = 2,
       ): Promise<string | null> => {
+        const safeRefs = Array.isArray(refs)
+          ? Array.from(new Set(refs.filter(Boolean))).slice(0, 4)
+          : [];
+        const safeCharDesc = charDesc && charDesc.length > 1000
+          ? charDesc.slice(0, 1000)
+          : charDesc;
+        const safePrompt = prompt && prompt.length > 5000 ? prompt.slice(0, 5000) : prompt;
+
         for (let a = 1; a <= attempts; a++) {
           try {
             const { data, error } = await supabase.functions.invoke('generate-scene-image', {
-              body: { prompt, referenceImages: refs, characterDescription: charDesc }
+              body: { prompt: safePrompt, referenceImages: safeRefs, characterDescription: safeCharDesc }
             });
+            // Try to surface the real server-side error message (the SDK hides it behind a generic non-2xx).
+            let serverMsg: string | undefined;
+            if (error) {
+              try {
+                const ctxResp: Response | undefined = (error as any)?.context;
+                if (ctxResp && typeof ctxResp.json === 'function') {
+                  const body = await ctxResp.clone().json().catch(() => null);
+                  serverMsg = body?.error || body?.message;
+                }
+              } catch { /* ignore */ }
+            }
             if (!error && data?.imageUrl) {
               return (await uploadIfBase64(data.imageUrl)) || data.imageUrl;
             }
-            console.warn(`${label} attempt ${a} failed:`, error?.message || 'no imageUrl');
+            console.warn(`${label} attempt ${a} failed:`, serverMsg || data?.error || error?.message || 'no imageUrl');
           } catch (e) {
             console.warn(`${label} attempt ${a} threw:`, e);
           }
