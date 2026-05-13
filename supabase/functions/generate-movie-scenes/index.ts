@@ -380,42 +380,22 @@ CRITICAL JSON SAFETY RULES:
         throw new Error('No content generated');
       }
 
-      console.log('Raw AI response length:', generatedContent.length);
+      const finishReason = gwJson?.choices?.[0]?.finish_reason || gwJson?.choices?.[0]?.finishReason;
+      console.log('Raw AI response length:', generatedContent.length, 'finishReason:', finishReason || 'unknown');
 
-    // Strip optional code fences if model added them
-    const fenceMatch = generatedContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-    if (fenceMatch) generatedContent = fenceMatch[1];
-    generatedContent = generatedContent.trim();
-
-    let parsed: any;
+    let scenes: any[];
     try {
-      parsed = JSON.parse(generatedContent);
-    } catch (e) {
-      // Cleanup: strip control chars + trailing commas + smart quotes
-      const cleaned = generatedContent
-        .replace(/^\uFEFF/, '')
-        .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, '')
-        .replace(/[\u2018\u2019]/g, "'")
-        .replace(/[\u201C\u201D]/g, '"')
-        .replace(/,\s*([\]}])/g, '$1');
-      try {
-        parsed = JSON.parse(cleaned);
-      } catch (e2) {
-        // Last resort: jsonrepair handles unescaped quotes inside strings
-        try {
-          parsed = JSON.parse(jsonrepair(cleaned));
-          console.log('Recovered JSON via jsonrepair');
-        } catch (e3) {
-          console.error('JSON parse failed. Preview:', generatedContent.substring(0, 800));
-          throw new Error(`Failed to parse AI response: ${e3 instanceof Error ? e3.message : 'Unknown error'}`);
-        }
+      const parsed = parseScenesPayload(generatedContent);
+      scenes = Array.isArray(parsed) ? parsed : parsed?.scenes;
+      if (!Array.isArray(scenes) || scenes.length === 0) {
+        throw new Error('Invalid scenes format - expected non-empty array');
       }
-    }
-
-    // Accept either {scenes:[...]} (json_object mode) or a bare array
-    const scenes = Array.isArray(parsed) ? parsed : parsed?.scenes;
-    if (!Array.isArray(scenes) || scenes.length === 0) {
-      throw new Error('Invalid scenes format - expected non-empty array');
+    } catch (parseError) {
+      console.error('Scene JSON parse failed; falling back to outline-derived timeline:', parseError instanceof Error ? parseError.message : parseError);
+      scenes = buildFallbackScenes(outline, storyBible, movieLength);
+      if (!Array.isArray(scenes) || scenes.length === 0) {
+        throw new Error('Failed to create fallback scene timeline from outline');
+      }
     }
 
     console.log(`Successfully generated ${scenes.length} scenes`);
