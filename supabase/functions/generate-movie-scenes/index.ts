@@ -239,27 +239,54 @@ IMPORTANT FORMATTING RULES:
 
 Return ONLY the JSON array, no other text or formatting.`;
 
-    const userPrompt = `Based on this movie outline, generate ${targetSceneCount} key cinematic scenes with complete immersive narration:
+    // Variation seed so identical inputs produce fresh creative interpretations each run
+    const variationSeed = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+    const userPrompt = `Based on this movie outline, generate ${targetSceneCount} key cinematic scenes.
 
 ${outline}
 
-Break this down into visually stunning scenes with:
-1. Detailed image generation prompts for stunning visuals
-2. Complete narration (60-120 seconds each) with natural flowing descriptions that include character dialogue, sound descriptions, and atmospheric details
-3. Avoid using quotation marks or special characters within the narration - describe everything in plain descriptive text
+CREATIVE VARIATION SEED: ${variationSeed}
+Use this seed to make this generation feel fresh — vary camera angles, blocking, lighting choices, opening lines, and pacing compared to a typical interpretation. Surprise me with bold, distinct creative choices while staying true to the story.
 
-Return ONLY the JSON array, no markdown formatting or code blocks.`;
+Return a JSON OBJECT (not a bare array) with this exact shape:
+{ "scenes": [ {...scene1}, {...scene2}, ... ] }
+
+CRITICAL JSON SAFETY RULES:
+- All strings MUST be valid JSON: escape every internal double-quote as \\" and every backslash as \\\\.
+- Do NOT use smart/curly quotes ("" '') anywhere — use straight ASCII quotes only.
+- Do NOT use unescaped newlines inside strings.
+- Prefer single straight quotes ' inside dialogue lines instead of double quotes to avoid escaping issues.
+- No markdown, no code fences, no commentary — only the JSON object.`;
 
     try {
-      const result = await callClaude({
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        thinkingBudget: 16000,
+      // Use Lovable AI Gateway directly with strict JSON mode for reliable parsing
+      const apiKey = Deno.env.get('LOVABLE_API_KEY');
+      if (!apiKey) throw new ClaudeError('LOVABLE_API_KEY is not configured', 500);
+
+      const gwRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          max_tokens: 16000,
+          temperature: 0.95,
+          response_format: { type: 'json_object' },
+        }),
       });
 
-      let generatedContent = result.text;
+      if (!gwRes.ok) {
+        const errText = await gwRes.text();
+        console.error('Gateway error:', gwRes.status, errText);
+        throw new ClaudeError(`AI gateway error: ${errText}`, gwRes.status);
+      }
+
+      const gwJson = await gwRes.json();
+      let generatedContent: string = gwJson?.choices?.[0]?.message?.content || '';
 
       if (!generatedContent) {
         throw new Error('No content generated');
