@@ -96,6 +96,52 @@ const SAMPLE_MOVIES = [
     value: 'drama-biopic',
     label: 'Historical Drama',
     description: 'A historical drama chronicling the rise of a pioneering female scientist in the 1950s who fights against institutional sexism to prove her groundbreaking theory. As she races against time and rival researchers, she must choose between her career ambitions and her personal life, while her discovery could change humanity\'s understanding of the universe forever.'
+  },
+  {
+    value: 'commercial-23-lesson',
+    label: 'Commercial: $23 Lesson',
+    description: `A 60-second commercial titled "The $23 Lesson" about Maya, a 38-year-old Black woman entrepreneur, trying to convince her skeptical 27-year-old sister Jordan to use AI to build her bakery business — instead, Jordan hires a $12,400 agency and six weeks later receives the exact same website Maya built in 20 minutes for $23. Lesson: start with family, build with AI.
+
+CHARACTER LOCK (must remain identical in every scene):
+- MAYA — Black woman, 38, slim athletic build, natural curls in a low puff, warm brown eyes, small gold hoop earrings, cream cable-knit sweater, dark indigo straight-leg jeans, white sneakers. Calm mentor energy.
+- JORDAN — Black woman, 27, waist-length box braids with caramel ends, oversized charcoal hoodie, black bike shorts, AirPod in left ear. Sarcastic, skeptical.
+- AGENCY GUY — White man, 42, slicked dark hair, navy blazer over plain black tee, silver watch, fake-warm grin.
+
+KEYFRAME CONTINUITY RULE: Every scene's END FRAME must be a specific image, and the next scene's START FRAME must explicitly reference and visually match that image (laptop screen → laptop screen, spinner → ceiling fan, $12,400 → phone screen, phone glow → kitchen sunlight, prompt box → prompt box).
+
+SCENE 1 — Sunday Kitchen (0–8s) — Maya, Jordan in sunlit white-oak kitchen.
+START FRAME: Wide eye-level. Maya leans on left of island, MacBook open, steam from white mug. Jordan on stool opposite, arms folded, AirPod in left ear. Soft window light from camera-right.
+DIALOGUE: Maya (easy): "I built three landing pages before you finished your latte." / Jordan (flat): "Cute. I'll stick with my web guy."
+END FRAME: Tight medium push-in on Maya's MacBook screen — finished bakery website hero glows on display, Maya's cream-sweater cuff rotating laptop toward camera, Jordan's blurred braids frame right edge.
+TRANSITION: Push-in until laptop screen fills frame.
+
+SCENE 2 — Split Screen (8–20s) — Maya, Jordan.
+START FRAME: Same bakery hero from Scene 1's end frame, full-bleed, then pull back to vertical SPLIT SCREEN. LEFT: Maya (cream sweater, curls, gold hoops) reclined on beige linen couch, hands behind head, MacBook on lap auto-generating brand assets. RIGHT: Jordan (charcoal hoodie, braids, AirPod) hunched at cluttered desk, 1 a.m. black window behind her, 14 Chrome tabs, Canva loading spinner.
+DIALOGUE (text bubbles between halves): Maya: "Want me to just run it for you?" / Jordan: "I got it. Found an agency."
+END FRAME: Maya's left half = completed website preview. Jordan's right half = loading spinner mid-rotation. Camera pushes into the spinner until it fills screen.
+TRANSITION: Spinner match-cuts to a corporate ceiling fan rotating same direction and speed.
+
+SCENE 3 — The Agency Pitch (20–30s) — Jordan, Agency Guy.
+START FRAME: Open on rotating ceiling fan matching Scene 2's spinner, glass-walled agency office, cool blue daylight. Tilt down to reveal Jordan (charcoal hoodie, braids, AirPod still in) across glass desk from Agency Guy (navy blazer, black tee, slicked hair), pen hovering over contract.
+DIALOGUE: Agency Guy (rehearsed warmth): "Six-week turnaround. Industry standard." / Jordan (forcing smile): "…Right. Standard."
+END FRAME: Tight close-up on signed invoice on glass desk: TOTAL $12,400.00. Agency Guy's silver-watch hand shaking Jordan's in soft-focus background. Cold blue light.
+TRANSITION: Push into "$12,400" until it fills frame, dissolve to phone screen.
+
+SCENE 4 — Six Weeks Later (30–42s) — Jordan alone.
+START FRAME: $12,400 dissolve resolves into Jordan's iPhone screen showing her newly delivered website — dated 2014 template look. Pull back to reveal Jordan (charcoal hoodie, braids, AirPod) on couch, takeout containers on coffee table, warm lamp light replacing cold office blue.
+DIALOGUE: silent — long exhale, jaw tight.
+END FRAME: Over-shoulder of Jordan slowly tilting her phone toward camera. Screen layout is unmistakably the SAME bakery hero from Scene 1's end frame — same colors, same typography. Hers cost $12,400; Maya's cost $23. Jordan's eyes drift up to camera.
+TRANSITION: Phone screen glow blooms into morning sunlight.
+
+SCENE 5 — The Lesson (42–56s) — Maya, Jordan.
+START FRAME: Phone-screen bloom resolves into Maya's kitchen at golden hour — same white-oak island and window from Scene 1, now warm amber light. Jordan (charcoal hoodie, braids, AirPod finally OUT in her hand) walks in holding closed MacBook to chest like a white flag. Maya (cream sweater, curls, gold hoops) at island, fresh coffee, MacBook open.
+DIALOGUE: Jordan: "Okay. Teach me." / Maya (grinning): "Twenty-three dollars. That's what mine cost." / Jordan: "…I hate you." / Maya: "You love me."
+END FRAME: Two-shot eye-level, both laughing. Maya's hand on trackpad, Jordan leaning over her shoulder. MacBook screen shows cursor blinking in empty AI prompt box.
+TRANSITION: Push into empty prompt box until it fills frame.
+
+SCENE 6 — End Card (56–60s).
+START FRAME: Empty prompt box from Scene 5 end, now centered on clean white background. Text types itself: "Start with family. Build with AI." / "Your next business is one prompt away."
+END FRAME: Logo lockup, soft fade to white.`
   }
 ];
 
