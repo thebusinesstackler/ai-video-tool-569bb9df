@@ -2101,6 +2101,40 @@ const MovieSceneCreator = () => {
       const totalFrames = scenesWithDialogue.length * 2; // start + end per scene
       let framesDone = 0;
 
+      // Helper: invoke generate-scene-image with up to N attempts. Returns uploaded URL or null.
+      const tryGenerateFrame = async (
+        prompt: string,
+        refs: string[],
+        charDesc: string | undefined,
+        label: string,
+        attempts = 2,
+      ): Promise<string | null> => {
+        for (let a = 1; a <= attempts; a++) {
+          try {
+            const { data, error } = await supabase.functions.invoke('generate-scene-image', {
+              body: { prompt, referenceImages: refs, characterDescription: charDesc }
+            });
+            if (!error && data?.imageUrl) {
+              return (await uploadIfBase64(data.imageUrl)) || data.imageUrl;
+            }
+            console.warn(`${label} attempt ${a} failed:`, error?.message || 'no imageUrl');
+          } catch (e) {
+            console.warn(`${label} attempt ${a} threw:`, e);
+          }
+          if (a < attempts) await new Promise(r => setTimeout(r, 800 * a));
+        }
+        return null;
+      };
+
+      // Derive a sensible end-frame prompt when the script didn't supply one,
+      // so EVERY scene ends with a visible final beat of the actor's motion.
+      const deriveEndPrompt = (scene: MovieScene): string => {
+        if (scene.endFrame?.imagePrompt) return scene.endFrame.imagePrompt;
+        const startBeat = scene.startFrame?.imagePrompt || scene.imagePrompt || scene.description || scene.title;
+        const transition = scene.transitionAction ? ` Final beat: ${scene.transitionAction}.` : '';
+        return `Final frame of the scene — same character, same wardrobe, same location, lighting and lens as the opening beat, but captured at the end of the action.${transition} Continuation of: ${startBeat}`;
+      };
+
       for (let i = 0; i < scenesWithDialogue.length; i++) {
         const scene = scenesWithDialogue[i];
 
@@ -2111,61 +2145,89 @@ const MovieSceneCreator = () => {
 
         // ── START FRAME ──
         setGenerateAllStep(`Scene ${i + 1}/${scenesWithDialogue.length} – start frame...`);
-        try {
-          const startPrompt = scene.startFrame?.imagePrompt || scene.imagePrompt;
-          const { data: startData, error: startErr } = await supabase.functions.invoke('generate-scene-image', {
-            body: { prompt: startPrompt, referenceImages: sceneRefs, characterDescription: sceneCharDesc }
-          });
-          if (!startErr && startData?.imageUrl) {
-            const url = await uploadIfBase64(startData.imageUrl);
-            scenesWithDialogue[i] = {
-              ...scenesWithDialogue[i],
-              startFrame: {
-                ...(scenesWithDialogue[i].startFrame || {}),
-                imagePrompt: startPrompt,
-                generatedImage: url,
-                position: scene.startFrame?.position || 'center',
-                cameraAngle: scene.startFrame?.cameraAngle || scene.selectedCameraAngle || 'eye-level',
-              }
-            };
-            setScenes([...scenesWithDialogue]); // live update so user sees image appear
-          }
-        } catch (frameError) {
-          console.error(`Error generating start frame for scene ${scene.sceneNumber}:`, frameError);
+        const startPrompt = scene.startFrame?.imagePrompt || scene.imagePrompt || scene.description || `Scene ${scene.sceneNumber} opening frame`;
+        const startUrl = await tryGenerateFrame(startPrompt, sceneRefs, sceneCharDesc, `Scene ${scene.sceneNumber} start`);
+        if (startUrl) {
+          scenesWithDialogue[i] = {
+            ...scenesWithDialogue[i],
+            startFrame: {
+              ...(scenesWithDialogue[i].startFrame || {}),
+              imagePrompt: startPrompt,
+              generatedImage: startUrl,
+              position: scene.startFrame?.position || 'center',
+              cameraAngle: scene.startFrame?.cameraAngle || scene.selectedCameraAngle || 'eye-level',
+            }
+          };
+          setScenes([...scenesWithDialogue]);
         }
         framesDone++;
         setGenerateAllProgress(75 + Math.floor((framesDone / totalFrames) * 10));
 
-        // ── END FRAME ──
-        const endPrompt = scene.endFrame?.imagePrompt;
-        if (endPrompt) {
-          setGenerateAllStep(`Scene ${i + 1}/${scenesWithDialogue.length} – end frame...`);
-          try {
-            const startImg = scenesWithDialogue[i].startFrame?.generatedImage;
-            const endRefs = startImg ? [startImg, ...sceneRefs].slice(0, 6) : sceneRefs;
-            const { data: endData, error: endErr } = await supabase.functions.invoke('generate-scene-image', {
-              body: { prompt: endPrompt, referenceImages: endRefs, characterDescription: sceneCharDesc }
-            });
-            if (!endErr && endData?.imageUrl) {
-              const url = await uploadIfBase64(endData.imageUrl);
-              scenesWithDialogue[i] = {
-                ...scenesWithDialogue[i],
-                endFrame: {
-                  ...(scenesWithDialogue[i].endFrame || {}),
-                  imagePrompt: endPrompt,
-                  generatedImage: url,
-                  position: scene.endFrame?.position || 'center',
-                  cameraAngle: scene.endFrame?.cameraAngle || 'eye-level',
-                }
-              };
-              setScenes([...scenesWithDialogue]);
+        // ── END FRAME (always attempt — derive a prompt if missing) ──
+        const endPrompt = deriveEndPrompt(scene);
+        setGenerateAllStep(`Scene ${i + 1}/${scenesWithDialogue.length} – end frame...`);
+        const startImg = scenesWithDialogue[i].startFrame?.generatedImage;
+        const endRefs = startImg ? [startImg, ...sceneRefs].slice(0, 6) : sceneRefs;
+        const endUrl = await tryGenerateFrame(endPrompt, endRefs, sceneCharDesc, `Scene ${scene.sceneNumber} end`);
+        if (endUrl) {
+          scenesWithDialogue[i] = {
+            ...scenesWithDialogue[i],
+            endFrame: {
+              ...(scenesWithDialogue[i].endFrame || {}),
+              imagePrompt: endPrompt,
+              generatedImage: endUrl,
+              position: scene.endFrame?.position || 'final beat of the scene',
+              cameraAngle: scene.endFrame?.cameraAngle || scene.startFrame?.cameraAngle || 'eye-level',
             }
-          } catch (endFrameError) {
-            console.error(`Error generating end frame for scene ${scene.sceneNumber}:`, endFrameError);
-          }
+          };
+          setScenes([...scenesWithDialogue]);
         }
         framesDone++;
         setGenerateAllProgress(75 + Math.floor((framesDone / totalFrames) * 10));
+      }
+
+      // ── Sweep: retry any scenes still missing start or end frames ──
+      const stillMissing = scenesWithDialogue
+        .map((s, i) => ({ s, i }))
+        .filter(({ s }) => !s.startFrame?.generatedImage || !s.endFrame?.generatedImage);
+
+      if (stillMissing.length > 0) {
+        setGenerateAllStep(`Retrying ${stillMissing.length} missing frame${stillMissing.length > 1 ? 's' : ''}...`);
+        for (const { s: scene, i } of stillMissing) {
+          const { referenceImages: sceneRefs, characterDescription: sceneCharDesc } =
+            buildCharacterReferenceLibrary(scene, scenesWithDialogue);
+
+          if (!scenesWithDialogue[i].startFrame?.generatedImage) {
+            const sp = scenesWithDialogue[i].startFrame?.imagePrompt || scene.imagePrompt || scene.description || `Scene ${scene.sceneNumber} opening frame`;
+            const url = await tryGenerateFrame(sp, sceneRefs, sceneCharDesc, `Retry start ${scene.sceneNumber}`, 2);
+            if (url) {
+              scenesWithDialogue[i].startFrame = {
+                ...(scenesWithDialogue[i].startFrame || {}),
+                imagePrompt: sp,
+                generatedImage: url,
+                position: scenesWithDialogue[i].startFrame?.position || 'center',
+                cameraAngle: scenesWithDialogue[i].startFrame?.cameraAngle || 'eye-level',
+              };
+              setScenes([...scenesWithDialogue]);
+            }
+          }
+          if (!scenesWithDialogue[i].endFrame?.generatedImage) {
+            const ep = deriveEndPrompt(scenesWithDialogue[i]);
+            const startImg = scenesWithDialogue[i].startFrame?.generatedImage;
+            const refs = startImg ? [startImg, ...sceneRefs].slice(0, 6) : sceneRefs;
+            const url = await tryGenerateFrame(ep, refs, sceneCharDesc, `Retry end ${scene.sceneNumber}`, 2);
+            if (url) {
+              scenesWithDialogue[i].endFrame = {
+                ...(scenesWithDialogue[i].endFrame || {}),
+                imagePrompt: ep,
+                generatedImage: url,
+                position: 'final beat of the scene',
+                cameraAngle: scenesWithDialogue[i].endFrame?.cameraAngle || scenesWithDialogue[i].startFrame?.cameraAngle || 'eye-level',
+              };
+              setScenes([...scenesWithDialogue]);
+            }
+          }
+        }
       }
 
       setGenerateAllProgress(85);
