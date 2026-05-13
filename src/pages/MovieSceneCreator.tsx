@@ -4965,6 +4965,7 @@ const MovieSceneCreator = () => {
                         ? (scene.dialogue as string).split('\n').filter(Boolean).map((line: string) => ({ character: '', line }))
                         : [];
                     const isGenEnd = generatingFrameFor?.sceneNumber === scene.sceneNumber && generatingFrameFor?.frame === 'end';
+                    const isGenStart = generatingFrameFor?.sceneNumber === scene.sceneNumber && generatingFrameFor?.frame === 'start';
                     return (
                       <Card key={scene.sceneNumber} className="overflow-hidden">
                         <div className="p-3 space-y-3">
@@ -4982,7 +4983,15 @@ const MovieSceneCreator = () => {
                               {startImg ? (
                                 <img src={startImg} alt="Start" className="w-full aspect-video object-cover rounded-md border border-border" />
                               ) : (
-                                <div className="w-full aspect-video rounded-md border border-dashed border-border flex items-center justify-center text-[10px] text-muted-foreground">pending</div>
+                                <button
+                                  type="button"
+                                  onClick={() => generateKeyframeImage(scene.sceneNumber, 'start')}
+                                  disabled={isGenStart}
+                                  className="w-full aspect-video rounded-md border border-dashed border-primary/40 hover:border-primary hover:bg-primary/5 flex flex-col items-center justify-center text-[10px] text-muted-foreground gap-1 transition-colors disabled:opacity-50"
+                                >
+                                  {isGenStart ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-primary" />}
+                                  <span>{isGenStart ? 'Generating…' : 'Retry start'}</span>
+                                </button>
                               )}
                             </div>
                             <ArrowRight className="w-4 h-4 text-primary self-center mt-3" />
