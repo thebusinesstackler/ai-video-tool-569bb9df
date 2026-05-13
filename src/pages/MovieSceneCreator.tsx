@@ -366,6 +366,10 @@ const MovieSceneCreator = () => {
   const [pendingVideoGeneration, setPendingVideoGeneration] = useState<MovieScene[] | null>(null);
   const [showRecoveryBanner, setShowRecoveryBanner] = useState(false);
   const [recoveryProjectId, setRecoveryProjectId] = useState<string | null>(null);
+  const [expandedSceneCards, setExpandedSceneCards] = useState<Set<number>>(new Set());
+  const toggleSceneExpanded = (n: number) => setExpandedSceneCards(prev => {
+    const next = new Set(prev); next.has(n) ? next.delete(n) : next.add(n); return next;
+  });
 
   // AI Director Review (Claude as 39-yr veteran)
   const [directorReview, setDirectorReview] = useState<DirectorReview | null>(null);
