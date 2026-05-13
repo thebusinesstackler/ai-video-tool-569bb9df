@@ -26,6 +26,7 @@ import { CreatorModeToggle } from '@/components/CreatorModeToggle';
 import { KeyframeSceneCard, MovieSceneWithKeyframes, KeyframeData, CAMERA_MOVEMENTS } from '@/components/KeyframeSceneCard';
 import { SceneTimeline } from '@/components/SceneTimeline';
 import { StoryboardExport } from '@/components/StoryboardExport';
+import { StoryboardReviewPanel } from '@/components/movie/StoryboardReviewPanel';
 import { CommercialTemplateSelector } from '@/components/CommercialTemplateSelector';
 import { LocationManager, Location } from '@/components/LocationManager';
 import { CoverageSelector, SceneCoverage, CoverageShot } from '@/components/CoverageSelector';
