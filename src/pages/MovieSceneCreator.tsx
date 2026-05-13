@@ -30,6 +30,7 @@ import { CommercialTemplateSelector } from '@/components/CommercialTemplateSelec
 import { LocationManager, Location } from '@/components/LocationManager';
 import { CoverageSelector, SceneCoverage, CoverageShot } from '@/components/CoverageSelector';
 import { CharacterBlockingEditor, CharacterBlocking } from '@/components/CharacterBlockingEditor';
+import { DirectorNotesPanel, type DirectorReview } from '@/components/movie/DirectorNotesPanel';
 
 interface AITwin {
   id: string;
@@ -288,6 +289,10 @@ const MovieSceneCreator = () => {
   const [pendingVideoGeneration, setPendingVideoGeneration] = useState<MovieScene[] | null>(null);
   const [showRecoveryBanner, setShowRecoveryBanner] = useState(false);
   const [recoveryProjectId, setRecoveryProjectId] = useState<string | null>(null);
+
+  // AI Director Review (Claude as 39-yr veteran)
+  const [directorReview, setDirectorReview] = useState<DirectorReview | null>(null);
+  const [isReviewingStoryboard, setIsReviewingStoryboard] = useState(false);
   
   // Wizard step state
   const [currentStep, setCurrentStep] = useState(0);
