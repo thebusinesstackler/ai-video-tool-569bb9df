@@ -1989,51 +1989,84 @@ const MovieSceneCreator = () => {
           }).join('\n\n')
         : undefined;
 
+      const uploadIfBase64 = async (url: string | undefined): Promise<string | undefined> => {
+        if (!url) return url;
+        if (!url.startsWith('data:')) return url;
+        try {
+          const { data: userData } = await supabase.auth.getUser();
+          if (userData?.user?.id) {
+            const storageUrl = await convertBase64ToStorageUrl(url, userData.user.id, 'reels');
+            if (storageUrl && !storageUrl.startsWith('data:')) return storageUrl;
+          }
+        } catch (uploadErr) {
+          console.warn('Failed to upload to storage, using base64:', uploadErr);
+        }
+        return url;
+      };
+
+      const totalFrames = scenesWithDialogue.length * 2; // start + end per scene
+      let framesDone = 0;
+
       for (let i = 0; i < scenesWithDialogue.length; i++) {
         const scene = scenesWithDialogue[i];
-        setGenerateAllStep(`Generating image ${i + 1}/${scenesWithDialogue.length}...`);
-        setGenerateAllProgress(75 + Math.floor((i / scenesWithDialogue.length) * 10));
 
+        // ── START FRAME ──
+        setGenerateAllStep(`Scene ${i + 1}/${scenesWithDialogue.length} – start frame...`);
         try {
-          const { data: imageData, error: imageError } = await supabase.functions.invoke('generate-scene-image', {
-            body: { 
-              prompt: scene.imagePrompt,
-              referenceImages,
-              characterDescription: charDescription
-            }
+          const startPrompt = scene.startFrame?.imagePrompt || scene.imagePrompt;
+          const { data: startData, error: startErr } = await supabase.functions.invoke('generate-scene-image', {
+            body: { prompt: startPrompt, referenceImages, characterDescription: charDescription }
           });
-
-          if (!imageError && imageData?.imageUrl) {
-            // Convert base64 to storage URL
-            let imageUrl = imageData.imageUrl;
-            if (imageUrl && imageUrl.startsWith('data:')) {
-              try {
-                const { data: userData } = await supabase.auth.getUser();
-                if (userData?.user?.id) {
-                  const storageUrl = await convertBase64ToStorageUrl(imageUrl, userData.user.id, 'reels');
-                  if (storageUrl && !storageUrl.startsWith('data:')) {
-                    imageUrl = storageUrl;
-                  }
-                }
-              } catch (uploadErr) {
-                console.warn('Failed to upload to storage, using base64:', uploadErr);
-              }
-            }
-
+          if (!startErr && startData?.imageUrl) {
+            const url = await uploadIfBase64(startData.imageUrl);
             scenesWithDialogue[i] = {
               ...scenesWithDialogue[i],
               startFrame: {
-                imagePrompt: scene.imagePrompt,
-                generatedImage: imageUrl,
-                position: 'center',
-                cameraAngle: 'eye-level'
+                ...(scenesWithDialogue[i].startFrame || {}),
+                imagePrompt: startPrompt,
+                generatedImage: url,
+                position: scene.startFrame?.position || 'center',
+                cameraAngle: scene.startFrame?.cameraAngle || scene.selectedCameraAngle || 'eye-level',
               }
             };
-            setScenes([...scenesWithDialogue]);
+            setScenes([...scenesWithDialogue]); // live update so user sees image appear
           }
         } catch (frameError) {
-          console.error(`Error generating image for scene ${scene.sceneNumber}:`, frameError);
+          console.error(`Error generating start frame for scene ${scene.sceneNumber}:`, frameError);
         }
+        framesDone++;
+        setGenerateAllProgress(75 + Math.floor((framesDone / totalFrames) * 10));
+
+        // ── END FRAME ──
+        const endPrompt = scene.endFrame?.imagePrompt;
+        if (endPrompt) {
+          setGenerateAllStep(`Scene ${i + 1}/${scenesWithDialogue.length} – end frame...`);
+          try {
+            const startImg = scenesWithDialogue[i].startFrame?.generatedImage;
+            const endRefs = startImg ? [startImg, ...referenceImages].slice(0, 6) : referenceImages;
+            const { data: endData, error: endErr } = await supabase.functions.invoke('generate-scene-image', {
+              body: { prompt: endPrompt, referenceImages: endRefs, characterDescription: charDescription }
+            });
+            if (!endErr && endData?.imageUrl) {
+              const url = await uploadIfBase64(endData.imageUrl);
+              scenesWithDialogue[i] = {
+                ...scenesWithDialogue[i],
+                endFrame: {
+                  ...(scenesWithDialogue[i].endFrame || {}),
+                  imagePrompt: endPrompt,
+                  generatedImage: url,
+                  position: scene.endFrame?.position || 'center',
+                  cameraAngle: scene.endFrame?.cameraAngle || 'eye-level',
+                }
+              };
+              setScenes([...scenesWithDialogue]);
+            }
+          } catch (endFrameError) {
+            console.error(`Error generating end frame for scene ${scene.sceneNumber}:`, endFrameError);
+          }
+        }
+        framesDone++;
+        setGenerateAllProgress(75 + Math.floor((framesDone / totalFrames) * 10));
       }
 
       setGenerateAllProgress(85);
