@@ -27,6 +27,7 @@ import { KeyframeSceneCard, MovieSceneWithKeyframes, KeyframeData, CAMERA_MOVEME
 import { SceneTimeline } from '@/components/SceneTimeline';
 import { StoryboardExport } from '@/components/StoryboardExport';
 import { StoryboardReviewPanel } from '@/components/movie/StoryboardReviewPanel';
+import { FullScreenplayPanel } from '@/components/movie/FullScreenplayPanel';
 import { CommercialTemplateSelector } from '@/components/CommercialTemplateSelector';
 import { LocationManager, Location } from '@/components/LocationManager';
 import { CoverageSelector, SceneCoverage, CoverageShot } from '@/components/CoverageSelector';
@@ -4778,6 +4779,78 @@ const MovieSceneCreator = () => {
                   />
                 )}
 
+                {/* Full Screenplay — every scene's narration, dialogue, and transitions end-to-end */}
+                {scenes.length > 0 && (
+                  <FullScreenplayPanel
+                    logline={(storyBible as any)?.logline}
+                    theme={(storyBible as any)?.theme}
+                    movieTitle={projectTitle || 'Untitled Movie'}
+                    scenes={scenes.map(s => ({
+                      sceneNumber: s.sceneNumber,
+                      title: s.title,
+                      location: s.location,
+                      timeOfDay: s.timeOfDay,
+                      description: s.description,
+                      dialogue: s.dialogue as any,
+                      transitionAction: s.transitionAction,
+                    }))}
+                  />
+                )}
+
+                {/* Clear "What's next?" CTA when scenes exist but no preview banner / no final movie yet */}
+                {scenes.length > 0 && !isPreviewingBeforeVideo && !stitchedVideoUrl && !isGeneratingAll && (() => {
+                  const hasAnyVideo = scenes.some(s => s.generatedVideo);
+                  const allHaveStart = scenes.every(s => s.startFrame?.generatedImage || s.generatedImage);
+                  const missingEndFrames = scenes.filter(s => !s.endFrame?.generatedImage && s.endFrame?.imagePrompt);
+                  return (
+                    <Card className="border-primary/40 bg-gradient-to-r from-primary/10 to-primary/5">
+                      <CardContent className="py-4 space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-5 h-5 text-primary" />
+                          <h3 className="font-semibold text-foreground">What's next?</h3>
+                        </div>
+                        <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+                          <li className={allHaveStart ? 'line-through opacity-60' : ''}>Review start &amp; end frames below</li>
+                          <li className={missingEndFrames.length === 0 ? 'line-through opacity-60' : ''}>
+                            Generate any missing end frames {missingEndFrames.length > 0 && (
+                              <Badge variant="outline" className="ml-1 text-[10px]">{missingEndFrames.length} pending</Badge>
+                            )}
+                          </li>
+                          <li className={hasAnyVideo ? 'line-through opacity-60' : ''}>Generate videos for each scene</li>
+                          <li>Build the final movie</li>
+                        </ol>
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          {missingEndFrames.length > 0 && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={async () => {
+                                for (const s of missingEndFrames) {
+                                  await generateKeyframeImage(s.sceneNumber, 'end');
+                                }
+                              }}
+                              className="gap-1.5"
+                            >
+                              <Image className="w-3.5 h-3.5" />
+                              Generate {missingEndFrames.length} end frame{missingEndFrames.length === 1 ? '' : 's'}
+                            </Button>
+                          )}
+                          {!hasAnyVideo && allHaveStart && (
+                            <Button
+                              size="sm"
+                              onClick={() => { setPendingVideoGeneration(scenes); setIsPreviewingBeforeVideo(true); }}
+                              className="gap-1.5 bg-gradient-to-r from-primary to-primary/80"
+                            >
+                              <Video className="w-3.5 h-3.5" />
+                              Generate scene videos
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })()}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {scenes.map((scene) => {
                     const isExpanded = expandedSceneCards.has(scene.sceneNumber);
@@ -4788,82 +4861,82 @@ const MovieSceneCreator = () => {
                       : typeof scene.dialogue === 'string'
                         ? (scene.dialogue as string).split('\n').filter(Boolean).map((line: string) => ({ character: '', line }))
                         : [];
-                    const hasMore = dialogueArr.length > 2;
+                    const isGenEnd = generatingFrameFor?.sceneNumber === scene.sceneNumber && generatingFrameFor?.frame === 'end';
                     return (
                       <Card key={scene.sceneNumber} className="overflow-hidden">
-                        <div className="flex gap-3 p-3">
-                          {startImg && (
-                            <img src={startImg} alt={`Scene ${scene.sceneNumber}`} className="w-20 h-20 rounded-lg object-cover flex-shrink-0" />
+                        <div className="p-3 space-y-3">
+                          {/* Scene header */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="outline" className="text-[10px]">Scene {scene.sceneNumber}</Badge>
+                            {scene.generatedVideo && <Badge className="text-[10px] bg-primary text-primary-foreground">✓ Video</Badge>}
+                            <h4 className="text-sm font-medium truncate flex-1 min-w-0">{scene.title}</h4>
+                          </div>
+
+                          {/* Start → End frames inline (always visible) */}
+                          <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
+                            <div className="space-y-1">
+                              <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Start</p>
+                              {startImg ? (
+                                <img src={startImg} alt="Start" className="w-full aspect-video object-cover rounded-md border border-border" />
+                              ) : (
+                                <div className="w-full aspect-video rounded-md border border-dashed border-border flex items-center justify-center text-[10px] text-muted-foreground">pending</div>
+                              )}
+                            </div>
+                            <ArrowRight className="w-4 h-4 text-primary self-center mt-3" />
+                            <div className="space-y-1">
+                              <p className="text-[9px] uppercase tracking-wide text-muted-foreground">End</p>
+                              {endImg ? (
+                                <img src={endImg} alt="End" className="w-full aspect-video object-cover rounded-md border border-border" />
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => generateKeyframeImage(scene.sceneNumber, 'end')}
+                                  disabled={isGenEnd || !scene.endFrame?.imagePrompt}
+                                  className="w-full aspect-video rounded-md border border-dashed border-primary/40 hover:border-primary hover:bg-primary/5 flex flex-col items-center justify-center text-[10px] text-muted-foreground gap-1 transition-colors disabled:opacity-50"
+                                >
+                                  {isGenEnd ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-primary" />}
+                                  <span>{isGenEnd ? 'Generating…' : 'Generate end'}</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Transition */}
+                          {scene.transitionAction && (
+                            <div className="text-[10px] text-primary/80 bg-primary/5 rounded px-2 py-1 line-clamp-2">
+                              <span className="font-semibold">→ </span>{scene.transitionAction}
+                            </div>
                           )}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1 flex-wrap">
-                              <Badge variant="outline" className="text-[10px]">Scene {scene.sceneNumber}</Badge>
-                              {scene.generatedVideo && <Badge className="text-[10px] bg-primary text-primary-foreground">✓ Video</Badge>}
-                              {endImg && <Badge variant="outline" className="text-[10px]">End ✓</Badge>}
-                            </div>
-                            <h4 className="text-sm font-medium truncate">{scene.title}</h4>
-                            <p className={`text-xs text-muted-foreground ${isExpanded ? '' : 'line-clamp-2'}`}>{scene.description}</p>
-                            {dialogueArr.length > 0 && (
-                              <div className="mt-1.5 space-y-0.5">
-                                {(isExpanded ? dialogueArr : dialogueArr.slice(0, 2)).map((d: any, i: number) => (
-                                  <p key={i} className={`text-[11px] text-foreground/70 ${isExpanded ? '' : 'truncate'}`}>
-                                    {d.character && <span className="font-semibold">{d.character}: </span>}"{d.line}"
-                                  </p>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
 
-                        {isExpanded && (
-                          <div className="px-3 pb-3 space-y-3 border-t border-border/40 pt-3">
-                            <div className="grid grid-cols-2 gap-2">
-                              <div className="space-y-1">
-                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Start frame</p>
-                                {startImg ? (
-                                  <img src={startImg} alt="Start" className="w-full aspect-video object-cover rounded-md border border-border" />
-                                ) : (
-                                  <div className="w-full aspect-video rounded-md border border-dashed border-border flex items-center justify-center text-[10px] text-muted-foreground">none</div>
-                                )}
-                              </div>
-                              <div className="space-y-1">
-                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">End frame (transitions to)</p>
-                                {endImg ? (
-                                  <img src={endImg} alt="End" className="w-full aspect-video object-cover rounded-md border border-border" />
-                                ) : (
-                                  <div className="w-full aspect-video rounded-md border border-dashed border-border flex items-center justify-center text-[10px] text-muted-foreground px-2 text-center">
-                                    {scene.endFrame?.imagePrompt ? 'Not generated yet' : 'No end frame'}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            {scene.endFrame?.imagePrompt && (
-                              <div className="text-[11px] text-muted-foreground">
-                                <span className="font-semibold text-foreground/80">End-frame prompt:</span> {scene.endFrame.imagePrompt}
-                              </div>
-                            )}
-                            {scene.transitionAction && (
-                              <div className="text-[11px] text-muted-foreground">
-                                <span className="font-semibold text-foreground/80">Transition:</span> {scene.transitionAction}
-                              </div>
-                            )}
-                            {scene.generatedVideo && (
-                              <div className="space-y-1">
-                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Finished video</p>
-                                <video src={scene.generatedVideo} controls className="w-full rounded-md border border-border bg-black" />
-                              </div>
-                            )}
-                          </div>
-                        )}
+                          <p className={`text-xs text-muted-foreground ${isExpanded ? '' : 'line-clamp-2'}`}>{scene.description}</p>
 
-                        <div className="px-3 pb-3">
+                          {dialogueArr.length > 0 && (
+                            <div className="space-y-1 pl-2 border-l-2 border-primary/20">
+                              {(isExpanded ? dialogueArr : dialogueArr.slice(0, 2)).map((d: any, i: number) => (
+                                <p key={i} className="text-[11px] text-foreground/70 leading-snug">
+                                  {d.character && <span className="font-semibold uppercase text-[10px]">{d.character}: </span>}"{d.line}"
+                                </p>
+                              ))}
+                              {!isExpanded && dialogueArr.length > 2 && (
+                                <p className="text-[10px] text-muted-foreground">+{dialogueArr.length - 2} more lines</p>
+                              )}
+                            </div>
+                          )}
+
+                          {isExpanded && scene.generatedVideo && (
+                            <div className="space-y-1">
+                              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Finished video</p>
+                              <video src={scene.generatedVideo} controls className="w-full rounded-md border border-border bg-black" />
+                            </div>
+                          )}
+
                           <Button
                             variant="ghost"
                             size="sm"
                             className="w-full h-7 text-[11px] text-muted-foreground hover:text-foreground"
                             onClick={() => toggleSceneExpanded(scene.sceneNumber)}
                           >
-                            {isExpanded ? 'Show less' : (hasMore || endImg || scene.generatedVideo ? 'Show full script, end frame & video' : 'Show details')}
+                            {isExpanded ? 'Show less' : 'Show full dialogue & video'}
                           </Button>
                         </div>
                       </Card>
@@ -4875,44 +4948,12 @@ const MovieSceneCreator = () => {
           </div>
         )}
 
-        {/* Save Preset Dialog (always rendered) */}
-        <Dialog open={isSavePresetDialogOpen} onOpenChange={setIsSavePresetDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Save Visual Preset</DialogTitle>
-              <DialogDescription>Save the current camera angle and lighting combination as a reusable preset</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="preset-name">Preset Name</Label>
-                <Input id="preset-name" placeholder="e.g., Dramatic Low Angle, Golden Hour Portrait..." value={newPresetName} onChange={(e) => setNewPresetName(e.target.value)} />
-              </div>
-              {selectedSceneForPreset && (
-                <div className="text-sm text-muted-foreground">
-                  <p className="font-semibold mb-1">Current Settings:</p>
-                  <p>Camera: {CAMERA_ANGLES.find(a => a.id === (scenes.find(s => s.sceneNumber === selectedSceneForPreset)?.selectedCameraAngle || 'eye-level'))?.name}</p>
-                  <p>Lighting: {LIGHTING_STYLES.find(l => l.id === (scenes.find(s => s.sceneNumber === selectedSceneForPreset)?.selectedLighting || 'natural'))?.name}</p>
-                </div>
-              )}
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsSavePresetDialogOpen(false)}>Cancel</Button>
-              <Button onClick={saveVisualPreset}><Star className="w-4 h-4 mr-2" />Save Preset</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
         {/* ===== STEP 1: Concept — Hero Input + Make My Movie (Advanced only) ===== */}
         {isAdvanced && currentStep === 0 && (
           <div className="space-y-6">
             {/* Hero Card */}
             <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
               <CardContent className="pt-8 pb-8 space-y-6">
-                <div className="text-center space-y-2">
-                  <h2 className="text-2xl font-bold text-foreground">What's your movie about?</h2>
-                  <p className="text-muted-foreground">Describe your movie idea and AI will create the entire thing for you.</p>
-                </div>
-
                 <Textarea
                   placeholder="A sci-fi thriller about a detective who discovers she's living in a simulated reality..."
                   value={movieIdea}
