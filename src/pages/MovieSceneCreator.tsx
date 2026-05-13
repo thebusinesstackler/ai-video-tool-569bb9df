@@ -2720,13 +2720,11 @@ const MovieSceneCreator = () => {
       updateKeyframe(sceneNumber, frame, { imagePrompt: describeData.imagePrompt });
       setDescribingSceneFor(null);
 
-      // Step 2: Generate the image
+      // Step 2: Generate the image using shared character reference library
       setGeneratingFrameFor({ sceneNumber, frame });
 
-      let referenceImages: string[] = [];
-      if (selectedTwins.length > 0) {
-        referenceImages = selectedTwins.flatMap(twin => twin.reference_images || []);
-      }
+      const { referenceImages, characterDescription: libCharacterDescription } = buildCharacterReferenceLibrary(scene, scenes);
+      const finalCharacterDescription = libCharacterDescription || characterDescription;
 
       const enhancedPrompt = `${describeData.imagePrompt}. Camera: ${frameData?.cameraAngle || 'eye-level'}. Position: ${frameData?.position || ''}`;
 
