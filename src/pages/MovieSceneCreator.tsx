@@ -4713,7 +4713,17 @@ const MovieSceneCreator = () => {
           <div className="space-y-6">
             {scenes.length > 0 ? (
               <div className="space-y-4">
-                {/* Header */}
+                {/* AI Director Review (Claude — 39-yr veteran) */}
+                <DirectorNotesPanel
+                  review={directorReview}
+                  isReviewing={isReviewingStoryboard}
+                  onRunReview={runDirectorReview}
+                  onApplyDialogueFix={applyDialogueFix}
+                  onApplyTransitionFix={applyTransitionFix}
+                  onApplyKeyframeFix={applyKeyframeFix}
+                  hasStoryboard={scenes.some(s => s.startFrame?.generatedImage || s.generatedImage)}
+                />
+
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-2xl font-bold text-foreground">Your Movie</h2>
