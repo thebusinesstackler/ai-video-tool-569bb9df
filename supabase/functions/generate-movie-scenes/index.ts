@@ -239,27 +239,54 @@ IMPORTANT FORMATTING RULES:
 
 Return ONLY the JSON array, no other text or formatting.`;
 
-    const userPrompt = `Based on this movie outline, generate ${targetSceneCount} key cinematic scenes with complete immersive narration:
+    // Variation seed so identical inputs produce fresh creative interpretations each run
+    const variationSeed = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+    const userPrompt = `Based on this movie outline, generate ${targetSceneCount} key cinematic scenes.
 
 ${outline}
 
-Break this down into visually stunning scenes with:
-1. Detailed image generation prompts for stunning visuals
-2. Complete narration (60-120 seconds each) with natural flowing descriptions that include character dialogue, sound descriptions, and atmospheric details
-3. Avoid using quotation marks or special characters within the narration - describe everything in plain descriptive text
+CREATIVE VARIATION SEED: ${variationSeed}
+Use this seed to make this generation feel fresh — vary camera angles, blocking, lighting choices, opening lines, and pacing compared to a typical interpretation. Surprise me with bold, distinct creative choices while staying true to the story.
 
-Return ONLY the JSON array, no markdown formatting or code blocks.`;
+Return a JSON OBJECT (not a bare array) with this exact shape:
+{ "scenes": [ {...scene1}, {...scene2}, ... ] }
+
+CRITICAL JSON SAFETY RULES:
+- All strings MUST be valid JSON: escape every internal double-quote as \\" and every backslash as \\\\.
+- Do NOT use smart/curly quotes ("" '') anywhere — use straight ASCII quotes only.
+- Do NOT use unescaped newlines inside strings.
+- Prefer single straight quotes ' inside dialogue lines instead of double quotes to avoid escaping issues.
+- No markdown, no code fences, no commentary — only the JSON object.`;
 
     try {
-      const result = await callClaude({
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        thinkingBudget: 16000,
+      // Use Lovable AI Gateway directly with strict JSON mode for reliable parsing
+      const apiKey = Deno.env.get('LOVABLE_API_KEY');
+      if (!apiKey) throw new ClaudeError('LOVABLE_API_KEY is not configured', 500);
+
+      const gwRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          max_tokens: 16000,
+          temperature: 0.95,
+          response_format: { type: 'json_object' },
+        }),
       });
 
-      let generatedContent = result.text;
+      if (!gwRes.ok) {
+        const errText = await gwRes.text();
+        console.error('Gateway error:', gwRes.status, errText);
+        throw new ClaudeError(`AI gateway error: ${errText}`, gwRes.status);
+      }
+
+      const gwJson = await gwRes.json();
+      let generatedContent: string = gwJson?.choices?.[0]?.message?.content || '';
 
       if (!generatedContent) {
         throw new Error('No content generated');
@@ -267,81 +294,30 @@ Return ONLY the JSON array, no markdown formatting or code blocks.`;
 
       console.log('Raw AI response length:', generatedContent.length);
 
-    // Extract JSON from markdown code blocks if present
-    const jsonMatch = generatedContent.match(/```(?:json)?\s*(\[[\s\S]*\])\s*```/);
-    if (jsonMatch) {
-      generatedContent = jsonMatch[1];
-      console.log('Extracted JSON from code block');
-    }
+    // Strip optional code fences if model added them
+    const fenceMatch = generatedContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (fenceMatch) generatedContent = fenceMatch[1];
+    generatedContent = generatedContent.trim();
 
-    // Try to find JSON array in the response
-    const arrayMatch = generatedContent.match(/\[[\s\S]*\]/);
-    if (arrayMatch) {
-      generatedContent = arrayMatch[0];
-    }
-
-    console.log('Content to parse (first 500 chars):', generatedContent.substring(0, 500));
-
-    // Parse the scenes with multiple fallback strategies
-    let scenes;
-    let lastError;
-    
-    // Try 1: Direct parse (content is already valid JSON)
+    let parsed: any;
     try {
-      scenes = JSON.parse(generatedContent);
-      console.log('Parsed directly');
-    } catch (e1) {
-      lastError = e1;
-      console.log('Direct parse failed, trying cleanup...');
-      
-      // Try 2: Clean up common issues
+      parsed = JSON.parse(generatedContent);
+    } catch (e) {
+      // Last-resort cleanup: strip control chars + trailing commas
+      const cleaned = generatedContent
+        .replace(/^\uFEFF/, '')
+        .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, '')
+        .replace(/,\s*([\]}])/g, '$1');
       try {
-        let cleaned = generatedContent
-          // Remove any BOM or invisible characters at start
-          .replace(/^\uFEFF/, '')
-          // Fix unescaped newlines inside strings (replace actual newlines with spaces in string values)
-          .trim();
-        
-        scenes = JSON.parse(cleaned);
-        console.log('Parsed after basic cleanup');
+        parsed = JSON.parse(cleaned);
       } catch (e2) {
-        lastError = e2;
-        console.log('Basic cleanup failed, trying aggressive cleanup...');
-        
-        // Try 3: More aggressive cleanup
-        try {
-          // Remove control characters except those that are valid in JSON strings
-          let aggressive = generatedContent
-            .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, '')
-            .trim();
-          
-          scenes = JSON.parse(aggressive);
-          console.log('Parsed after aggressive cleanup');
-        } catch (e3) {
-          lastError = e3;
-          console.log('Aggressive cleanup failed, trying line-by-line fix...');
-          
-          // Try 4: Fix common JSON issues
-          try {
-            let fixed = generatedContent
-              // Remove trailing commas before ] or }
-              .replace(/,\s*([\]}])/g, '$1')
-              // Fix single quotes to double quotes (careful with apostrophes)
-              .replace(/(?<![a-zA-Z])'([^']*)'(?![a-zA-Z])/g, '"$1"')
-              .trim();
-            
-            scenes = JSON.parse(fixed);
-            console.log('Parsed after fixing common JSON issues');
-          } catch (e4) {
-            console.error('All parse attempts failed');
-            console.error('Last error:', e4);
-            console.error('Content preview:', generatedContent.substring(0, 500));
-            throw new Error(`Failed to parse AI response: ${e4 instanceof Error ? e4.message : 'Unknown error'}`);
-          }
-        }
+        console.error('JSON parse failed. Preview:', generatedContent.substring(0, 800));
+        throw new Error(`Failed to parse AI response: ${e2 instanceof Error ? e2.message : 'Unknown error'}`);
       }
     }
 
+    // Accept either {scenes:[...]} (json_object mode) or a bare array
+    const scenes = Array.isArray(parsed) ? parsed : parsed?.scenes;
     if (!Array.isArray(scenes) || scenes.length === 0) {
       throw new Error('Invalid scenes format - expected non-empty array');
     }
