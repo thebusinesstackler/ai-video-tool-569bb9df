@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { jsonrepair } from "npm:jsonrepair@3.8.0";
 import { callClaude, ClaudeError } from '../_shared/claude.ts';
 
 const corsHeaders = {
