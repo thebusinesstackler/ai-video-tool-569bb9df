@@ -2,7 +2,7 @@ import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { ArrowRight, Link, Image, Check, Video } from 'lucide-react';
+import { ArrowRight, Image, Video } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MovieSceneWithKeyframes } from './KeyframeSceneCard';
 
@@ -10,8 +10,6 @@ interface SceneTimelineProps {
   scenes: MovieSceneWithKeyframes[];
   activeSceneIndex: number;
   onSelectScene: (index: number) => void;
-  autoLinkEnabled: boolean;
-  onToggleAutoLink: () => void;
   onBuildMovie?: () => void;
   isBuildingMovie?: boolean;
   buildProgress?: number;
@@ -22,8 +20,6 @@ export const SceneTimeline: React.FC<SceneTimelineProps> = ({
   scenes,
   activeSceneIndex,
   onSelectScene,
-  autoLinkEnabled,
-  onToggleAutoLink,
   onBuildMovie,
   isBuildingMovie = false,
   buildProgress = 0,
@@ -36,16 +32,7 @@ export const SceneTimeline: React.FC<SceneTimelineProps> = ({
       {/* Timeline Header */}
       <div className="flex items-center justify-between px-2">
         <h3 className="text-sm font-semibold text-muted-foreground">Scene Timeline</h3>
-        <Button
-          variant={autoLinkEnabled ? 'default' : 'outline'}
-          size="sm"
-          onClick={onToggleAutoLink}
-          className="h-7 text-xs"
-        >
-          <Link className="w-3 h-3 mr-1" />
-          Auto-Link Scenes
-          {autoLinkEnabled && <Check className="w-3 h-3 ml-1" />}
-        </Button>
+        <Badge variant="secondary" className="h-6 text-[10px] font-normal">Film flow</Badge>
       </div>
 
       {/* Timeline Scroll Area */}
@@ -56,17 +43,11 @@ export const SceneTimeline: React.FC<SceneTimelineProps> = ({
             const hasEndFrame = !!scene.endFrame?.generatedImage;
             const hasVideo = !!scene.generatedVideo;
             const isActive = index === activeSceneIndex;
-            const isLinked = index > 0 && autoLinkEnabled;
-            
             return (
               <React.Fragment key={scene.sceneNumber}>
                 {/* Scene Connection Arrow */}
                 {index > 0 && (
-                  <div className={cn(
-                    "flex items-center gap-1",
-                    isLinked ? "text-primary" : "text-muted-foreground/30"
-                  )}>
-                    {isLinked && <Link className="w-3 h-3" />}
+                  <div className="flex items-center gap-1 text-primary">
                     <ArrowRight className="w-4 h-4" />
                   </div>
                 )}
@@ -158,13 +139,6 @@ export const SceneTimeline: React.FC<SceneTimelineProps> = ({
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
       
-      {/* Auto-Link Explanation */}
-      {autoLinkEnabled && (
-        <p className="text-xs text-muted-foreground px-2">
-          Scene endings will automatically link to the next scene's start for continuity.
-        </p>
-      )}
-
       {/* Build Movie Bar */}
       {hasVideos && onBuildMovie && (
         <div className="flex items-center justify-between px-2 py-2 rounded-lg bg-primary/5 border border-primary/20">
