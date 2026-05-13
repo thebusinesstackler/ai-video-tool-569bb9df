@@ -2187,19 +2187,65 @@ const MovieSceneCreator = () => {
   };
 
   // Generate videos for ALL scenes (sequentially) using the per-scene lip-sync flow
+  // Smart-route per scene: dialogue → lip-sync; start+end (no dialogue) → transition; else skip with reason.
   const generateAllSceneVideos = async () => {
     const sorted = [...scenes].sort((a, b) => a.sceneNumber - b.sceneNumber);
-    const targets = sorted.filter(s => (s.startFrame?.generatedImage || (s as any).generatedImage) && !s.generatedVideo);
-    if (targets.length === 0) {
-      toast({ title: "Nothing to generate", description: "All scenes either already have a video or are missing a start image." });
+    const candidates = sorted.filter(s => !s.generatedVideo);
+    if (candidates.length === 0) {
+      toast({ title: "All scenes already have videos" });
       return;
     }
+
+    const hasDialogue = (s: MovieScene) =>
+      typeof s.dialogue === 'string' ? s.dialogue.trim().length > 0
+      : Array.isArray(s.dialogue) ? s.dialogue.some(d => d?.line?.trim()) : false;
+
+    type Plan = { scene: MovieScene; mode: 'lipsync' | 'transition' };
+    const plans: Plan[] = [];
+    const skipped: { num: number; reason: string }[] = [];
+
+    for (const s of candidates) {
+      const start = !!s.startFrame?.generatedImage;
+      const end = !!s.endFrame?.generatedImage;
+      if (hasDialogue(s) && start) {
+        plans.push({ scene: s, mode: 'lipsync' });
+      } else if (start && end) {
+        plans.push({ scene: s, mode: 'transition' });
+      } else if (!start) {
+        skipped.push({ num: s.sceneNumber, reason: 'missing start frame' });
+      } else {
+        skipped.push({ num: s.sceneNumber, reason: 'missing end frame (needed for silent transition video)' });
+      }
+    }
+
+    if (plans.length === 0) {
+      toast({
+        title: "Can't generate videos yet",
+        description: skipped.length
+          ? `Generate frames first: ${skipped.map(s => `Scene ${s.num} (${s.reason})`).join(', ')}`
+          : "No eligible scenes.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (skipped.length > 0) {
+      toast({
+        title: `Skipping ${skipped.length} scene${skipped.length > 1 ? 's' : ''}`,
+        description: skipped.map(s => `Scene ${s.num}: ${s.reason}`).join(' • '),
+      });
+    }
+
     setIsGeneratingAllVideos(true);
     let success = 0, failed = 0;
     try {
-      for (const scene of targets) {
+      for (const { scene, mode } of plans) {
         try {
-          await generateLipSyncVideo(scene.sceneNumber);
+          if (mode === 'lipsync') {
+            await generateLipSyncVideo(scene.sceneNumber);
+          } else {
+            await generateTransitionVideo(scene.sceneNumber);
+          }
           success++;
         } catch (err: any) {
           console.error(`Scene ${scene.sceneNumber} video failed:`, err);
@@ -2209,7 +2255,7 @@ const MovieSceneCreator = () => {
       }
       toast({
         title: "Batch video generation complete",
-        description: `${success} succeeded${failed > 0 ? `, ${failed} failed` : ''}.`,
+        description: `${success} succeeded${failed > 0 ? `, ${failed} failed` : ''}${skipped.length ? `, ${skipped.length} skipped` : ''}.`,
       });
     } finally {
       setIsGeneratingAllVideos(false);
