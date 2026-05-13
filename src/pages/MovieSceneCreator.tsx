@@ -360,6 +360,7 @@ const MovieSceneCreator = () => {
   
   // One-click generation state
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
+  const [isGeneratingAllVideos, setIsGeneratingAllVideos] = useState(false);
   const [generateAllStep, setGenerateAllStep] = useState('');
   const [generateAllProgress, setGenerateAllProgress] = useState(0);
   const [isPreviewingBeforeVideo, setIsPreviewingBeforeVideo] = useState(false);
@@ -2185,6 +2186,36 @@ const MovieSceneCreator = () => {
     }
   };
 
+  // Generate videos for ALL scenes (sequentially) using the per-scene lip-sync flow
+  const generateAllSceneVideos = async () => {
+    const sorted = [...scenes].sort((a, b) => a.sceneNumber - b.sceneNumber);
+    const targets = sorted.filter(s => (s.startFrame?.generatedImage || (s as any).generatedImage) && !s.generatedVideo);
+    if (targets.length === 0) {
+      toast({ title: "Nothing to generate", description: "All scenes either already have a video or are missing a start image." });
+      return;
+    }
+    setIsGeneratingAllVideos(true);
+    let success = 0, failed = 0;
+    try {
+      for (const scene of targets) {
+        try {
+          await generateLipSyncVideo(scene.sceneNumber);
+          success++;
+        } catch (err: any) {
+          console.error(`Scene ${scene.sceneNumber} video failed:`, err);
+          failed++;
+          if (err?.message?.toLowerCase().includes('credit')) break;
+        }
+      }
+      toast({
+        title: "Batch video generation complete",
+        description: `${success} succeeded${failed > 0 ? `, ${failed} failed` : ''}.`,
+      });
+    } finally {
+      setIsGeneratingAllVideos(false);
+    }
+  };
+
   const generateSceneImage = async (sceneNumber: number, imagePrompt: string) => {
     const scene = scenes.find(s => s.sceneNumber === sceneNumber);
     
@@ -2510,6 +2541,65 @@ const MovieSceneCreator = () => {
     );
   };
 
+  // Build a per-scene reference-image library so character identity stays locked
+  // across the whole movie. Combines: (1) AI Twin reference images, (2) the
+  // earliest already-generated frame featuring each character in this scene.
+  const buildCharacterReferenceLibrary = (
+    targetScene: MovieScene,
+    allScenes: MovieScene[]
+  ): { referenceImages: string[]; characterDescription: string } => {
+    const refs: string[] = [];
+    const descriptions: string[] = [];
+    const seen = new Set<string>();
+
+    const charNames: string[] = (targetScene.charactersInScene && targetScene.charactersInScene.length > 0)
+      ? targetScene.charactersInScene
+      : (storyBible?.characters?.map((c: any) => c.name) || []);
+
+    // 1. Twin reference images for any character in this scene (or all selected twins as fallback)
+    const twinsToUse = selectedTwins.filter(t =>
+      charNames.length === 0 || charNames.some(n => n.toLowerCase() === t.name.toLowerCase())
+    );
+    const effectiveTwins = twinsToUse.length > 0 ? twinsToUse : selectedTwins;
+    for (const twin of effectiveTwins) {
+      for (const img of (twin.reference_images || []).slice(0, 2)) {
+        if (img && !seen.has(img)) { seen.add(img); refs.push(img); }
+      }
+      const desc = `${twin.name}: ${twin.face_description || twin.description || ''}`;
+      if (desc.trim()) descriptions.push(desc);
+    }
+
+    // 2. Story-bible character descriptions for everyone in this scene
+    if (storyBible?.characters) {
+      for (const char of storyBible.characters) {
+        if (charNames.length > 0 && !charNames.some(n => n.toLowerCase() === char.name?.toLowerCase())) continue;
+        const lock = [char.name, char.appearance, char.wardrobe].filter(Boolean).join(' — ');
+        if (lock && !descriptions.some(d => d.startsWith(`${char.name}:`))) {
+          descriptions.push(`${char.name}: ${lock}`);
+        }
+      }
+    }
+
+    // 3. Earliest generated frame image from previous scenes featuring each character
+    const prevScenes = allScenes
+      .filter(s => s.sceneNumber < targetScene.sceneNumber)
+      .sort((a, b) => a.sceneNumber - b.sceneNumber);
+    for (const name of charNames) {
+      const firstShot = prevScenes.find(s =>
+        (s.charactersInScene || []).some(n => n.toLowerCase() === name.toLowerCase()) &&
+        (s.startFrame?.generatedImage || s.endFrame?.generatedImage || (s as any).generatedImage)
+      );
+      const img = firstShot?.startFrame?.generatedImage || firstShot?.endFrame?.generatedImage || (firstShot as any)?.generatedImage;
+      if (img && !seen.has(img)) { seen.add(img); refs.push(img); }
+    }
+
+    // Hard cap to keep the model focused
+    return {
+      referenceImages: refs.slice(0, 6),
+      characterDescription: descriptions.join('\n\n'),
+    };
+  };
+
   const generateKeyframeImage = async (sceneNumber: number, frame: 'start' | 'end') => {
     const scene = scenes.find(s => s.sceneNumber === sceneNumber);
     if (!scene) return;
@@ -2522,15 +2612,7 @@ const MovieSceneCreator = () => {
 
     setGeneratingFrameFor({ sceneNumber, frame });
     try {
-      let referenceImages: string[] = [];
-      let characterDescription: string | undefined;
-      
-      if (selectedTwins.length > 0) {
-        referenceImages = selectedTwins.flatMap(twin => twin.reference_images || []);
-        characterDescription = selectedTwins.map(twin => 
-          `${twin.name}: ${twin.face_description || twin.description || ''}`
-        ).join('\n\n');
-      }
+      const { referenceImages, characterDescription } = buildCharacterReferenceLibrary(scene, scenes);
 
       const enhancedPrompt = `${frameData.imagePrompt}. Camera: ${frameData.cameraAngle}. Position: ${frameData.position}`;
 
@@ -2669,18 +2751,16 @@ const MovieSceneCreator = () => {
       updateKeyframe(sceneNumber, frame, { imagePrompt: describeData.imagePrompt });
       setDescribingSceneFor(null);
 
-      // Step 2: Generate the image
+      // Step 2: Generate the image using shared character reference library
       setGeneratingFrameFor({ sceneNumber, frame });
 
-      let referenceImages: string[] = [];
-      if (selectedTwins.length > 0) {
-        referenceImages = selectedTwins.flatMap(twin => twin.reference_images || []);
-      }
+      const { referenceImages, characterDescription: libCharacterDescription } = buildCharacterReferenceLibrary(scene, scenes);
+      const finalCharacterDescription = libCharacterDescription || characterDescription;
 
       const enhancedPrompt = `${describeData.imagePrompt}. Camera: ${frameData?.cameraAngle || 'eye-level'}. Position: ${frameData?.position || ''}`;
 
       const { data: imageData, error: imageError } = await supabase.functions.invoke('generate-scene-image', {
-        body: { prompt: enhancedPrompt, referenceImages, characterDescription }
+        body: { prompt: enhancedPrompt, referenceImages, characterDescription: finalCharacterDescription }
       });
 
       if (imageError) throw imageError;
@@ -5082,6 +5162,25 @@ const MovieSceneCreator = () => {
                   buildProgress={stitchProgress}
                   hasVideos={scenes.some(s => s.generatedVideo)}
                 />
+
+                {/* Batch actions toolbar */}
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card/50 p-3">
+                  <div className="text-xs text-muted-foreground">
+                    {scenes.filter(s => s.generatedVideo).length}/{scenes.length} scenes have videos. Generate per-scene below or run them all in one click.
+                  </div>
+                  <Button
+                    onClick={generateAllSceneVideos}
+                    disabled={isGeneratingAllVideos || generatingVideoFor !== null}
+                    size="sm"
+                    className="gap-2 bg-gradient-to-r from-primary to-primary/80"
+                  >
+                    {isGeneratingAllVideos ? (
+                      <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Generating all…</>
+                    ) : (
+                      <><Video className="w-3.5 h-3.5" /> Generate All Videos</>
+                    )}
+                  </Button>
+                </div>
 
                 {/* Scene cards */}
                 <div className="space-y-3">
