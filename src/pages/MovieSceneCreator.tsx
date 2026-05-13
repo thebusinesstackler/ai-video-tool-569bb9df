@@ -4582,6 +4582,56 @@ const MovieSceneCreator = () => {
                   </Card>
                 )}
 
+                {/* Storyboard Review — full transparency on cast, ambient sound, and per-scene context */}
+                {scenes.length > 0 && (
+                  <StoryboardReviewPanel
+                    logline={(storyBible as any)?.logline}
+                    theme={(storyBible as any)?.theme}
+                    characters={(() => {
+                      const sb = (storyBible as any);
+                      const sbChars: any[] = sb?.characters || [];
+                      const merged = sbChars.map((c: any) => {
+                        const twin = selectedTwins.find(t => t.name.toLowerCase() === c.name.toLowerCase());
+                        return {
+                          name: c.name,
+                          role: c.role,
+                          appearance: c.appearance,
+                          wardrobe: c.wardrobe,
+                          personality: c.personality,
+                          voiceStyle: c.voiceStyle,
+                          arc: c.arc,
+                          assignedTwinName: twin?.name || c.assignedTwinName,
+                          referenceImage: twin?.reference_images?.[0],
+                        };
+                      });
+                      selectedTwins.forEach(t => {
+                        if (!merged.find(m => m.name.toLowerCase() === t.name.toLowerCase())) {
+                          merged.push({
+                            name: t.name,
+                            appearance: t.face_description || t.description || undefined,
+                            assignedTwinName: t.name,
+                            referenceImage: t.reference_images?.[0],
+                          });
+                        }
+                      });
+                      return merged;
+                    })()}
+                    scenes={scenes.map(s => ({
+                      sceneNumber: s.sceneNumber,
+                      title: s.title,
+                      location: s.location,
+                      timeOfDay: s.timeOfDay,
+                      mood: s.mood,
+                      charactersInScene: s.charactersInScene,
+                      ambientSound: s.ambientSound,
+                      backgroundChatter: s.backgroundChatter,
+                      suggestedMusic: s.suggestedMusic,
+                      startFrameImage: s.startFrame?.generatedImage || s.generatedImage,
+                      endFrameImage: s.endFrame?.generatedImage,
+                    }))}
+                  />
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {scenes.map((scene) => {
                     const isExpanded = expandedSceneCards.has(scene.sceneNumber);
