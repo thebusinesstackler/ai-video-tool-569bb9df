@@ -348,6 +348,7 @@ const MovieSceneCreator = () => {
   const [galleryImages, setGalleryImages] = useState<{ id: string; image_url: string; prompt: string | null }[]>([]);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
   const [selectedTwins, setSelectedTwins] = useState<AITwin[]>([]); // Multi-twin selection
+  const [autoCreateCast, setAutoCreateCast] = useState(true); // Easy mode: auto-create AI Twins for cast
   const [selectedGalleryImage, setSelectedGalleryImage] = useState<{ id: string; image_url: string; prompt: string | null } | null>(null);
   const [characterSourceTab, setCharacterSourceTab] = useState<'twins' | 'characters' | 'gallery'>('twins');
   const [movieLength, setMovieLength] = useState<string>('quick-reel');
