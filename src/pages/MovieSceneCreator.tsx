@@ -1963,6 +1963,8 @@ const MovieSceneCreator = () => {
       if (scenesError) throw scenesError;
 
       const generatedScenes = normalizeMovieScenes(scenesData.scenes as MovieScene[]);
+      setScenes(generatedScenes);
+      setCurrentStep(3);
       setGenerateAllProgress(55);
 
       // Step 5: Generate Conversation Dialogue for each scene (75%)
