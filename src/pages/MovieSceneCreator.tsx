@@ -4884,7 +4884,9 @@ const MovieSceneCreator = () => {
                 {scenes.length > 0 && !isPreviewingBeforeVideo && !stitchedVideoUrl && !isGeneratingAll && (() => {
                   const hasAnyVideo = scenes.some(s => s.generatedVideo);
                   const allHaveStart = scenes.every(s => s.startFrame?.generatedImage || s.generatedImage);
+                  const missingStartFrames = scenes.filter(s => !(s.startFrame?.generatedImage || s.generatedImage));
                   const missingEndFrames = scenes.filter(s => !s.endFrame?.generatedImage && s.endFrame?.imagePrompt);
+                  const totalMissing = missingStartFrames.length + missingEndFrames.length;
                   return (
                     <Card className="border-primary/40 bg-gradient-to-r from-primary/10 to-primary/5">
                       <CardContent className="py-4 space-y-3">
@@ -4903,7 +4905,25 @@ const MovieSceneCreator = () => {
                           <li>Build the final movie</li>
                         </ol>
                         <div className="flex flex-wrap gap-2 pt-1">
-                          {missingEndFrames.length > 0 && (
+                          {totalMissing > 0 && (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={async () => {
+                                for (const s of missingStartFrames) {
+                                  await generateKeyframeImage(s.sceneNumber, 'start');
+                                }
+                                for (const s of missingEndFrames) {
+                                  await generateKeyframeImage(s.sceneNumber, 'end');
+                                }
+                              }}
+                              className="gap-1.5"
+                            >
+                              <Loader2 className="w-3.5 h-3.5" />
+                              Retry {totalMissing} missing frame{totalMissing === 1 ? '' : 's'}
+                            </Button>
+                          )}
+                          {missingEndFrames.length > 0 && missingStartFrames.length === 0 && (
                             <Button
                               size="sm"
                               variant="outline"
@@ -4945,6 +4965,7 @@ const MovieSceneCreator = () => {
                         ? (scene.dialogue as string).split('\n').filter(Boolean).map((line: string) => ({ character: '', line }))
                         : [];
                     const isGenEnd = generatingFrameFor?.sceneNumber === scene.sceneNumber && generatingFrameFor?.frame === 'end';
+                    const isGenStart = generatingFrameFor?.sceneNumber === scene.sceneNumber && generatingFrameFor?.frame === 'start';
                     return (
                       <Card key={scene.sceneNumber} className="overflow-hidden">
                         <div className="p-3 space-y-3">
@@ -4962,7 +4983,15 @@ const MovieSceneCreator = () => {
                               {startImg ? (
                                 <img src={startImg} alt="Start" className="w-full aspect-video object-cover rounded-md border border-border" />
                               ) : (
-                                <div className="w-full aspect-video rounded-md border border-dashed border-border flex items-center justify-center text-[10px] text-muted-foreground">pending</div>
+                                <button
+                                  type="button"
+                                  onClick={() => generateKeyframeImage(scene.sceneNumber, 'start')}
+                                  disabled={isGenStart}
+                                  className="w-full aspect-video rounded-md border border-dashed border-primary/40 hover:border-primary hover:bg-primary/5 flex flex-col items-center justify-center text-[10px] text-muted-foreground gap-1 transition-colors disabled:opacity-50"
+                                >
+                                  {isGenStart ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-primary" />}
+                                  <span>{isGenStart ? 'Generating…' : 'Retry start'}</span>
+                                </button>
                               )}
                             </div>
                             <ArrowRight className="w-4 h-4 text-primary self-center mt-3" />
