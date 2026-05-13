@@ -307,6 +307,37 @@ const MovieSceneCreator = () => {
   const [storyBible, setStoryBible] = useState<StoryBible | null>(null);
   const [isGeneratingStoryBible, setIsGeneratingStoryBible] = useState(false);
   const [showStoryBibleEditor, setShowStoryBibleEditor] = useState(false);
+  const [regeneratingCharIdx, setRegeneratingCharIdx] = useState<number | null>(null);
+  const [charRegenHints, setCharRegenHints] = useState<Record<number, string>>({});
+
+  const regenerateCharacter = async (idx: number) => {
+    if (!storyBible?.characters?.[idx]) return;
+    const character = storyBible.characters[idx];
+    setRegeneratingCharIdx(idx);
+    try {
+      const { data, error } = await supabase.functions.invoke('regenerate-character', {
+        body: {
+          movieIdea,
+          character,
+          userHint: charRegenHints[idx] || '',
+          regenerateFields: ['appearance', 'wardrobe', 'voiceStyle', 'personality'],
+        },
+      });
+      if (error) throw error;
+      const updates = data?.updates || {};
+      setStoryBible(prev => {
+        if (!prev) return prev;
+        const characters = [...prev.characters];
+        characters[idx] = { ...characters[idx], ...updates };
+        return { ...prev, characters };
+      });
+      toast({ title: 'Character regenerated', description: `${character.name} has a fresh look and voice.` });
+    } catch (e: any) {
+      toast({ title: 'Regenerate failed', description: e?.message || 'Try again.', variant: 'destructive' });
+    } finally {
+      setRegeneratingCharIdx(null);
+    }
+  };
   // Keyframe system state
   const [autoLinkScenes, setAutoLinkScenes] = useState(true);
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
