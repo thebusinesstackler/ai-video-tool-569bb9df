@@ -1788,25 +1788,83 @@ const MovieSceneCreator = () => {
 
       // Auto-assign voices from selected AI Twins
       let storyBibleWithVoices = storyBibleData.storyBible;
-      if (storyBibleWithVoices.characters) {
-        storyBibleWithVoices = {
-          ...storyBibleWithVoices,
-          characters: storyBibleWithVoices.characters.map((char: any) => {
-            const matchingTwin = selectedTwins.find(
-              twin => twin.name.toLowerCase() === char.name.toLowerCase()
-            );
+      const matchTwinsToBible = (bible: any, twinPool: AITwin[]) => {
+        if (!bible?.characters) return bible;
+        return {
+          ...bible,
+          characters: bible.characters.map((char: any) => {
+            const matchingTwin = twinPool.find(t => t.name.toLowerCase() === char.name?.toLowerCase());
             if (matchingTwin) {
               return {
                 ...char,
                 assignedTwinId: matchingTwin.id,
                 assignedTwinName: matchingTwin.name,
-                assignedVoiceCloningKey: matchingTwin.voice_cloning_key || undefined
+                assignedVoiceCloningKey: matchingTwin.voice_cloning_key || undefined,
               };
             }
             return char;
-          })
+          }),
         };
+      };
+      storyBibleWithVoices = matchTwinsToBible(storyBibleWithVoices, selectedTwins);
+
+      // ── AUTO-CAST: For any character without a twin, create a real AI Twin
+      // with multiple reference angles so identity stays locked across scenes.
+      if (autoCreateCast && storyBibleWithVoices?.characters?.length && userId) {
+        const unassigned = storyBibleWithVoices.characters.filter((c: any) => !c.assignedTwinId);
+        if (unassigned.length > 0) {
+          setGenerateAllStep(`Casting ${unassigned.length} character${unassigned.length > 1 ? 's' : ''} (generating reference angles)...`);
+          const newTwins: AITwin[] = [];
+          for (const char of unassigned) {
+            try {
+              const faceDesc = [char.appearance, char.wardrobe ? `wearing ${char.wardrobe}` : ''].filter(Boolean).join(', ') || char.name;
+              const gender = (char.gender || (char.role || '').toLowerCase().includes('woman') || (char.appearance || '').toLowerCase().includes('woman') ? 'female' : 'male');
+              const { data: inserted, error: insertErr } = await supabase
+                .from('ai_twins')
+                .insert({
+                  user_id: userId,
+                  name: char.name,
+                  description: char.personality || null,
+                  face_description: faceDesc,
+                  gender,
+                  reference_images: [],
+                })
+                .select('id, name, gender, face_description, description, voice_cloning_key, voice_engine, google_voice_id, reference_images')
+                .single();
+              if (insertErr || !inserted) { console.error('Auto-cast insert failed for', char.name, insertErr); continue; }
+
+              // Generate 4 camera-angle reference shots for this brand-new twin
+              const { data: anglesData, error: anglesErr } = await supabase.functions.invoke('generate-twin-angles', {
+                body: { twinId: inserted.id, faceDescription: faceDesc, gender, name: char.name },
+              });
+              const refs: string[] = anglesErr ? [] : (anglesData?.generatedUrls || []);
+
+              const fullTwin: AITwin = {
+                id: inserted.id,
+                name: inserted.name,
+                reference_images: refs.length > 0 ? refs : (inserted.reference_images || []),
+                voice_cloning_key: inserted.voice_cloning_key || null,
+                face_description: inserted.face_description || faceDesc,
+                gender: inserted.gender || gender,
+                description: inserted.description || null,
+                voice_engine: (inserted.voice_engine as any) || 'speechify',
+                google_voice_id: inserted.google_voice_id || null,
+              };
+              newTwins.push(fullTwin);
+            } catch (castErr) {
+              console.error('Auto-cast failed for', char.name, castErr);
+            }
+          }
+          if (newTwins.length > 0) {
+            setAiTwins(prev => [...newTwins, ...prev]);
+            setSelectedTwins(prev => [...prev, ...newTwins]);
+            // Re-match story bible with the freshly created twins
+            storyBibleWithVoices = matchTwinsToBible(storyBibleWithVoices, [...selectedTwins, ...newTwins]);
+            toast({ title: '🎭 Cast assembled', description: `Created ${newTwins.length} character${newTwins.length > 1 ? 's' : ''} with reference angles.` });
+          }
+        }
       }
+
       setStoryBible(storyBibleWithVoices);
       setGenerateAllProgress(15);
 
