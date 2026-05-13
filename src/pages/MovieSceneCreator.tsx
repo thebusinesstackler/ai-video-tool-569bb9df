@@ -30,6 +30,7 @@ import { CommercialTemplateSelector } from '@/components/CommercialTemplateSelec
 import { LocationManager, Location } from '@/components/LocationManager';
 import { CoverageSelector, SceneCoverage, CoverageShot } from '@/components/CoverageSelector';
 import { CharacterBlockingEditor, CharacterBlocking } from '@/components/CharacterBlockingEditor';
+import { DirectorNotesPanel, type DirectorReview } from '@/components/movie/DirectorNotesPanel';
 
 interface AITwin {
   id: string;
@@ -288,6 +289,10 @@ const MovieSceneCreator = () => {
   const [pendingVideoGeneration, setPendingVideoGeneration] = useState<MovieScene[] | null>(null);
   const [showRecoveryBanner, setShowRecoveryBanner] = useState(false);
   const [recoveryProjectId, setRecoveryProjectId] = useState<string | null>(null);
+
+  // AI Director Review (Claude as 39-yr veteran)
+  const [directorReview, setDirectorReview] = useState<DirectorReview | null>(null);
+  const [isReviewingStoryboard, setIsReviewingStoryboard] = useState(false);
   
   // Wizard step state
   const [currentStep, setCurrentStep] = useState(0);
@@ -390,6 +395,72 @@ const MovieSceneCreator = () => {
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
+
+
+  // ─── AI Director Review (Claude, 39-yr veteran) ───
+  const runDirectorReview = async () => {
+    if (!scenes.length) {
+      toast({ title: 'No storyboard yet', description: 'Generate scenes and keyframes first.', variant: 'destructive' });
+      return;
+    }
+    setIsReviewingStoryboard(true);
+    try {
+      const payload = {
+        movieIdea,
+        movieLength: searchParams.get('length') || undefined,
+        storyBible,
+        scenes: scenes.map(s => ({
+          sceneNumber: s.sceneNumber,
+          title: s.title,
+          location: s.location,
+          timeOfDay: s.timeOfDay,
+          description: s.description,
+          mood: s.mood,
+          charactersInScene: s.charactersInScene,
+          dialogue: s.dialogue,
+          cameraAngle: s.selectedCameraAngle,
+          transitionAction: s.transitionAction,
+          startFrameUrl: s.startFrame?.generatedImage || s.generatedImage || null,
+          endFrameUrl: s.endFrame?.generatedImage || null,
+        })),
+      };
+      const { data, error } = await supabase.functions.invoke('movie-director-review', { body: payload });
+      if (error) throw error;
+      if (!data?.review) throw new Error('No review returned');
+      setDirectorReview(data.review as DirectorReview);
+      toast({ title: 'Director review complete', description: `Verdict: ${data.review.overallVerdict || 'see notes'}` });
+    } catch (err: any) {
+      console.error('Director review error:', err);
+      toast({ title: 'Director review failed', description: err.message || 'Try again', variant: 'destructive' });
+    } finally {
+      setIsReviewingStoryboard(false);
+    }
+  };
+
+  const applyDialogueFix = (sceneNumber: number, newDialogue: string) => {
+    setScenes(prev => prev.map(s => s.sceneNumber === sceneNumber ? { ...s, dialogue: newDialogue } : s));
+    toast({ title: 'Dialogue updated', description: `Scene ${sceneNumber}` });
+  };
+
+  const applyTransitionFix = (sceneNumber: number, transition: string) => {
+    setScenes(prev => prev.map(s => s.sceneNumber === sceneNumber ? { ...s, transitionAction: transition } : s));
+    toast({ title: 'Transition updated', description: `Scene ${sceneNumber}` });
+  };
+
+  const applyKeyframeFix = (sceneNumber: number, frame: 'start' | 'end', newPrompt: string) => {
+    setScenes(prev => prev.map(s => {
+      if (s.sceneNumber !== sceneNumber) return s;
+      const key = frame === 'start' ? 'startFrame' : 'endFrame';
+      return {
+        ...s,
+        [key]: {
+          ...(s[key] || { imagePrompt: '', cameraAngle: 'eye-level', position: '' }),
+          imagePrompt: newPrompt,
+        },
+      };
+    }));
+    toast({ title: `${frame === 'start' ? 'Start' : 'End'} frame prompt updated`, description: `Scene ${sceneNumber} — regenerate to apply visually.` });
+  };
 
   // Auto-save function - saves project silently without showing dialogs
   const autoSaveProject = async (updatedScenes?: MovieScene[]) => {
@@ -4095,6 +4166,19 @@ const MovieSceneCreator = () => {
               </Card>
             )}
 
+            {/* AI Director Review (Claude — 39-yr veteran) */}
+            {scenes.length > 0 && (
+              <DirectorNotesPanel
+                review={directorReview}
+                isReviewing={isReviewingStoryboard}
+                onRunReview={runDirectorReview}
+                onApplyDialogueFix={applyDialogueFix}
+                onApplyTransitionFix={applyTransitionFix}
+                onApplyKeyframeFix={applyKeyframeFix}
+                hasStoryboard={scenes.some(s => s.startFrame?.generatedImage || s.generatedImage)}
+              />
+            )}
+
             {/* Scene summary cards (beginner — read-only) */}
             {scenes.length > 0 && (
               <div className="space-y-4">
@@ -4629,7 +4713,17 @@ const MovieSceneCreator = () => {
           <div className="space-y-6">
             {scenes.length > 0 ? (
               <div className="space-y-4">
-                {/* Header */}
+                {/* AI Director Review (Claude — 39-yr veteran) */}
+                <DirectorNotesPanel
+                  review={directorReview}
+                  isReviewing={isReviewingStoryboard}
+                  onRunReview={runDirectorReview}
+                  onApplyDialogueFix={applyDialogueFix}
+                  onApplyTransitionFix={applyTransitionFix}
+                  onApplyKeyframeFix={applyKeyframeFix}
+                  hasStoryboard={scenes.some(s => s.startFrame?.generatedImage || s.generatedImage)}
+                />
+
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-2xl font-bold text-foreground">Your Movie</h2>

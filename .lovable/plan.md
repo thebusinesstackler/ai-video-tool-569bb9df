@@ -1,52 +1,96 @@
-## Problem
+## Goal
 
-The Video Repo page is injecting "Lifecykel" branding (mushroom extracts, Lion's Mane, Reishi, etc.) into AI generation prompts even when the logged-in user's profile has no relation to that brand.
+Turn `/movie-scene-creator` into a true end-to-end AI movie pipeline: **Idea → Story Bible → Storyboard → Director Review (Claude as 39-year veteran) → Locked character keyframes → Continuous scene-to-scene video → Stitched film.** Today the building blocks exist but they are weakened by no real review gate, soft character consistency, no visual chain from one scene's end frame to the next scene's start frame, no transition prompting between clips, and no senior creative pass before the expensive video render.
 
-## Root Cause
+## What to build
 
-In `src/pages/VideoRepo.tsx` (lines 1180–1182), the `autoGenerateMotionVideo` function builds a `brandLine` for the AI prompt:
+### 1. Storyboard Review Gate (new step, before any video renders)
+- After scenes + start/end frames are generated, route the user into a new **Storyboard tab** that shows every scene as a 2-up card: **start frame | end frame**, with dialogue, characters present, location, mood, and camera notes underneath.
+- Per-scene buttons: **Regenerate start**, **Regenerate end**, **Edit dialogue**, **Approve scene**.
+- Master bar: progress (`12 / 18 scenes approved`), **Approve all**, then a single **Render movie** button, disabled until the Director Review (step 2) has run and ≥80% of scenes are approved.
 
-```ts
-const brandLine = brandProfile
-  ? `Brand: ${brandProfile.company_name || 'Lifecykel'}${...}. ${brandProfile.brand_description || ''}`
-  : 'Brand: Lifecykel — premium mushroom extract drops (Lion\'s Mane, Reishi, Cordyceps, Chaga, Turkey Tail, Tremella). Wellness ritual, feminine, bright daylight.';
+### 2. AI Director Review Pass (Claude Sonnet 4.5, "39-year veteran director")
+A new dedicated pass that runs once the storyboard exists, before any video render. This is the senior creative gate.
+
+- New edge function `movie-director-review` that calls **Claude Sonnet 4.5** (already in project via `_shared/claude.ts`) in **multimodal mode** with:
+  - The full Story Bible (logline, theme, 3-act structure, characters, arcs, wardrobe).
+  - Every scene's start frame + end frame image URLs, dialogue, location, time of day, mood, camera angle, transition action.
+- System prompt persona:  
+  *"You are a 39-year veteran film director (think Spielberg / Villeneuve / Fincher pedigree). You are auditing this storyboard before we spend money on video generation. Your job is to make this feel like a real film, not AI slop."*
+- Returns structured JSON via Claude tool-use:
+  ```
+  {
+    overallVerdict: "ship" | "revise" | "block",
+    overallScore: 1-10,
+    storyNotes: string,        // pacing, arc, theme cohesion
+    continuityIssues: [{ sceneNumber, issue, fix }],   // wardrobe, location, time-of-day, prop drift
+    castingNotes: [{ characterName, issue, fix }],     // face/age/wardrobe consistency across frames
+    sceneNotes: [{
+      sceneNumber,
+      score: 1-10,
+      strengthens: string,
+      weakens: string,
+      recommendedKeyframeRewrite?: { startFrame?: string, endFrame?: string },
+      recommendedDialogueRewrite?: string,
+      recommendedCameraMove?: string,
+      recommendedTransitionToNext?: string
+    }],
+    finalShootingOrder?: number[]   // optional re-ordering for emotional rhythm
+  }
+  ```
+- UI: a new **Director's Notes** panel above the storyboard. Each scene card surfaces its own director note inline with a one-click **Apply director's fix** button per recommendation (auto-rewrites the keyframe prompt, dialogue, transition, or triggers a regenerate of just that frame).
+- A top-level **"Re-review storyboard"** button re-runs the pass after fixes.
+- Optional **Auto-apply all safe fixes** (dialogue + transition + keyframe prompt rewrites; never auto-deletes scenes) before render.
+
+### 3. Character Identity Lock (applied to every keyframe + video prompt)
+- New helper `buildCharacterLockBlock(storyBible, charactersInScene)` emitting:  
+  `CHARACTER LOCK — {name}: {age}, {appearance}, wardrobe: {wardrobe}. Same face, same outfit, same hair across every shot.`
+- Inject into `generate-scene-image` (start, end, regenerate) and `wavespeed-video` prompts in `generateVideoForScene` and the one-click loop.
+- For characters with an assigned AI Twin, also pass the twin's first reference image as `imageUrls[0]` so Nano Banana / Wan keep the face.
+
+### 4. End-frame → Next-start-frame visual chain (continuity)
+- When `autoLinkScenes` is on and the previous scene has an `endFrame.generatedImage`, generating scene N's **start frame** calls `edit-scene-image` with the previous end frame as the source image and a prompt like *"Continue this exact moment. Same character, same wardrobe, same lighting. Now: {scene N start description}."* instead of fresh text-to-image.
+- The current "copy previous end image into next start" (line ~2468) becomes a fallback only when the user opts out of regeneration.
+
+### 5. Transition prompts between scenes (match-cut continuity)
+- Use the existing `transitionAction` field (line 167, currently unused for video). When generating scene N's video, append:  
+  `TRANSITION OUT: {transitionAction or "match-cut to next setting"}; final frame should mirror composition of scene N+1 opening.`
+- Generate `transitionAction` once during scene generation by extending `generate-movie-outline`.
+
+### 6. Dialogue → voice → lip-sync wiring (finish the half-built path)
+- Scenes with a dialogue line and an assigned twin auto-trigger TTS via `gpt-4o-mini-tts`, then route the keyframe + audio through `wavespeed-ai/infinitetalk-hd` for foreground shots (close-up / medium). Wide shots stay on Wan/Sora silent + audio stitched at the end.
+- Reuse the project's voice-locking hash so the same character keeps the same voice across all scenes.
+
+### 7. One-click "Generate Movie" rewired
+- The existing one-click flow (line 1478) is kept, but now stops at: **Storyboard → Director Review → user approval → Render**. Easy/Beginner mode auto-accepts the director's safe fixes and proceeds; Pro mode requires explicit approval.
+
+## Order the user experiences it
+
+```
+Idea
+  → Outline
+  → Story Bible
+  → Scenes + Start/End Frames (with Character Lock + End→Start chaining)
+  → Storyboard Review Board
+  → 🎬 AI Director Review (Claude, 39-yr veteran)
+       → Director's Notes + per-scene fixes
+       → Apply fixes / regenerate frames
+  → Approve scenes
+  → Render videos (with transition prompts + lip-sync)
+  → Auto-stitch into final film
 ```
 
-Two leaks:
-1. If `brandProfile` exists but `company_name` is empty → falls back to the literal string `'Lifecykel'`.
-2. If `brandProfile` is null entirely → falls back to a fully Lifecykel-themed paragraph.
+## Technical notes
 
-Either path silently brands every motion video generated on accounts that haven't filled out their profile (e.g. your current account).
+- New edge function: `supabase/functions/movie-director-review/index.ts` — uses `_shared/claude.ts`, model `claude-sonnet-4-5`, multimodal (image + text), tool-use for structured JSON, `verify_jwt` via `getClaims` per project Edge Function Auth pattern. Falls back to `claude-3-5-sonnet` on 402/404.
+- Edge functions touched: `generate-movie-outline` (add `transitionAction`), `generate-scene-image` (accept `characterLock` + `referenceImageUrl`).
+- New components: `src/components/movie/StoryboardReviewBoard.tsx`, `src/components/movie/SceneApprovalCard.tsx`, `src/components/movie/DirectorNotesPanel.tsx`.
+- New helper: `src/lib/movieCharacterLock.ts`.
+- DB: extend the `scenes` JSON in `movie_projects` with `approved: boolean` and `directorNote` per scene, plus a top-level `directorReview` blob — stored inside the existing JSON columns, no migration required.
+- Honors project memory: cinematic ≤180s per shot, voice via `gpt-4o-mini-tts`, lip-sync via `infinitetalk-hd`, never `avatar-omni-human-1.5`, end-frame chaining uses `google/gemini-3.1-flash-image-preview` (Nano Banana 2), Claude reasoning matches the existing premium-visual + scene-analysis patterns.
 
-A similar but lighter mention exists in `src/pages/VideoRepoPro.tsx` line 1926 ("TheraNovex healthcare & Lifecykel wellness") inside the AI Reel Director system brief — also a hardcoded brand reference that should be made generic.
+## Out of scope (not changing now)
 
-## Fix
-
-### 1. `src/pages/VideoRepo.tsx` — replace brand fallback with neutral, profile-driven text
-
-Replace the hardcoded `brandLine` with a generic version that uses whatever profile data exists, and falls back to a brand-neutral instruction when nothing is set:
-
-- If `brandProfile.company_name` exists → use it verbatim, no fallback name.
-- If `brandProfile` has a `brand_description` → use it.
-- If neither exists → emit a neutral line like `"Brand: (no brand profile set — keep visuals product-focused and generic; do not invent a brand name or category)."`
-- If `productName` is known, weave that in instead of assuming "mushroom extract drops".
-
-Also rewrite the `productHint` "Subject: a premium dropper bottle of mushroom extract..." default (line 1190) to a neutral subject line that uses `productName` when available, otherwise just says `"Subject: the product provided by the user."`
-
-### 2. `src/pages/VideoRepoPro.tsx` line 1926 — neutralize the director brief
-
-Change `"a high-performance UGC ad platform (TheraNovex healthcare & Lifecykel wellness)"` to `"a high-performance UGC ad platform"` — those two brand names should not bleed into every user's prompt.
-
-### 3. Sanity sweep (no edits needed, just verifying)
-
-- `supabase/functions/podcast-director/index.ts` — already correctly gated behind a `/lifecykel/i` check on `brandName`/`userEmail`/`websiteUrl`. Won't trigger for unrelated accounts. ✅
-- `supabase/functions/generate-hooks/index.ts` — uses Lifecykel only as a one-line "EXAMPLE PRODUCT" inside the system prompt. Low risk but I'll genericize it to "EXAMPLE PRODUCT: a wellness supplement brand" so it can't bias outputs.
-- `supabase/functions/chatcut-director/index.ts` — references Lifecykel as a spelling/vocab guard (only activated when brand vocabulary actually contains it) and one example payload. Safe to leave; not leaking into unrelated accounts.
-
-## Files to edit
-
-- `src/pages/VideoRepo.tsx` (brand fallback + product subject default)
-- `src/pages/VideoRepoPro.tsx` (director brief intro line)
-- `supabase/functions/generate-hooks/index.ts` (genericize example product line)
-
-No database, no schema, no new dependencies.
+- Sound design / music bed beyond `suggestedMusic` already present.
+- Multi-language dubbing.
+- The Story Bible editor UI itself (already exists).
