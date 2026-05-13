@@ -1851,16 +1851,6 @@ const MovieSceneCreator = () => {
                 voice_engine: (inserted.voice_engine as any) || 'speechify',
                 google_voice_id: inserted.google_voice_id || null,
               } as AITwin;
-                id: inserted.id,
-                name: inserted.name,
-                reference_images: refs.length > 0 ? refs : (inserted.reference_images || []),
-                voice_cloning_key: inserted.voice_cloning_key || null,
-                face_description: inserted.face_description || faceDesc,
-                gender: inserted.gender || gender,
-                description: inserted.description || null,
-                voice_engine: (inserted.voice_engine as any) || 'speechify',
-                google_voice_id: inserted.google_voice_id || null,
-              };
               newTwins.push(fullTwin);
             } catch (castErr) {
               console.error('Auto-cast failed for', char.name, castErr);
