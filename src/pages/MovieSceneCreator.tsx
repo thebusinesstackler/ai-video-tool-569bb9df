@@ -2185,6 +2185,36 @@ const MovieSceneCreator = () => {
     }
   };
 
+  // Generate videos for ALL scenes (sequentially) using the per-scene lip-sync flow
+  const generateAllSceneVideos = async () => {
+    const sorted = [...scenes].sort((a, b) => a.sceneNumber - b.sceneNumber);
+    const targets = sorted.filter(s => (s.startFrame?.generatedImage || (s as any).generatedImage) && !s.generatedVideo);
+    if (targets.length === 0) {
+      toast({ title: "Nothing to generate", description: "All scenes either already have a video or are missing a start image." });
+      return;
+    }
+    setIsGeneratingAllVideos(true);
+    let success = 0, failed = 0;
+    try {
+      for (const scene of targets) {
+        try {
+          await generateLipSyncVideo(scene.sceneNumber);
+          success++;
+        } catch (err: any) {
+          console.error(`Scene ${scene.sceneNumber} video failed:`, err);
+          failed++;
+          if (err?.message?.toLowerCase().includes('credit')) break;
+        }
+      }
+      toast({
+        title: "Batch video generation complete",
+        description: `${success} succeeded${failed > 0 ? `, ${failed} failed` : ''}.`,
+      });
+    } finally {
+      setIsGeneratingAllVideos(false);
+    }
+  };
+
   const generateSceneImage = async (sceneNumber: number, imagePrompt: string) => {
     const scene = scenes.find(s => s.sceneNumber === sceneNumber);
     
