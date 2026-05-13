@@ -307,6 +307,37 @@ const MovieSceneCreator = () => {
   const [storyBible, setStoryBible] = useState<StoryBible | null>(null);
   const [isGeneratingStoryBible, setIsGeneratingStoryBible] = useState(false);
   const [showStoryBibleEditor, setShowStoryBibleEditor] = useState(false);
+  const [regeneratingCharIdx, setRegeneratingCharIdx] = useState<number | null>(null);
+  const [charRegenHints, setCharRegenHints] = useState<Record<number, string>>({});
+
+  const regenerateCharacter = async (idx: number) => {
+    if (!storyBible?.characters?.[idx]) return;
+    const character = storyBible.characters[idx];
+    setRegeneratingCharIdx(idx);
+    try {
+      const { data, error } = await supabase.functions.invoke('regenerate-character', {
+        body: {
+          movieIdea,
+          character,
+          userHint: charRegenHints[idx] || '',
+          regenerateFields: ['appearance', 'wardrobe', 'voiceStyle', 'personality'],
+        },
+      });
+      if (error) throw error;
+      const updates = data?.updates || {};
+      setStoryBible(prev => {
+        if (!prev) return prev;
+        const characters = [...prev.characters];
+        characters[idx] = { ...characters[idx], ...updates };
+        return { ...prev, characters };
+      });
+      toast({ title: 'Character regenerated', description: `${character.name} has a fresh look and voice.` });
+    } catch (e: any) {
+      toast({ title: 'Regenerate failed', description: e?.message || 'Try again.', variant: 'destructive' });
+    } finally {
+      setRegeneratingCharIdx(null);
+    }
+  };
   // Keyframe system state
   const [autoLinkScenes, setAutoLinkScenes] = useState(true);
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
@@ -4591,18 +4622,45 @@ const MovieSceneCreator = () => {
                   <div>
                     <Label className="text-sm font-semibold mb-2 block">Characters ({storyBible.characters.length})</Label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {storyBible.characters.map((char, idx) => (
-                        <div key={idx} className="p-2 bg-muted/50 rounded-lg border">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Badge variant={char.role === 'protagonist' ? 'default' : 'secondary'} className="capitalize text-xs">{char.role}</Badge>
-                            <span className="font-medium text-sm">{char.name}</span>
-                            {char.assignedTwinName && (
-                              <Badge variant="outline" className="text-[10px] gap-1"><Volume2 className="w-2.5 h-2.5" />{char.assignedTwinName}</Badge>
+                      {storyBible.characters.map((char, idx) => {
+                        const isRegenerating = regeneratingCharIdx === idx;
+                        return (
+                          <div key={idx} className="p-2 bg-muted/50 rounded-lg border space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Badge variant={char.role === 'protagonist' ? 'default' : 'secondary'} className="capitalize text-xs">{char.role}</Badge>
+                              <span className="font-medium text-sm flex-1 truncate">{char.name}</span>
+                              {char.assignedTwinName && (
+                                <Badge variant="outline" className="text-[10px] gap-1"><Volume2 className="w-2.5 h-2.5" />{char.assignedTwinName}</Badge>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-2 gap-1"
+                                disabled={isRegenerating}
+                                onClick={() => regenerateCharacter(idx)}
+                                title="Regenerate appearance, wardrobe, voice"
+                              >
+                                {isRegenerating
+                                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  : <Wand2 className="w-3.5 h-3.5" />}
+                                <span className="text-[10px]">Regenerate</span>
+                              </Button>
+                            </div>
+                            {char.appearance && (
+                              <p className="text-[11px] text-muted-foreground line-clamp-2"><span className="font-semibold text-foreground/70">Look:</span> {char.appearance}</p>
                             )}
+                            {char.wardrobe && (
+                              <p className="text-[11px] text-muted-foreground line-clamp-2"><span className="font-semibold text-foreground/70">Wardrobe:</span> {char.wardrobe}</p>
+                            )}
+                            <Input
+                              placeholder="Optional hint (e.g. 'make him taller, give him a beard')"
+                              value={charRegenHints[idx] || ''}
+                              onChange={(e) => setCharRegenHints(prev => ({ ...prev, [idx]: e.target.value }))}
+                              className="h-7 text-[11px]"
+                            />
                           </div>
-                          <p className="text-xs text-muted-foreground line-clamp-1">{char.wardrobe}</p>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
 
