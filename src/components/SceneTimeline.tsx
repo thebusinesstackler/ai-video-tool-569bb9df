@@ -25,7 +25,6 @@ export const SceneTimeline: React.FC<SceneTimelineProps> = ({
   buildProgress = 0,
   hasVideos = false,
 }) => {
-  const readyScenes = scenes.filter(s => s.startFrame?.generatedImage && s.endFrame?.generatedImage);
   const videoScenes = scenes.filter(s => !!s.generatedVideo);
   return (
     <div className="space-y-2">
