@@ -1981,16 +1981,6 @@ const MovieSceneCreator = () => {
 
       // Step 6: Generate start frame images for ALL scenes (75% → 85%)
       setGenerateAllStep('Generating scene images...');
-      const referenceImages = selectedTwins.length > 0 
-        ? selectedTwins.flatMap(twin => twin.reference_images || []) 
-        : [];
-      const charDescription = selectedTwins.length > 0
-        ? selectedTwins.map(twin => {
-            const genderText = twin.gender || 'person';
-            const faceDesc = twin.face_description || twin.description || '';
-            return `${twin.name} is a ${genderText}. Physical appearance: ${faceDesc}`;
-          }).join('\n\n')
-        : undefined;
 
       const uploadIfBase64 = async (url: string | undefined): Promise<string | undefined> => {
         if (!url) return url;
@@ -2013,12 +2003,17 @@ const MovieSceneCreator = () => {
       for (let i = 0; i < scenesWithDialogue.length; i++) {
         const scene = scenesWithDialogue[i];
 
+        // Per-scene reference library — only the characters present in THIS scene,
+        // pulling all available angles from their assigned AI Twin.
+        const { referenceImages: sceneRefs, characterDescription: sceneCharDesc } =
+          buildCharacterReferenceLibrary(scene, scenesWithDialogue);
+
         // ── START FRAME ──
         setGenerateAllStep(`Scene ${i + 1}/${scenesWithDialogue.length} – start frame...`);
         try {
           const startPrompt = scene.startFrame?.imagePrompt || scene.imagePrompt;
           const { data: startData, error: startErr } = await supabase.functions.invoke('generate-scene-image', {
-            body: { prompt: startPrompt, referenceImages, characterDescription: charDescription }
+            body: { prompt: startPrompt, referenceImages: sceneRefs, characterDescription: sceneCharDesc }
           });
           if (!startErr && startData?.imageUrl) {
             const url = await uploadIfBase64(startData.imageUrl);
@@ -2046,9 +2041,9 @@ const MovieSceneCreator = () => {
           setGenerateAllStep(`Scene ${i + 1}/${scenesWithDialogue.length} – end frame...`);
           try {
             const startImg = scenesWithDialogue[i].startFrame?.generatedImage;
-            const endRefs = startImg ? [startImg, ...referenceImages].slice(0, 6) : referenceImages;
+            const endRefs = startImg ? [startImg, ...sceneRefs].slice(0, 6) : sceneRefs;
             const { data: endData, error: endErr } = await supabase.functions.invoke('generate-scene-image', {
-              body: { prompt: endPrompt, referenceImages: endRefs, characterDescription: charDescription }
+              body: { prompt: endPrompt, referenceImages: endRefs, characterDescription: sceneCharDesc }
             });
             if (!endErr && endData?.imageUrl) {
               const url = await uploadIfBase64(endData.imageUrl);
