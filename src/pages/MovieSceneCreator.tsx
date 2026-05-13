@@ -207,6 +207,8 @@ interface MovieScene {
   selectedLighting?: string;
   mood?: string;
   suggestedMusic?: string;
+  ambientSound?: string;
+  backgroundChatter?: string[];
   connectsTo?: number;
   // Keyframe fields
   startFrame?: KeyframeData;
