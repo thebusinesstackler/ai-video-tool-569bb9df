@@ -312,16 +312,24 @@ CRITICAL JSON SAFETY RULES:
     try {
       parsed = JSON.parse(generatedContent);
     } catch (e) {
-      // Last-resort cleanup: strip control chars + trailing commas
+      // Cleanup: strip control chars + trailing commas + smart quotes
       const cleaned = generatedContent
         .replace(/^\uFEFF/, '')
         .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, '')
+        .replace(/[\u2018\u2019]/g, "'")
+        .replace(/[\u201C\u201D]/g, '"')
         .replace(/,\s*([\]}])/g, '$1');
       try {
         parsed = JSON.parse(cleaned);
       } catch (e2) {
-        console.error('JSON parse failed. Preview:', generatedContent.substring(0, 800));
-        throw new Error(`Failed to parse AI response: ${e2 instanceof Error ? e2.message : 'Unknown error'}`);
+        // Last resort: jsonrepair handles unescaped quotes inside strings
+        try {
+          parsed = JSON.parse(jsonrepair(cleaned));
+          console.log('Recovered JSON via jsonrepair');
+        } catch (e3) {
+          console.error('JSON parse failed. Preview:', generatedContent.substring(0, 800));
+          throw new Error(`Failed to parse AI response: ${e3 instanceof Error ? e3.message : 'Unknown error'}`);
+        }
       }
     }
 
