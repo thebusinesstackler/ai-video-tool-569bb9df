@@ -1981,16 +1981,6 @@ const MovieSceneCreator = () => {
 
       // Step 6: Generate start frame images for ALL scenes (75% → 85%)
       setGenerateAllStep('Generating scene images...');
-      const referenceImages = selectedTwins.length > 0 
-        ? selectedTwins.flatMap(twin => twin.reference_images || []) 
-        : [];
-      const charDescription = selectedTwins.length > 0
-        ? selectedTwins.map(twin => {
-            const genderText = twin.gender || 'person';
-            const faceDesc = twin.face_description || twin.description || '';
-            return `${twin.name} is a ${genderText}. Physical appearance: ${faceDesc}`;
-          }).join('\n\n')
-        : undefined;
 
       const uploadIfBase64 = async (url: string | undefined): Promise<string | undefined> => {
         if (!url) return url;
@@ -2013,12 +2003,17 @@ const MovieSceneCreator = () => {
       for (let i = 0; i < scenesWithDialogue.length; i++) {
         const scene = scenesWithDialogue[i];
 
+        // Per-scene reference library — only the characters present in THIS scene,
+        // pulling all available angles from their assigned AI Twin.
+        const { referenceImages: sceneRefs, characterDescription: sceneCharDesc } =
+          buildCharacterReferenceLibrary(scene, scenesWithDialogue);
+
         // ── START FRAME ──
         setGenerateAllStep(`Scene ${i + 1}/${scenesWithDialogue.length} – start frame...`);
         try {
           const startPrompt = scene.startFrame?.imagePrompt || scene.imagePrompt;
           const { data: startData, error: startErr } = await supabase.functions.invoke('generate-scene-image', {
-            body: { prompt: startPrompt, referenceImages, characterDescription: charDescription }
+            body: { prompt: startPrompt, referenceImages: sceneRefs, characterDescription: sceneCharDesc }
           });
           if (!startErr && startData?.imageUrl) {
             const url = await uploadIfBase64(startData.imageUrl);
@@ -2046,9 +2041,9 @@ const MovieSceneCreator = () => {
           setGenerateAllStep(`Scene ${i + 1}/${scenesWithDialogue.length} – end frame...`);
           try {
             const startImg = scenesWithDialogue[i].startFrame?.generatedImage;
-            const endRefs = startImg ? [startImg, ...referenceImages].slice(0, 6) : referenceImages;
+            const endRefs = startImg ? [startImg, ...sceneRefs].slice(0, 6) : sceneRefs;
             const { data: endData, error: endErr } = await supabase.functions.invoke('generate-scene-image', {
-              body: { prompt: endPrompt, referenceImages: endRefs, characterDescription: charDescription }
+              body: { prompt: endPrompt, referenceImages: endRefs, characterDescription: sceneCharDesc }
             });
             if (!endErr && endData?.imageUrl) {
               const url = await uploadIfBase64(endData.imageUrl);
@@ -2638,13 +2633,36 @@ const MovieSceneCreator = () => {
       ? targetScene.charactersInScene
       : (storyBible?.characters?.map((c: any) => c.name) || []);
 
-    // 1. Twin reference images for any character in this scene (or all selected twins as fallback)
-    const twinsToUse = selectedTwins.filter(t =>
-      charNames.length === 0 || charNames.some(n => n.toLowerCase() === t.name.toLowerCase())
+    const norm = (s: string) => s.toLowerCase().trim();
+    const sceneNamesNorm = charNames.map(norm);
+
+    // Resolve which twins belong to THIS scene only — match via:
+    //   (a) storyBible character → assignedTwinId
+    //   (b) twin name === character name
+    const sceneTwinIds = new Set<string>();
+    if (storyBible?.characters) {
+      for (const char of storyBible.characters) {
+        if (!char?.name) continue;
+        if (sceneNamesNorm.length > 0 && !sceneNamesNorm.includes(norm(char.name))) continue;
+        if (char.assignedTwinId) sceneTwinIds.add(char.assignedTwinId);
+      }
+    }
+    const sceneTwins = aiTwins.filter(t =>
+      sceneTwinIds.has(t.id) || sceneNamesNorm.includes(norm(t.name))
     );
-    const effectiveTwins = twinsToUse.length > 0 ? twinsToUse : selectedTwins;
+    // Also allow selectedTwins that match by name (for non-storyBible flows)
+    for (const t of selectedTwins) {
+      if (sceneNamesNorm.length === 0 || sceneNamesNorm.includes(norm(t.name))) {
+        if (!sceneTwins.find(x => x.id === t.id)) sceneTwins.push(t);
+      }
+    }
+    // Last-resort fallback: if NO scene-specific twins were resolved, use selectedTwins
+    const effectiveTwins = sceneTwins.length > 0 ? sceneTwins : selectedTwins;
+
+    // 1. ALL angle reference images for the scene's characters (max 3 per twin to keep ~6 total)
+    const perTwinCap = effectiveTwins.length > 1 ? 2 : 4;
     for (const twin of effectiveTwins) {
-      for (const img of (twin.reference_images || []).slice(0, 2)) {
+      for (const img of (twin.reference_images || []).slice(0, perTwinCap)) {
         if (img && !seen.has(img)) { seen.add(img); refs.push(img); }
       }
       const desc = `${twin.name}: ${twin.face_description || twin.description || ''}`;
@@ -2654,7 +2672,7 @@ const MovieSceneCreator = () => {
     // 2. Story-bible character descriptions for everyone in this scene
     if (storyBible?.characters) {
       for (const char of storyBible.characters) {
-        if (charNames.length > 0 && !charNames.some(n => n.toLowerCase() === char.name?.toLowerCase())) continue;
+        if (sceneNamesNorm.length > 0 && !sceneNamesNorm.includes(norm(char.name || ''))) continue;
         const lock = [char.name, char.appearance, char.wardrobe].filter(Boolean).join(' — ');
         if (lock && !descriptions.some(d => d.startsWith(`${char.name}:`))) {
           descriptions.push(`${char.name}: ${lock}`);
@@ -2662,20 +2680,19 @@ const MovieSceneCreator = () => {
       }
     }
 
-    // 3. Earliest generated frame image from previous scenes featuring each character
+    // 3. Earliest generated frame from previous scenes featuring each character (continuity anchor)
     const prevScenes = allScenes
       .filter(s => s.sceneNumber < targetScene.sceneNumber)
       .sort((a, b) => a.sceneNumber - b.sceneNumber);
     for (const name of charNames) {
       const firstShot = prevScenes.find(s =>
-        (s.charactersInScene || []).some(n => n.toLowerCase() === name.toLowerCase()) &&
+        (s.charactersInScene || []).some(n => norm(n) === norm(name)) &&
         (s.startFrame?.generatedImage || s.endFrame?.generatedImage || (s as any).generatedImage)
       );
       const img = firstShot?.startFrame?.generatedImage || firstShot?.endFrame?.generatedImage || (firstShot as any)?.generatedImage;
       if (img && !seen.has(img)) { seen.add(img); refs.push(img); }
     }
 
-    // Hard cap to keep the model focused
     return {
       referenceImages: refs.slice(0, 6),
       characterDescription: descriptions.join('\n\n'),
