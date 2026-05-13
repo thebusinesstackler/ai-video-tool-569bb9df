@@ -185,21 +185,38 @@ export function StoryboardReviewPanel({ logline, theme, characters, scenes }: Pr
                       </div>
                     )}
 
-                    {/* Frame thumbs */}
-                    {(s.startFrameImage || s.endFrameImage) && (
-                      <div className="grid grid-cols-2 gap-2 pt-1">
-                        <div className="aspect-video rounded overflow-hidden bg-muted flex items-center justify-center text-[10px] text-muted-foreground">
-                          {s.startFrameImage ? (
-                            <img src={s.startFrameImage} alt="Start frame" className="w-full h-full object-cover" loading="lazy" />
-                          ) : 'Start frame pending'}
+                    {/* Frame thumbs — always visible so every shot can be reviewed */}
+                    <div className="pt-1">
+                      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                            <span className="font-medium uppercase tracking-wide">Start</span>
+                            <span className={s.startFrameImage ? 'text-green-600' : 'text-amber-600'}>
+                              {s.startFrameImage ? '● ready' : '○ pending'}
+                            </span>
+                          </div>
+                          <div className="aspect-video rounded overflow-hidden bg-muted flex items-center justify-center text-[10px] text-muted-foreground border">
+                            {s.startFrameImage ? (
+                              <img src={s.startFrameImage} alt={`Scene ${s.sceneNumber} start frame`} className="w-full h-full object-cover" loading="lazy" />
+                            ) : 'Generating…'}
+                          </div>
                         </div>
-                        <div className="aspect-video rounded overflow-hidden bg-muted flex items-center justify-center text-[10px] text-muted-foreground">
-                          {s.endFrameImage ? (
-                            <img src={s.endFrameImage} alt="End frame" className="w-full h-full object-cover" loading="lazy" />
-                          ) : 'End frame pending'}
+                        <div className="text-muted-foreground text-lg leading-none pt-4" aria-hidden>→</div>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                            <span className="font-medium uppercase tracking-wide">End</span>
+                            <span className={s.endFrameImage ? 'text-green-600' : 'text-amber-600'}>
+                              {s.endFrameImage ? '● ready' : '○ pending'}
+                            </span>
+                          </div>
+                          <div className="aspect-video rounded overflow-hidden bg-muted flex items-center justify-center text-[10px] text-muted-foreground border">
+                            {s.endFrameImage ? (
+                              <img src={s.endFrameImage} alt={`Scene ${s.sceneNumber} end frame`} className="w-full h-full object-cover" loading="lazy" />
+                            ) : 'Generating…'}
+                          </div>
                         </div>
                       </div>
-                    )}
+                    </div>
                   </div>
                 ))}
               </div>
