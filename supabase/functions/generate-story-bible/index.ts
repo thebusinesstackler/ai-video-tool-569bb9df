@@ -25,75 +25,79 @@ serve(async (req) => {
 
     console.log('Generating story bible for movie idea...');
 
-    const systemPrompt = `You are an expert story development consultant and production designer specializing in creating comprehensive story bibles for short-form video content (1-3 minutes).
+    const systemPrompt = `You are a veteran story editor + production designer crafting a STORY BIBLE for a short cinematic film. Your bible must produce a story that *feels like one cohesive movie* — not disconnected vignettes — with consistent characters, escalating stakes, and visually specific scenes that a video model can render reliably.
 
-Your task is to create a complete STORY BIBLE that ensures total consistency throughout the film:
+REQUIREMENTS:
 
-1. **STORY STRUCTURE**
-   - Logline: One sentence describing the entire story
-   - Theme: Core message or emotion
-   - Three-Act Structure: Setup, Confrontation, Resolution
-   - Emotional Arc: How the audience should feel at each point
-   - Scene Flow: How each scene connects to the next
+1. STORY STRUCTURE
+   - Logline (one sentence)
+   - Theme (single emotional truth)
+   - 3-act breakdown (setup / confrontation / resolution) — each 2-3 sentences with a clear turning point
+   - Emotional arc as 3-6 beats (e.g., "curiosity → doubt → defiance → triumph")
+   - A "central question" the audience is asking through the film
 
-2. **CHARACTER PROFILES** (Define 2-4 characters)
-   Each character MUST have:
-   - name: Character's name
-   - role: "protagonist" | "deuteragonist" | "antagonist" | "supporting"
-   - gender: "male" | "female" (REQUIRED - used for voice casting)
-   - age: Approximate age range
-   - appearance: Physical description (hair, skin, eyes, build)
-   - wardrobe: SPECIFIC outfit they wear THROUGHOUT the entire film (this MUST be consistent in EVERY scene)
-   - voiceStyle: How they speak (tone, pace, accent, mannerisms)
-   - personality: Key traits and motivations
-   - arc: How they change from beginning to end
+2. CHARACTERS (lock identity for visual consistency)
+   - name, role (protagonist | deuteragonist | antagonist | supporting)
+   - gender ("male" | "female") — REQUIRED for voice casting
+   - age (range)
+   - appearance — hair, skin, eyes, build, distinguishing features (specific, image-promptable)
+   - wardrobe — exact outfit worn THROUGHOUT every scene (colors, materials, accessories). This will be injected into every image prompt.
+   - voiceStyle — tone, pace, accent, mannerisms
+   - personality — 2-3 core traits + motivation
+   - arc — how they change start → end
 
-3. **WARDROBE CONSISTENCY NOTES**
-   - Define the exact clothing each character wears
-   - Include colors, materials, and distinctive features
-   - This wardrobe description will be injected into EVERY image prompt
+3. WARDROBE & VISUAL CONTINUITY NOTES
+   - One paragraph summarizing wardrobe + signature props that MUST stay identical across all scenes.
+   - Color palette (3-5 hex/named colors) for the whole film.
 
-4. **SCENE-BY-SCENE DIALOGUE ASSIGNMENTS**
-   For each planned scene, specify:
-   - Which characters appear
-   - Who speaks and in what order
-   - The general topic/conflict of their conversation
+4. SCENE PLAN (sceneDialogueMap) — 5-8 scenes, each rich enough to render visually:
+   For EACH scene provide:
+   - sceneNumber, title, location, timeOfDay
+   - charactersPresent (array of names — only from the cast above)
+   - mood (1 word: tense, romantic, melancholic, triumphant, mysterious, peaceful, comedic, etc.)
+   - conflict (1 sentence — what's at stake in THIS beat)
+   - startFrame: 2-3 sentences describing the FIRST visible frame (camera framing, blocking, lighting, key props, character expressions). Be specific enough that an image model could render it.
+   - endFrame: 2-3 sentences describing the LAST visible frame, distinct from start, that sets up the NEXT scene visually (a match-cut object, a look, a reveal). Always different from startFrame.
+   - transition: 1 sentence describing how endFrame visually hands off to the next scene's startFrame (e.g., "push-in on phone screen dissolves to laptop screen of next scene").
+   - dialogueFlow: ordered array of { character, action } describing back-and-forth. Each "action" should include the gist of the line and the emotion behind it.
 
-CRITICAL: Return ONLY valid JSON with this structure (no markdown):
+CRITICAL RULES:
+- Every scene's endFrame MUST be visually distinct from its startFrame and MUST set up the next scene's startFrame.
+- Stories must have a clear opening image and a closing image that mirror or contrast each other.
+- No new characters appear that aren't in the cast.
+- Wardrobe stays identical — characters do not change clothes between scenes unless the story explicitly requires it (state when).
+
+OUTPUT — return ONLY valid JSON (no markdown fences) with this exact shape:
 {
-  "logline": "One sentence story summary",
-  "theme": "Core theme",
-  "emotionalArc": ["hope", "tension", "triumph"],
-  "threeActStructure": {
-    "setup": "Description of Act 1",
-    "confrontation": "Description of Act 2", 
-    "resolution": "Description of Act 3"
-  },
+  "logline": "...",
+  "theme": "...",
+  "centralQuestion": "...",
+  "emotionalArc": ["...", "..."],
+  "colorPalette": ["...", "..."],
+  "threeActStructure": { "setup": "...", "confrontation": "...", "resolution": "..." },
   "characters": [
     {
-      "name": "Character Name",
-      "role": "protagonist",
-      "gender": "female",
-      "age": "mid-30s",
-      "appearance": "Detailed physical description",
-      "wardrobe": "Red leather jacket over white t-shirt, dark blue jeans, black boots",
-      "voiceStyle": "Confident, quick-witted, slight accent",
-      "personality": "Determined but vulnerable",
-      "arc": "Starts doubtful, becomes confident leader"
+      "name": "...", "role": "protagonist", "gender": "female", "age": "mid-30s",
+      "appearance": "...", "wardrobe": "...", "voiceStyle": "...",
+      "personality": "...", "arc": "..."
     }
   ],
-  "wardrobeNotes": "Key wardrobe details for image consistency",
+  "wardrobeNotes": "...",
   "sceneDialogueMap": [
     {
       "sceneNumber": 1,
-      "title": "The Discovery",
-      "charactersPresent": ["Maria", "James"],
+      "title": "...",
+      "location": "...",
+      "timeOfDay": "...",
+      "charactersPresent": ["..."],
+      "mood": "tense",
+      "conflict": "...",
+      "startFrame": "...",
+      "endFrame": "...",
+      "transition": "...",
       "dialogueFlow": [
-        { "character": "Maria", "action": "initiates conversation about the mystery" },
-        { "character": "James", "action": "expresses doubt" },
-        { "character": "Maria", "action": "reveals key evidence" }
-      ],
-      "conflict": "Maria tries to convince James"
+        { "character": "...", "action": "what they say + emotion" }
+      ]
     }
   ]
 }`;
