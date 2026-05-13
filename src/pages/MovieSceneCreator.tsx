@@ -5163,6 +5163,25 @@ const MovieSceneCreator = () => {
                   hasVideos={scenes.some(s => s.generatedVideo)}
                 />
 
+                {/* Batch actions toolbar */}
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card/50 p-3">
+                  <div className="text-xs text-muted-foreground">
+                    {scenes.filter(s => s.generatedVideo).length}/{scenes.length} scenes have videos. Generate per-scene below or run them all in one click.
+                  </div>
+                  <Button
+                    onClick={generateAllSceneVideos}
+                    disabled={isGeneratingAllVideos || generatingVideoFor !== null}
+                    size="sm"
+                    className="gap-2 bg-gradient-to-r from-primary to-primary/80"
+                  >
+                    {isGeneratingAllVideos ? (
+                      <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Generating all…</>
+                    ) : (
+                      <><Video className="w-3.5 h-3.5" /> Generate All Videos</>
+                    )}
+                  </Button>
+                </div>
+
                 {/* Scene cards */}
                 <div className="space-y-3">
                   {scenes.map((scene, index) => (
