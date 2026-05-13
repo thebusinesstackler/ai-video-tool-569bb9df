@@ -27,6 +27,7 @@ import { KeyframeSceneCard, MovieSceneWithKeyframes, KeyframeData, CAMERA_MOVEME
 import { SceneTimeline } from '@/components/SceneTimeline';
 import { StoryboardExport } from '@/components/StoryboardExport';
 import { StoryboardReviewPanel } from '@/components/movie/StoryboardReviewPanel';
+import { FullScreenplayPanel } from '@/components/movie/FullScreenplayPanel';
 import { CommercialTemplateSelector } from '@/components/CommercialTemplateSelector';
 import { LocationManager, Location } from '@/components/LocationManager';
 import { CoverageSelector, SceneCoverage, CoverageShot } from '@/components/CoverageSelector';
