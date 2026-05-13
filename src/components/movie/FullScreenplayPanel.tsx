@@ -35,9 +35,9 @@ const formatScreenplay = (logline: string | undefined, theme: string | undefined
     if (slug) lines.push(slug);
     lines.push('');
     if (s.description) lines.push(s.description);
-    const dlg = Array.isArray(s.dialogue) ? s.dialogue
+    const dlg: DialogueLine[] = Array.isArray(s.dialogue) ? s.dialogue
       : typeof s.dialogue === 'string'
-        ? s.dialogue.split('\n').filter(Boolean).map(l => ({ line: l }))
+        ? s.dialogue.split('\n').filter(Boolean).map(l => ({ line: l } as DialogueLine))
         : [];
     if (dlg.length) {
       lines.push('');
