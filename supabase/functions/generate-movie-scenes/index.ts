@@ -220,6 +220,12 @@ CRITICAL: Return ONLY a valid JSON array with this exact structure (no markdown,
     "selectedLighting": "golden-hour",
     "mood": "romantic",
     "suggestedMusic": "Soft piano with gentle strings, warm and intimate atmosphere",
+    "ambientSound": "Distant café chatter, espresso machine hiss, soft jazz on the speakers, faint traffic from the street outside",
+    "backgroundChatter": [
+      "Two voices murmuring about a deadline at a nearby table",
+      "A barista calling out an order: 'Oat flat white for Daniel'",
+      "A laptop keyboard tapping rhythmically off-screen"
+    ],
     "connectsTo": 2
   }
 ]
@@ -236,6 +242,8 @@ IMPORTANT FORMATTING RULES:
 - startFrame and endFrame must each have imagePrompt, cameraAngle, and position
 - Image prompts MUST include character wardrobes exactly as defined in the story bible
 - suggestedMusic should be specific and match the mood
+- ambientSound is REQUIRED: 1–2 sentence soundscape describing the room tone, weather, off-screen activity, props making sound, etc. Make it filmic and specific to the location.
+- backgroundChatter is REQUIRED: 2–4 short overheard lines/sounds from people OR objects NOT in charactersInScene (e.g. a TV news anchor, a barista, kids playing outside, a phone buzzing). Use straight ASCII quotes ' instead of " inside these strings.
 
 Return ONLY the JSON array, no other text or formatting.`;
 
