@@ -508,8 +508,77 @@ const MovieSceneCreator = () => {
       const { data, error } = await supabase.functions.invoke('movie-director-review', { body: payload });
       if (error) throw error;
       if (!data?.review) throw new Error('No review returned');
-      setDirectorReview(data.review as DirectorReview);
-      toast({ title: 'Director review complete', description: `Verdict: ${data.review.overallVerdict || 'see notes'}` });
+      const review = data.review as DirectorReview;
+      setDirectorReview(review);
+      toast({ title: 'Director review complete', description: `Verdict: ${review.overallVerdict || 'see notes'} — applying fixes…` });
+
+      // === AUTO-APPLY: dialogue, transitions, keyframe prompts ===
+      let appliedCount = 0;
+      const sceneNotes = Array.isArray(review.sceneNotes) ? review.sceneNotes : [];
+      const newEndPromptsBySceneNum = new Map<number, string>();
+
+      setScenes(prev => prev.map(s => {
+        const note = sceneNotes.find((n: any) => n.sceneNumber === s.sceneNumber);
+        if (!note) return s;
+        let next = { ...s };
+        if (note.recommendedDialogueRewrite && typeof note.recommendedDialogueRewrite === 'string') {
+          next.dialogue = note.recommendedDialogueRewrite;
+          appliedCount++;
+        }
+        if (note.recommendedTransitionToNext && typeof note.recommendedTransitionToNext === 'string') {
+          next.transitionAction = note.recommendedTransitionToNext;
+          appliedCount++;
+        }
+        const kf = note.recommendedKeyframeRewrite || {};
+        if (kf.startFrame && typeof kf.startFrame === 'string') {
+          next.startFrame = { ...(next.startFrame || { imagePrompt: '', cameraAngle: 'eye-level', position: '' }), imagePrompt: kf.startFrame };
+          appliedCount++;
+        }
+        if (kf.endFrame && typeof kf.endFrame === 'string') {
+          next.endFrame = { ...(next.endFrame || { imagePrompt: '', cameraAngle: 'eye-level', position: '' }), imagePrompt: kf.endFrame };
+          newEndPromptsBySceneNum.set(s.sceneNumber, kf.endFrame);
+          appliedCount++;
+        }
+        return next;
+      }));
+
+      // === AUTO-GENERATE missing or rewritten end frames so the movie stitches together ===
+      // Use a fresh snapshot derived from current scenes + just-applied prompts.
+      const scenesNeedingEnd = scenes
+        .map(s => {
+          const note = sceneNotes.find((n: any) => n.sceneNumber === s.sceneNumber);
+          const endPrompt = (note?.recommendedKeyframeRewrite?.endFrame as string | undefined)
+            || s.endFrame?.imagePrompt
+            || s.transitionAction
+            || s.description;
+          const hasEndImg = !!s.endFrame?.generatedImage;
+          const wasRewritten = newEndPromptsBySceneNum.has(s.sceneNumber);
+          // Skip the very last scene (nothing to transition to)
+          const isLast = s.sceneNumber === Math.max(...scenes.map(x => x.sceneNumber));
+          if (isLast) return null;
+          if (hasEndImg && !wasRewritten) return null;
+          if (!endPrompt) return null;
+          return { sceneNumber: s.sceneNumber, prompt: endPrompt };
+        })
+        .filter(Boolean) as { sceneNumber: number; prompt: string }[];
+
+      if (scenesNeedingEnd.length > 0) {
+        toast({ title: 'Generating end frames', description: `${scenesNeedingEnd.length} scene(s) need end frames for clean transitions.` });
+        // Ensure prompts are committed before image gen reads them
+        await new Promise(r => setTimeout(r, 100));
+        for (const item of scenesNeedingEnd) {
+          try {
+            await generateKeyframeImage(item.sceneNumber, 'end');
+          } catch (e) {
+            console.warn(`End-frame autogen failed for scene ${item.sceneNumber}`, e);
+          }
+        }
+      }
+
+      toast({
+        title: 'Director fixes applied',
+        description: `${appliedCount} edits applied${scenesNeedingEnd.length ? ` • ${scenesNeedingEnd.length} end frames generated` : ''}. Ready to stitch.`,
+      });
     } catch (err: any) {
       console.error('Director review error:', err);
       toast({ title: 'Director review failed', description: err.message || 'Try again', variant: 'destructive' });
