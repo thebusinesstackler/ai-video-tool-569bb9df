@@ -4166,6 +4166,19 @@ const MovieSceneCreator = () => {
               </Card>
             )}
 
+            {/* AI Director Review (Claude — 39-yr veteran) */}
+            {scenes.length > 0 && (
+              <DirectorNotesPanel
+                review={directorReview}
+                isReviewing={isReviewingStoryboard}
+                onRunReview={runDirectorReview}
+                onApplyDialogueFix={applyDialogueFix}
+                onApplyTransitionFix={applyTransitionFix}
+                onApplyKeyframeFix={applyKeyframeFix}
+                hasStoryboard={scenes.some(s => s.startFrame?.generatedImage || s.generatedImage)}
+              />
+            )}
+
             {/* Scene summary cards (beginner — read-only) */}
             {scenes.length > 0 && (
               <div className="space-y-4">
