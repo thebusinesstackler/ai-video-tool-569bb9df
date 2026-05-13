@@ -1,10 +1,89 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { jsonrepair } from "npm:jsonrepair@3.8.0";
-import { callClaude, ClaudeError } from '../_shared/claude.ts';
+import { ClaudeError } from '../_shared/claude.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+};
+
+const sceneCountMap: Record<string, string> = {
+  'quick-reel': '4-6',
+  'short-story': '10-15',
+  'short-film': '20-30',
+  'full-movie': '40-60'
+};
+
+const normalizeJsonText = (text: string) => {
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  const unfenced = fenceMatch ? fenceMatch[1] : text;
+  return unfenced
+    .trim()
+    .replace(/^\uFEFF/, '')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, '')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/,\s*([\]}])/g, '$1');
+};
+
+const extractJsonCandidate = (text: string) => {
+  const cleaned = normalizeJsonText(text);
+  const firstObject = cleaned.indexOf('{');
+  const firstArray = cleaned.indexOf('[');
+  const startsWithArray = firstArray !== -1 && (firstObject === -1 || firstArray < firstObject);
+  const start = startsWithArray ? firstArray : firstObject;
+  const end = startsWithArray ? cleaned.lastIndexOf(']') : cleaned.lastIndexOf('}');
+  if (start >= 0 && end > start) return cleaned.slice(start, end + 1);
+  return cleaned;
+};
+
+const parseScenesPayload = (raw: string) => {
+  const candidate = extractJsonCandidate(raw);
+  const attempts = [candidate, normalizeJsonText(candidate)];
+  for (const attempt of attempts) {
+    try { return JSON.parse(attempt); } catch (_) {}
+    try { return JSON.parse(jsonrepair(attempt)); } catch (_) {}
+  }
+  throw new Error('Failed to parse AI response into valid JSON');
+};
+
+const buildFallbackScenes = (outline: string, storyBible: any, movieLength: string) => {
+  const requested = sceneCountMap[movieLength] || '4-6';
+  const maxScenes = Number((requested.match(/\d+/g) || ['6']).slice(-1)[0]);
+  const characters = Array.isArray(storyBible?.characters) ? storyBible.characters.map((c: any) => c.name).filter(Boolean) : [];
+  const sceneMatches = [...outline.matchAll(/(?:^|\n)\s*(?:SCENE|Scene)\s+(\d+)\s*(?:[—:-]\s*)?([^\n]*)\n([\s\S]*?)(?=\n\s*(?:SCENE|Scene)\s+\d+\s*(?:[—:-]|\n)|$)/g)].slice(0, maxScenes);
+  const blocks = sceneMatches.length > 0
+    ? sceneMatches.map((m, idx) => ({ number: Number(m[1]) || idx + 1, title: (m[2] || `Scene ${idx + 1}`).trim(), body: m[3].trim() }))
+    : outline.split(/\n\s*\n/).filter(Boolean).slice(0, Math.min(maxScenes, 6)).map((body, idx) => ({ number: idx + 1, title: `Story Beat ${idx + 1}`, body: body.trim() }));
+
+  return blocks.map((block, idx) => {
+    const next = blocks[idx + 1];
+    const start = block.body.match(/START FRAME:\s*([^\n]+)/i)?.[1] || block.body.slice(0, 420);
+    const end = block.body.match(/END FRAME:\s*([^\n]+)/i)?.[1] || (next ? `A closing visual that match-cuts into ${next.title}: ${next.body.slice(0, 220)}` : block.body.slice(-420));
+    const transition = block.body.match(/TRANSITION:\s*([^\n]+)/i)?.[1] || (next ? `Cinematic transition from ${block.title} into ${next.title}; preserve character identity and emotional continuity.` : 'Final cinematic hold, then fade out.');
+    return {
+      sceneNumber: block.number,
+      title: block.title || `Scene ${idx + 1}`,
+      location: block.body.match(/LOCATION:\s*([^\n]+)/i)?.[1] || 'Cinematic location from outline',
+      timeOfDay: block.body.match(/(?:TIME|Time of Day):\s*([^\n]+)/i)?.[1] || 'Day',
+      description: block.body,
+      charactersInScene: characters,
+      dialogue: [],
+      narration: '',
+      startFrame: { imagePrompt: start, cameraAngle: idx === 0 ? 'wide-shot' : 'eye-level', position: 'opening composition' },
+      endFrame: { imagePrompt: end, cameraAngle: next ? 'close-up' : 'wide-shot', position: 'closing composition' },
+      transitionAction: transition,
+      transitionCameraMovement: next ? 'push-in' : 'static',
+      imagePrompt: start,
+      selectedCameraAngle: idx === 0 ? 'wide-shot' : 'eye-level',
+      selectedLighting: 'natural',
+      mood: 'dramatic',
+      suggestedMusic: 'Cinematic score that follows the emotional escalation of the scene.',
+      ambientSound: 'Natural room tone with subtle environmental detail that supports the location.',
+      backgroundChatter: ['Distant off-screen movement and soft environmental sound.'],
+      connectsTo: next ? block.number + 1 : undefined,
+    };
+  });
 };
 
 serve(async (req) => {
@@ -301,42 +380,22 @@ CRITICAL JSON SAFETY RULES:
         throw new Error('No content generated');
       }
 
-      console.log('Raw AI response length:', generatedContent.length);
+      const finishReason = gwJson?.choices?.[0]?.finish_reason || gwJson?.choices?.[0]?.finishReason;
+      console.log('Raw AI response length:', generatedContent.length, 'finishReason:', finishReason || 'unknown');
 
-    // Strip optional code fences if model added them
-    const fenceMatch = generatedContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-    if (fenceMatch) generatedContent = fenceMatch[1];
-    generatedContent = generatedContent.trim();
-
-    let parsed: any;
+    let scenes: any[];
     try {
-      parsed = JSON.parse(generatedContent);
-    } catch (e) {
-      // Cleanup: strip control chars + trailing commas + smart quotes
-      const cleaned = generatedContent
-        .replace(/^\uFEFF/, '')
-        .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, '')
-        .replace(/[\u2018\u2019]/g, "'")
-        .replace(/[\u201C\u201D]/g, '"')
-        .replace(/,\s*([\]}])/g, '$1');
-      try {
-        parsed = JSON.parse(cleaned);
-      } catch (e2) {
-        // Last resort: jsonrepair handles unescaped quotes inside strings
-        try {
-          parsed = JSON.parse(jsonrepair(cleaned));
-          console.log('Recovered JSON via jsonrepair');
-        } catch (e3) {
-          console.error('JSON parse failed. Preview:', generatedContent.substring(0, 800));
-          throw new Error(`Failed to parse AI response: ${e3 instanceof Error ? e3.message : 'Unknown error'}`);
-        }
+      const parsed = parseScenesPayload(generatedContent);
+      scenes = Array.isArray(parsed) ? parsed : parsed?.scenes;
+      if (!Array.isArray(scenes) || scenes.length === 0) {
+        throw new Error('Invalid scenes format - expected non-empty array');
       }
-    }
-
-    // Accept either {scenes:[...]} (json_object mode) or a bare array
-    const scenes = Array.isArray(parsed) ? parsed : parsed?.scenes;
-    if (!Array.isArray(scenes) || scenes.length === 0) {
-      throw new Error('Invalid scenes format - expected non-empty array');
+    } catch (parseError) {
+      console.error('Scene JSON parse failed; falling back to outline-derived timeline:', parseError instanceof Error ? parseError.message : parseError);
+      scenes = buildFallbackScenes(outline, storyBible, movieLength);
+      if (!Array.isArray(scenes) || scenes.length === 0) {
+        throw new Error('Failed to create fallback scene timeline from outline');
+      }
     }
 
     console.log(`Successfully generated ${scenes.length} scenes`);
