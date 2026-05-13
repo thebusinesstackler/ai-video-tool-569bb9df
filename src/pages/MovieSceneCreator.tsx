@@ -4884,7 +4884,9 @@ const MovieSceneCreator = () => {
                 {scenes.length > 0 && !isPreviewingBeforeVideo && !stitchedVideoUrl && !isGeneratingAll && (() => {
                   const hasAnyVideo = scenes.some(s => s.generatedVideo);
                   const allHaveStart = scenes.every(s => s.startFrame?.generatedImage || s.generatedImage);
+                  const missingStartFrames = scenes.filter(s => !(s.startFrame?.generatedImage || s.generatedImage));
                   const missingEndFrames = scenes.filter(s => !s.endFrame?.generatedImage && s.endFrame?.imagePrompt);
+                  const totalMissing = missingStartFrames.length + missingEndFrames.length;
                   return (
                     <Card className="border-primary/40 bg-gradient-to-r from-primary/10 to-primary/5">
                       <CardContent className="py-4 space-y-3">
@@ -4903,7 +4905,25 @@ const MovieSceneCreator = () => {
                           <li>Build the final movie</li>
                         </ol>
                         <div className="flex flex-wrap gap-2 pt-1">
-                          {missingEndFrames.length > 0 && (
+                          {totalMissing > 0 && (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={async () => {
+                                for (const s of missingStartFrames) {
+                                  await generateKeyframeImage(s.sceneNumber, 'start');
+                                }
+                                for (const s of missingEndFrames) {
+                                  await generateKeyframeImage(s.sceneNumber, 'end');
+                                }
+                              }}
+                              className="gap-1.5"
+                            >
+                              <Loader2 className="w-3.5 h-3.5" />
+                              Retry {totalMissing} missing frame{totalMissing === 1 ? '' : 's'}
+                            </Button>
+                          )}
+                          {missingEndFrames.length > 0 && missingStartFrames.length === 0 && (
                             <Button
                               size="sm"
                               variant="outline"
