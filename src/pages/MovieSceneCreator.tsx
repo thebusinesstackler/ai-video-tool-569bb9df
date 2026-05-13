@@ -4943,7 +4943,17 @@ const MovieSceneCreator = () => {
                     );
                   })}
                 </div>
+              </div>
+            )}
+          </div>
+        )}
 
+        {/* ===== STEP 1: Concept — Hero Input + Make My Movie (Advanced only) ===== */}
+        {isAdvanced && currentStep === 0 && (
+          <div className="space-y-6">
+            {/* Hero Card */}
+            <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+              <CardContent className="pt-8 pb-8 space-y-6">
                 <Textarea
                   placeholder="A sci-fi thriller about a detective who discovers she's living in a simulated reality..."
                   value={movieIdea}
