@@ -234,92 +234,121 @@ export const KeyframeSceneCard: React.FC<KeyframeSceneCardProps> = ({
           {/* Description — 2 lines */}
           <p className="text-sm text-muted-foreground line-clamp-2">{scene.description}</p>
 
-          {/* Main Content: Start Frame Image + Video + Generate Scene Button */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Main Content: Start Frame + End Frame side-by-side */}
+          <div className="grid grid-cols-2 gap-3">
             {/* Start Frame Preview */}
-            <div 
-              className={cn(
-                "aspect-video bg-muted rounded-lg overflow-hidden relative group",
-                hasStartFrame && "cursor-pointer"
-              )}
-              onClick={() => hasStartFrame && setViewingImage({ 
-                src: scene.startFrame.generatedImage!, 
-                title: `Scene ${scene.sceneNumber} - Start Frame` 
-              })}
-            >
-              {hasStartFrame ? (
-                <>
-                  <img src={scene.startFrame.generatedImage} alt="Start frame" className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                    <Expand className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="space-y-1">
+              <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Start Frame</div>
+              <div
+                className={cn(
+                  "aspect-video bg-muted rounded-lg overflow-hidden relative group",
+                  hasStartFrame && "cursor-pointer"
+                )}
+                onClick={() => hasStartFrame && setViewingImage({
+                  src: scene.startFrame.generatedImage!,
+                  title: `Scene ${scene.sceneNumber} - Start Frame`
+                })}
+              >
+                {hasStartFrame ? (
+                  <>
+                    <img src={scene.startFrame.generatedImage} alt="Start frame" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                      <Expand className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                  </>
+                ) : (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/50">
+                    <Image className="w-8 h-8 mb-1" />
+                    <span className="text-xs">No start frame</span>
                   </div>
-                </>
-              ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/50">
-                  <Image className="w-8 h-8 mb-1" />
-                  <span className="text-xs">No image yet</span>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
-            {/* Video Preview or Generate Button */}
-            <div 
-              className={cn(
-                "aspect-video bg-muted rounded-lg overflow-hidden relative",
-                hasVideo && "cursor-pointer group"
-              )}
-              onClick={() => hasVideo && setViewingVideo({ 
-                src: scene.generatedVideo!, 
-                title: `Scene ${scene.sceneNumber} - ${scene.title}` 
-              })}
-            >
-              {hasVideo ? (
-                <>
-                  <video 
-                    ref={inlineVideoRef}
-                    src={scene.generatedVideo} 
-                    className="w-full h-full object-cover" 
-                    controls 
-                    onClick={(e) => e.stopPropagation()} 
-                  />
-                  {audioDataUrl && <audio ref={inlineAudioRef} src={audioDataUrl} preload="auto" />}
-                  <div className="absolute top-2 right-2 bg-black/50 px-2 py-1 rounded text-xs text-white flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Expand className="w-3 h-3" />Fullscreen
-                  </div>
-                  {audioDataUrl && (
-                    <div className="absolute top-2 left-2 bg-black/50 px-2 py-1 rounded text-xs text-white flex items-center gap-1">
-                      <Volume2 className="w-3 h-3" />Audio synced
+            {/* End Frame Preview */}
+            <div className="space-y-1">
+              <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">End Frame</div>
+              <div
+                className={cn(
+                  "aspect-video bg-muted rounded-lg overflow-hidden relative group",
+                  hasEndFrame && "cursor-pointer"
+                )}
+                onClick={() => hasEndFrame && setViewingImage({
+                  src: scene.endFrame.generatedImage!,
+                  title: `Scene ${scene.sceneNumber} - End Frame`
+                })}
+              >
+                {hasEndFrame ? (
+                  <>
+                    <img src={scene.endFrame.generatedImage} alt="End frame" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                      <Expand className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
-                  )}
-                </>
-              ) : scene.videoTaskId && onCheckVideoStatus ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                  <Video className="w-6 h-6 text-muted-foreground/50" />
-                  <span className="text-xs text-muted-foreground">Video processing...</span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={(e) => { e.stopPropagation(); onCheckVideoStatus(scene.sceneNumber); }}
-                    disabled={isGeneratingVideo}
-                  >
-                    {isGeneratingVideo ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Play className="w-3 h-3 mr-1" />}
-                    Check Status
-                  </Button>
-                </div>
-              ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/50">
-                  <Video className="w-8 h-8 mb-1" />
-                  <span className="text-xs">No video yet</span>
-                </div>
-              )}
+                  </>
+                ) : (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/50">
+                    <Image className="w-8 h-8 mb-1" />
+                    <span className="text-xs">No end frame</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Primary Action: Generate Scene ✨ */}
-          {onDescribeAndGenerate && !hasStartFrame && (
+          {/* Video preview when available */}
+          {hasVideo && (
+            <div
+              className="aspect-video bg-muted rounded-lg overflow-hidden relative group cursor-pointer"
+              onClick={() => setViewingVideo({
+                src: scene.generatedVideo!,
+                title: `Scene ${scene.sceneNumber} - ${scene.title}`
+              })}
+            >
+              <video
+                ref={inlineVideoRef}
+                src={scene.generatedVideo}
+                className="w-full h-full object-cover"
+                controls
+                onClick={(e) => e.stopPropagation()}
+              />
+              {audioDataUrl && <audio ref={inlineAudioRef} src={audioDataUrl} preload="auto" />}
+              <div className="absolute top-2 right-2 bg-black/50 px-2 py-1 rounded text-xs text-white flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Expand className="w-3 h-3" />Fullscreen
+              </div>
+              {audioDataUrl && (
+                <div className="absolute top-2 left-2 bg-black/50 px-2 py-1 rounded text-xs text-white flex items-center gap-1">
+                  <Volume2 className="w-3 h-3" />Audio synced
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Pending video status */}
+          {!hasVideo && scene.videoTaskId && onCheckVideoStatus && (
+            <div className="rounded-lg border border-dashed border-border p-3 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Video className="w-4 h-4" /> Video processing…
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => onCheckVideoStatus(scene.sceneNumber)}
+                disabled={isGeneratingVideo}
+              >
+                {isGeneratingVideo ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Play className="w-3 h-3 mr-1" />}
+                Check Status
+              </Button>
+            </div>
+          )}
+
+          {/* Primary Action: Generate Scene ✨ — generates start + end frames */}
+          {onDescribeAndGenerate && (!hasStartFrame || !hasEndFrame) && (
             <Button
-              onClick={() => onDescribeAndGenerate(scene.sceneNumber, 'start')}
+              onClick={async () => {
+                if (!hasStartFrame) await onDescribeAndGenerate(scene.sceneNumber, 'start');
+                if (!hasEndFrame) await onDescribeAndGenerate(scene.sceneNumber, 'end');
+              }}
               disabled={isGeneratingImage || isDescribingScene}
               className="w-full"
               size="lg"
