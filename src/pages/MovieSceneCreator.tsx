@@ -348,6 +348,7 @@ const MovieSceneCreator = () => {
   const [galleryImages, setGalleryImages] = useState<{ id: string; image_url: string; prompt: string | null }[]>([]);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
   const [selectedTwins, setSelectedTwins] = useState<AITwin[]>([]); // Multi-twin selection
+  const [autoCreateCast, setAutoCreateCast] = useState(true); // Easy mode: auto-create AI Twins for cast
   const [selectedGalleryImage, setSelectedGalleryImage] = useState<{ id: string; image_url: string; prompt: string | null } | null>(null);
   const [characterSourceTab, setCharacterSourceTab] = useState<'twins' | 'characters' | 'gallery'>('twins');
   const [movieLength, setMovieLength] = useState<string>('quick-reel');
@@ -1787,25 +1788,84 @@ const MovieSceneCreator = () => {
 
       // Auto-assign voices from selected AI Twins
       let storyBibleWithVoices = storyBibleData.storyBible;
-      if (storyBibleWithVoices.characters) {
-        storyBibleWithVoices = {
-          ...storyBibleWithVoices,
-          characters: storyBibleWithVoices.characters.map((char: any) => {
-            const matchingTwin = selectedTwins.find(
-              twin => twin.name.toLowerCase() === char.name.toLowerCase()
-            );
+      const matchTwinsToBible = (bible: any, twinPool: AITwin[]) => {
+        if (!bible?.characters) return bible;
+        return {
+          ...bible,
+          characters: bible.characters.map((char: any) => {
+            const matchingTwin = twinPool.find(t => t.name.toLowerCase() === char.name?.toLowerCase());
             if (matchingTwin) {
               return {
                 ...char,
                 assignedTwinId: matchingTwin.id,
                 assignedTwinName: matchingTwin.name,
-                assignedVoiceCloningKey: matchingTwin.voice_cloning_key || undefined
+                assignedVoiceCloningKey: matchingTwin.voice_cloning_key || undefined,
               };
             }
             return char;
-          })
+          }),
         };
+      };
+      storyBibleWithVoices = matchTwinsToBible(storyBibleWithVoices, selectedTwins);
+
+      // ── AUTO-CAST: For any character without a twin, create a real AI Twin
+      // with multiple reference angles so identity stays locked across scenes.
+      if (autoCreateCast && storyBibleWithVoices?.characters?.length && userId) {
+        const unassigned = storyBibleWithVoices.characters.filter((c: any) => !c.assignedTwinId);
+        if (unassigned.length > 0) {
+          setGenerateAllStep(`Casting ${unassigned.length} character${unassigned.length > 1 ? 's' : ''} (generating reference angles)...`);
+          const newTwins: AITwin[] = [];
+          for (const char of unassigned) {
+            try {
+              const faceDesc = [char.appearance, char.wardrobe ? `wearing ${char.wardrobe}` : ''].filter(Boolean).join(', ') || char.name;
+              const gender = (char.gender || (char.role || '').toLowerCase().includes('woman') || (char.appearance || '').toLowerCase().includes('woman') ? 'female' : 'male');
+              const { data: inserted, error: insertErr } = await supabase
+                .from('ai_twins')
+                .insert({
+                  user_id: userId,
+                  name: char.name,
+                  description: char.personality || null,
+                  face_description: faceDesc,
+                  gender,
+                  reference_images: [],
+                })
+                .select('id, name, gender, face_description, description, voice_cloning_key, voice_engine, google_voice_id, reference_images')
+                .single();
+              if (insertErr || !inserted) { console.error('Auto-cast insert failed for', char.name, insertErr); continue; }
+
+              // Generate 4 camera-angle reference shots for this brand-new twin
+              const { data: anglesData, error: anglesErr } = await supabase.functions.invoke('generate-twin-angles', {
+                body: { twinId: inserted.id, faceDescription: faceDesc, gender, name: char.name },
+              });
+              const refs: string[] = anglesErr ? [] : (anglesData?.generatedUrls || []);
+
+              const fullTwin: AITwin = {
+                id: inserted.id,
+                name: inserted.name,
+                reference_images: refs.length > 0 ? refs : (inserted.reference_images || []),
+                voice_cloning_key: inserted.voice_cloning_key || null,
+                voice_sample_url: null,
+                face_description: inserted.face_description || faceDesc,
+                gender: inserted.gender || gender,
+                description: inserted.description || null,
+                voice_engine: (inserted.voice_engine as any) || 'speechify',
+                google_voice_id: inserted.google_voice_id || null,
+              } as AITwin;
+              newTwins.push(fullTwin);
+            } catch (castErr) {
+              console.error('Auto-cast failed for', char.name, castErr);
+            }
+          }
+          if (newTwins.length > 0) {
+            setAiTwins(prev => [...newTwins, ...prev]);
+            setSelectedTwins(prev => [...prev, ...newTwins]);
+            // Re-match story bible with the freshly created twins
+            storyBibleWithVoices = matchTwinsToBible(storyBibleWithVoices, [...selectedTwins, ...newTwins]);
+            toast({ title: '🎭 Cast assembled', description: `Created ${newTwins.length} character${newTwins.length > 1 ? 's' : ''} with reference angles.` });
+          }
+        }
       }
+
       setStoryBible(storyBibleWithVoices);
       setGenerateAllProgress(15);
 
@@ -4472,6 +4532,56 @@ const MovieSceneCreator = () => {
                 <div className="text-center space-y-2">
                   <h2 className="text-2xl font-bold text-foreground">What's your movie about?</h2>
                   <p className="text-muted-foreground">Describe your idea and we'll create the entire movie for you.</p>
+                </div>
+
+                {/* Cast picker — pick existing AI Twins or auto-create with reference angles */}
+                <div className="space-y-3 rounded-xl border border-border/60 bg-background/40 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground">Cast</p>
+                      <p className="text-xs text-muted-foreground">
+                        Pick AI Twins for character consistency, or let us auto-create them with reference angles.
+                      </p>
+                    </div>
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={autoCreateCast}
+                        onChange={(e) => setAutoCreateCast(e.target.checked)}
+                        className="accent-primary"
+                      />
+                      Auto-create cast
+                    </label>
+                  </div>
+                  {aiTwins.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {aiTwins.slice(0, 12).map(twin => {
+                        const selected = selectedTwins.some(t => t.id === twin.id);
+                        return (
+                          <button
+                            key={twin.id}
+                            type="button"
+                            onClick={() => toggleTwinSelection(twin)}
+                            className={`flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs transition-colors ${
+                              selected
+                                ? 'border-primary bg-primary/15 text-foreground'
+                                : 'border-border bg-background/60 text-muted-foreground hover:border-primary/50'
+                            }`}
+                          >
+                            {twin.reference_images?.[0] && (
+                              <img src={twin.reference_images[0]} alt="" className="w-5 h-5 rounded-full object-cover" />
+                            )}
+                            <span className="max-w-[120px] truncate">{twin.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {selectedTwins.length === 0 && !autoCreateCast && (
+                    <p className="text-xs text-amber-500">
+                      No twins selected and auto-create is off — characters will have no reference images.
+                    </p>
+                  )}
                 </div>
 
                 <Textarea
