@@ -366,6 +366,10 @@ const MovieSceneCreator = () => {
   const [pendingVideoGeneration, setPendingVideoGeneration] = useState<MovieScene[] | null>(null);
   const [showRecoveryBanner, setShowRecoveryBanner] = useState(false);
   const [recoveryProjectId, setRecoveryProjectId] = useState<string | null>(null);
+  const [expandedSceneCards, setExpandedSceneCards] = useState<Set<number>>(new Set());
+  const toggleSceneExpanded = (n: number) => setExpandedSceneCards(prev => {
+    const next = new Set(prev); next.has(n) ? next.delete(n) : next.add(n); return next;
+  });
 
   // AI Director Review (Claude as 39-yr veteran)
   const [directorReview, setDirectorReview] = useState<DirectorReview | null>(null);
@@ -4307,47 +4311,96 @@ const MovieSceneCreator = () => {
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {scenes.map((scene) => (
-                    <Card key={scene.sceneNumber} className="overflow-hidden">
-                      <div className="flex gap-3 p-3">
-                        {(scene.startFrame?.generatedImage || scene.generatedImage) && (
-                          <img 
-                            src={scene.startFrame?.generatedImage || scene.generatedImage} 
-                            alt={`Scene ${scene.sceneNumber}`} 
-                            className="w-20 h-20 rounded-lg object-cover flex-shrink-0" 
-                          />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Badge variant="outline" className="text-[10px]">Scene {scene.sceneNumber}</Badge>
-                            {scene.generatedVideo && <Badge className="text-[10px] bg-primary text-primary-foreground">✓ Video</Badge>}
-                          </div>
-                          <h4 className="text-sm font-medium truncate">{scene.title}</h4>
-                          <p className="text-xs text-muted-foreground line-clamp-2">{scene.description}</p>
-                          {scene.dialogue && (
-                            <div className="mt-1.5 space-y-0.5">
-                              {(Array.isArray(scene.dialogue) 
-                                ? scene.dialogue.slice(0, 2).map((d: any, i: number) => (
-                                    <p key={i} className="text-[11px] text-foreground/70 truncate">
-                                      <span className="font-semibold">{d.character}:</span> "{d.line}"
-                                    </p>
-                                  ))
-                                : typeof scene.dialogue === 'string'
-                                  ? scene.dialogue.split('\n').slice(0, 2).map((line, i) => (
-                                      <p key={i} className="text-[11px] text-foreground/70 italic truncate">"{line}"</p>
-                                    ))
-                                  : null
-                              )}
-                              {((Array.isArray(scene.dialogue) && scene.dialogue.length > 2) || 
-                                (typeof scene.dialogue === 'string' && scene.dialogue.split('\n').length > 2)) && (
-                                <p className="text-[10px] text-muted-foreground">+ more lines...</p>
-                              )}
-                            </div>
+                  {scenes.map((scene) => {
+                    const isExpanded = expandedSceneCards.has(scene.sceneNumber);
+                    const startImg = scene.startFrame?.generatedImage || scene.generatedImage;
+                    const endImg = scene.endFrame?.generatedImage;
+                    const dialogueArr: any[] = Array.isArray(scene.dialogue)
+                      ? scene.dialogue
+                      : typeof scene.dialogue === 'string'
+                        ? (scene.dialogue as string).split('\n').filter(Boolean).map((line: string) => ({ character: '', line }))
+                        : [];
+                    const hasMore = dialogueArr.length > 2;
+                    return (
+                      <Card key={scene.sceneNumber} className="overflow-hidden">
+                        <div className="flex gap-3 p-3">
+                          {startImg && (
+                            <img src={startImg} alt={`Scene ${scene.sceneNumber}`} className="w-20 h-20 rounded-lg object-cover flex-shrink-0" />
                           )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <Badge variant="outline" className="text-[10px]">Scene {scene.sceneNumber}</Badge>
+                              {scene.generatedVideo && <Badge className="text-[10px] bg-primary text-primary-foreground">✓ Video</Badge>}
+                              {endImg && <Badge variant="outline" className="text-[10px]">End ✓</Badge>}
+                            </div>
+                            <h4 className="text-sm font-medium truncate">{scene.title}</h4>
+                            <p className={`text-xs text-muted-foreground ${isExpanded ? '' : 'line-clamp-2'}`}>{scene.description}</p>
+                            {dialogueArr.length > 0 && (
+                              <div className="mt-1.5 space-y-0.5">
+                                {(isExpanded ? dialogueArr : dialogueArr.slice(0, 2)).map((d: any, i: number) => (
+                                  <p key={i} className={`text-[11px] text-foreground/70 ${isExpanded ? '' : 'truncate'}`}>
+                                    {d.character && <span className="font-semibold">{d.character}: </span>}"{d.line}"
+                                  </p>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </Card>
-                  ))}
+
+                        {isExpanded && (
+                          <div className="px-3 pb-3 space-y-3 border-t border-border/40 pt-3">
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="space-y-1">
+                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Start frame</p>
+                                {startImg ? (
+                                  <img src={startImg} alt="Start" className="w-full aspect-video object-cover rounded-md border border-border" />
+                                ) : (
+                                  <div className="w-full aspect-video rounded-md border border-dashed border-border flex items-center justify-center text-[10px] text-muted-foreground">none</div>
+                                )}
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">End frame (transitions to)</p>
+                                {endImg ? (
+                                  <img src={endImg} alt="End" className="w-full aspect-video object-cover rounded-md border border-border" />
+                                ) : (
+                                  <div className="w-full aspect-video rounded-md border border-dashed border-border flex items-center justify-center text-[10px] text-muted-foreground px-2 text-center">
+                                    {scene.endFrame?.imagePrompt ? 'Not generated yet' : 'No end frame'}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            {scene.endFrame?.imagePrompt && (
+                              <div className="text-[11px] text-muted-foreground">
+                                <span className="font-semibold text-foreground/80">End-frame prompt:</span> {scene.endFrame.imagePrompt}
+                              </div>
+                            )}
+                            {scene.transitionAction && (
+                              <div className="text-[11px] text-muted-foreground">
+                                <span className="font-semibold text-foreground/80">Transition:</span> {scene.transitionAction}
+                              </div>
+                            )}
+                            {scene.generatedVideo && (
+                              <div className="space-y-1">
+                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Finished video</p>
+                                <video src={scene.generatedVideo} controls className="w-full rounded-md border border-border bg-black" />
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="px-3 pb-3">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full h-7 text-[11px] text-muted-foreground hover:text-foreground"
+                            onClick={() => toggleSceneExpanded(scene.sceneNumber)}
+                          >
+                            {isExpanded ? 'Show less' : (hasMore || endImg || scene.generatedVideo ? 'Show full script, end frame & video' : 'Show details')}
+                          </Button>
+                        </div>
+                      </Card>
+                    );
+                  })}
                 </div>
               </div>
             )}
