@@ -360,6 +360,7 @@ const MovieSceneCreator = () => {
   
   // One-click generation state
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
+  const [isGeneratingAllVideos, setIsGeneratingAllVideos] = useState(false);
   const [generateAllStep, setGenerateAllStep] = useState('');
   const [generateAllProgress, setGenerateAllProgress] = useState(0);
   const [isPreviewingBeforeVideo, setIsPreviewingBeforeVideo] = useState(false);
