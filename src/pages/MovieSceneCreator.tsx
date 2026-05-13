@@ -1592,32 +1592,74 @@ const MovieSceneCreator = () => {
       estimatedDuration = Math.max(5, Math.min(30, Math.ceil(wordCount / 2.5)));
     }
 
-    // Build rich cinematic prompt from scene data
+    // Build rich cinematic prompt from scene data — full story context + multi-shot direction
     const buildBatchPrompt = () => {
       const parts: string[] = [];
+
+      // ===== FULL STORY CONTEXT so the model understands its place in the film =====
+      if (movieIdea) parts.push(`FILM CONTEXT: ${movieIdea.slice(0, 400)}`);
+      const sceneIdx = scenesSnapshot.findIndex((x: any) => x.sceneNumber === scene.sceneNumber);
+      const prevScene = sceneIdx > 0 ? scenesSnapshot[sceneIdx - 1] : null;
+      const nextScene = sceneIdx >= 0 && sceneIdx < scenesSnapshot.length - 1 ? scenesSnapshot[sceneIdx + 1] : null;
+      parts.push(`THIS IS SCENE ${scene.sceneNumber} of ${scenesSnapshot.length}${scene.title ? ` — "${scene.title}"` : ''}`);
+      if (prevScene?.title) parts.push(`PREVIOUS SCENE: ${prevScene.title} — ${prevScene.description || ''}`.slice(0, 250));
+      if (nextScene?.title) parts.push(`NEXT SCENE: ${nextScene.title} — must transition cleanly into it`.slice(0, 250));
+
+      // ===== CHARACTER IDENTITY LOCK from story bible =====
+      const sceneCharNames: string[] = scene.charactersInScene || [];
+      if (storyBible?.characters && sceneCharNames.length > 0) {
+        const locks = storyBible.characters
+          .filter((c: any) => sceneCharNames.some(n => n.toLowerCase() === c.name?.toLowerCase()))
+          .map((c: any) => {
+            const lock = [c.name, c.appearance, c.wardrobe].filter(Boolean).join(' — ');
+            return lock;
+          })
+          .filter(Boolean);
+        if (locks.length) parts.push(`CHARACTER LOCK (must match exactly across every shot): ${locks.join(' | ')}`);
+      }
+
       const sceneDesc = scene.description || scene.title || '';
-      if (sceneDesc) parts.push(sceneDesc);
+      if (sceneDesc) parts.push(`ACTION: ${sceneDesc}`);
+
+      // ===== KEYFRAME HANDOFF (start → end frame) =====
       if (scene.startFrame?.imagePrompt && scene.endFrame?.imagePrompt) {
-        parts.push(`Transitions from: ${scene.startFrame.imagePrompt} to: ${scene.endFrame.imagePrompt}`);
+        parts.push(`Open on this frame, transition naturally to: ${scene.endFrame.imagePrompt}`);
       }
       const startPos = scene.startFrame?.position || '';
       const endPos = scene.endFrame?.position || '';
       if (startPos && endPos && startPos !== endPos) parts.push(`Characters move from ${startPos} to ${endPos}`);
-      if (scene.transitionAction) parts.push(scene.transitionAction);
-      if (scene.transitionCameraMovement && scene.transitionCameraMovement !== 'static') parts.push(`Camera: ${scene.transitionCameraMovement}`);
+      if (scene.transitionAction) parts.push(`Ends on: ${scene.transitionAction}`);
+      if (scene.transitionCameraMovement && scene.transitionCameraMovement !== 'static') parts.push(`Camera move: ${scene.transitionCameraMovement}`);
       if (scene.mood) parts.push(`Mood: ${scene.mood}`);
+
+      // ===== MULTI-SHOT CINEMATIC COVERAGE (up to 4 cut-scenes) =====
       if (isConversation) {
-        parts.push('Characters actively gesturing, leaning in, shifting weight, turning heads, using hand gestures, natural body sway and micro-expressions');
+        const speakers = Array.from(new Set((scene.dialogue || []).map((d: any) => d.character).filter(Boolean)));
+        const speakerA = speakers[0] || 'Character A';
+        const speakerB = speakers[1] || 'Character B';
+        parts.push(
+          `SHOT COVERAGE — break this scene into up to 4 cut shots with seamless match-cuts between them, matching the dialogue beats:`,
+          `Shot 1 — ESTABLISHING / MEDIUM TWO-SHOT framing both ${speakerA} and ${speakerB} so the audience reads the geography of the scene.`,
+          `Shot 2 — OVER-THE-SHOULDER on ${speakerA}, looking past their shoulder to ${speakerB} as ${speakerB} reacts.`,
+          `Shot 3 — REVERSE OVER-THE-SHOULDER on ${speakerB}, looking past their shoulder to ${speakerA} as ${speakerA} delivers their key line.`,
+          `Shot 4 — TIGHT CLOSE-UP on whichever character lands the emotional beat (eyes, micro-expression), then a slow push-in or rack focus that sets up the transition into the next scene.`,
+          `Cut on dialogue beats — never cut mid-syllable. Each cut should feel motivated by who is speaking or reacting.`,
+          `Maintain 180° rule — keep characters on the same side of frame across the OTS reverse.`,
+          `Lighting, wardrobe, hair, location, time-of-day, and props MUST be perfectly consistent across all shots — same coverage, different angles only.`
+        );
+        parts.push('Characters actively gesturing, leaning in, shifting weight, turning heads, hand gestures, natural body sway, micro-expressions and breathing — alive performances.');
+        parts.push('Lip-sync MUST be perfectly accurate to the dialogue audio for whichever character is speaking in each shot.');
       } else {
-        parts.push('Character with natural head movement, subtle gestures, expressive face, slight body sway');
+        parts.push('Single subject — natural head movement, subtle gestures, expressive face, slight body sway, blink, micro-breathing. Camera holds steady with a gentle organic drift. Perfect lip-sync to the audio.');
       }
-      parts.push('Cinematic film quality, smooth natural motion, professional cinematography, dynamic alive scene');
-      return parts.join('. ') + '.';
+
+      parts.push('Cinematic film quality, 35mm, shallow depth of field, smooth natural motion, professional cinematography, dynamic alive scene, identity-locked characters across every cut.');
+      return parts.join('\n');
     };
 
     let videoBody: any;
     if (isConversation) {
-      // Non-dialogue/multi-character scenes: use Sora-2 for cinematic quality
+      // Multi-character dialogue: use Sora-2 for cinematic multi-shot quality
       const soraDuration = [4, 8, 12, 16, 20].reduce((prev, curr) =>
         Math.abs(curr - estimatedDuration) < Math.abs(prev - estimatedDuration) ? curr : prev
       );
@@ -1630,7 +1672,7 @@ const MovieSceneCreator = () => {
         aspectRatio: '16:9'
       };
     } else {
-      // Single character speaking: use InfiniteTalk HD (720p) for movie quality
+      // Single character speaking: use InfiniteTalk HD (720p) for movie-quality lipsync
       videoBody = {
         action: 'create',
         model: 'infinitetalk-hd',
