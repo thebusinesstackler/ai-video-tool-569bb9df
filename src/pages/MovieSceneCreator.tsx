@@ -4534,6 +4534,56 @@ const MovieSceneCreator = () => {
                   <p className="text-muted-foreground">Describe your idea and we'll create the entire movie for you.</p>
                 </div>
 
+                {/* Cast picker — pick existing AI Twins or auto-create with reference angles */}
+                <div className="space-y-3 rounded-xl border border-border/60 bg-background/40 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground">Cast</p>
+                      <p className="text-xs text-muted-foreground">
+                        Pick AI Twins for character consistency, or let us auto-create them with reference angles.
+                      </p>
+                    </div>
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={autoCreateCast}
+                        onChange={(e) => setAutoCreateCast(e.target.checked)}
+                        className="accent-primary"
+                      />
+                      Auto-create cast
+                    </label>
+                  </div>
+                  {aiTwins.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {aiTwins.slice(0, 12).map(twin => {
+                        const selected = selectedTwins.some(t => t.id === twin.id);
+                        return (
+                          <button
+                            key={twin.id}
+                            type="button"
+                            onClick={() => toggleTwinSelection(twin)}
+                            className={`flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs transition-colors ${
+                              selected
+                                ? 'border-primary bg-primary/15 text-foreground'
+                                : 'border-border bg-background/60 text-muted-foreground hover:border-primary/50'
+                            }`}
+                          >
+                            {twin.reference_images?.[0] && (
+                              <img src={twin.reference_images[0]} alt="" className="w-5 h-5 rounded-full object-cover" />
+                            )}
+                            <span className="max-w-[120px] truncate">{twin.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {selectedTwins.length === 0 && !autoCreateCast && (
+                    <p className="text-xs text-amber-500">
+                      No twins selected and auto-create is off — characters will have no reference images.
+                    </p>
+                  )}
+                </div>
+
                 <Textarea
                   placeholder="A sci-fi thriller about a detective who discovers she's living in a simulated reality..."
                   value={movieIdea}
