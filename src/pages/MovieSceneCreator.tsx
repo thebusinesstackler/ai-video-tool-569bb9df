@@ -4591,7 +4591,7 @@ const MovieSceneCreator = () => {
                     characters={(() => {
                       const sb = (storyBible as any);
                       const sbChars: any[] = sb?.characters || [];
-                      const merged = sbChars.map((c: any) => {
+                      const merged: any[] = sbChars.map((c: any) => {
                         const twin = selectedTwins.find(t => t.name.toLowerCase() === c.name.toLowerCase());
                         return {
                           name: c.name,
