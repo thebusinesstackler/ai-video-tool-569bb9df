@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Sparkles, Film, ChevronRight, ChevronLeft, ChevronDown, Save, FolderOpen, Trash2, Video, Copy, Star, Wand2, ArrowRight, Camera, Lightbulb, Image, Play, User, Volume2, ImageIcon, X, Music, Link, FileImage, Loader2, MapPin, Check, BookOpen, FileText, Clapperboard, Download, MoreVertical, Pencil, Settings2, Eye } from 'lucide-react';
+import { Sparkles, Film, ChevronRight, ChevronLeft, ChevronDown, Save, FolderOpen, Trash2, Video, Copy, Star, Wand2, ArrowRight, Camera, Lightbulb, Image, Play, User, Volume2, ImageIcon, X, Music, FileImage, Loader2, MapPin, Check, BookOpen, FileText, Clapperboard, Download, MoreVertical, Pencil, Settings2, Eye } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { convertBase64ToStorageUrl } from '@/lib/imageUtils';
@@ -277,6 +277,54 @@ const LIGHTING_STYLES = [
   { id: 'harsh', name: 'Harsh Light', description: 'Strong direct lighting, sharp shadows' },
 ];
 
+const normalizeMovieScenes = (rawScenes: MovieScene[] = []): MovieScene[] => {
+  const validCameraAngles = new Set(CAMERA_ANGLES.map(angle => angle.id));
+  const validMovements = new Set(CAMERA_MOVEMENTS.map(movement => movement.id));
+
+  return rawScenes.map((scene, index, allScenes) => {
+    const sceneNumber = Number(scene.sceneNumber) || index + 1;
+    const selectedCameraAngle = validCameraAngles.has(scene.selectedCameraAngle || '')
+      ? scene.selectedCameraAngle
+      : scene.startFrame?.cameraAngle && validCameraAngles.has(scene.startFrame.cameraAngle)
+        ? scene.startFrame.cameraAngle
+        : 'eye-level';
+    const selectedLighting = scene.selectedLighting || 'natural';
+    const nextScene = allScenes[index + 1];
+    const startPrompt = scene.startFrame?.imagePrompt || scene.imagePrompt || scene.description || `Scene ${sceneNumber} opening frame`;
+    const endPrompt = scene.endFrame?.imagePrompt
+      || scene.transitionAction
+      || (nextScene ? `Ending frame that visually motivates the transition into Scene ${sceneNumber + 1}: ${nextScene.title}. ${nextScene.description}` : scene.imagePrompt || scene.description || `Scene ${sceneNumber} closing frame`);
+    const transitionAction = scene.transitionAction
+      || (nextScene ? `Move cinematically from ${scene.title} into ${nextScene.title}, carrying the emotional action forward like a continuous film.` : 'Hold on the final cinematic frame, then fade out.');
+    const transitionCameraMovement = validMovements.has(scene.transitionCameraMovement || '')
+      ? scene.transitionCameraMovement
+      : 'push-in';
+
+    return {
+      ...scene,
+      sceneNumber,
+      selectedCameraAngle,
+      selectedLighting,
+      connectsTo: scene.connectsTo ?? (nextScene ? sceneNumber + 1 : undefined),
+      imagePrompt: scene.imagePrompt || startPrompt,
+      startFrame: {
+        imagePrompt: startPrompt,
+        cameraAngle: validCameraAngles.has(scene.startFrame?.cameraAngle || '') ? scene.startFrame!.cameraAngle : selectedCameraAngle || 'eye-level',
+        position: scene.startFrame?.position || 'center frame',
+        generatedImage: scene.startFrame?.generatedImage,
+      },
+      endFrame: {
+        imagePrompt: endPrompt,
+        cameraAngle: validCameraAngles.has(scene.endFrame?.cameraAngle || '') ? scene.endFrame!.cameraAngle : selectedCameraAngle || 'eye-level',
+        position: scene.endFrame?.position || 'final beat of the scene',
+        generatedImage: scene.endFrame?.generatedImage,
+      },
+      transitionAction,
+      transitionCameraMovement,
+    };
+  });
+};
+
 const MovieSceneCreator = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -342,7 +390,6 @@ const MovieSceneCreator = () => {
     }
   };
   // Keyframe system state
-  const [autoLinkScenes, setAutoLinkScenes] = useState(true);
   const [activeSceneIndex, setActiveSceneIndex] = useState(0);
   const [generatingFrameFor, setGeneratingFrameFor] = useState<{ sceneNumber: number; frame: 'start' | 'end' } | null>(null);
   const [galleryImages, setGalleryImages] = useState<{ id: string; image_url: string; prompt: string | null }[]>([]);
@@ -1356,12 +1403,7 @@ const MovieSceneCreator = () => {
 
       if (error) throw error;
 
-      // Ensure all scenes have camera angle and lighting set (with fallbacks)
-      const generatedScenes = (data.scenes as MovieScene[]).map(scene => ({
-        ...scene,
-        selectedCameraAngle: scene.selectedCameraAngle || 'eye-level',
-        selectedLighting: scene.selectedLighting || 'natural',
-      }));
+      const generatedScenes = normalizeMovieScenes(data.scenes as MovieScene[]);
       setScenes(generatedScenes);
       
       toast({
@@ -1920,11 +1962,7 @@ const MovieSceneCreator = () => {
 
       if (scenesError) throw scenesError;
 
-      const generatedScenes = (scenesData.scenes as MovieScene[]).map(scene => ({
-        ...scene,
-        selectedCameraAngle: scene.selectedCameraAngle || 'eye-level',
-        selectedLighting: scene.selectedLighting || 'natural',
-      }));
+      const generatedScenes = normalizeMovieScenes(scenesData.scenes as MovieScene[]);
       setGenerateAllProgress(55);
 
       // Step 5: Generate Conversation Dialogue for each scene (75%)
@@ -2799,17 +2837,6 @@ const MovieSceneCreator = () => {
 
       updateKeyframe(sceneNumber, frame, { generatedImage: imageUrl });
       
-      // Auto-link: if end frame generated and auto-link is on, copy to next scene's start
-      if (frame === 'end' && autoLinkScenes) {
-        const nextScene = scenes.find(s => s.sceneNumber === sceneNumber + 1);
-        if (nextScene) {
-          updateKeyframe(sceneNumber + 1, 'start', { 
-            generatedImage: imageUrl,
-            imagePrompt: frameData.imagePrompt 
-          });
-        }
-      }
-
       // Auto-save after generating frame image
       setTimeout(() => autoSaveProject(), 500);
 
@@ -2941,17 +2968,6 @@ const MovieSceneCreator = () => {
       }
 
       updateKeyframe(sceneNumber, frame, { generatedImage: imageUrl });
-
-      // Auto-link to next scene if applicable
-      if (frame === 'end' && autoLinkScenes) {
-        const nextScene = scenes.find(s => s.sceneNumber === sceneNumber + 1);
-        if (nextScene) {
-          updateKeyframe(sceneNumber + 1, 'start', { 
-            generatedImage: imageUrl,
-            imagePrompt: describeData.imagePrompt 
-          });
-        }
-      }
 
       // Auto-save after generating frame image
       setTimeout(() => autoSaveProject(), 500);
@@ -5418,8 +5434,6 @@ const MovieSceneCreator = () => {
                   scenes={scenes as MovieSceneWithKeyframes[]}
                   activeSceneIndex={activeSceneIndex}
                   onSelectScene={setActiveSceneIndex}
-                  autoLinkEnabled={autoLinkScenes}
-                  onToggleAutoLink={() => setAutoLinkScenes(!autoLinkScenes)}
                   onBuildMovie={stitchAllVideos}
                   isBuildingMovie={isStitching}
                   buildProgress={stitchProgress}
