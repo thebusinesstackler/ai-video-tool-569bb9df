@@ -1,15 +1,15 @@
-// Movie Director Review — Claude Sonnet 4.5 acting as a 39-year veteran film director.
-// Audits the full storyboard (Story Bible + every scene's start/end frames + dialogue) BEFORE video render,
-// returning structured notes the UI can apply with one click.
+// Movie Director Review — 39-year veteran film director persona.
+// Routes through Lovable AI Gateway (Gemini 2.5 Pro for vision + reasoning).
+// Audits the full storyboard (Story Bible + every scene's start/end frames + dialogue) BEFORE video render.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const ANTHROPIC_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-const PRIMARY_MODEL = "claude-sonnet-4-5-20250929";
-const FALLBACK_MODEL = "claude-3-5-sonnet-20241022";
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+const PRIMARY_MODEL = "google/gemini-2.5-pro";
+const FALLBACK_MODEL = "google/gemini-2.5-flash";
 
 interface SceneInput {
   sceneNumber: number;
@@ -33,11 +33,11 @@ interface ReviewBody {
   movieLength?: string;
 }
 
-const SYSTEM_PROMPT = `You are a 39-year veteran film director — Spielberg / Villeneuve / Fincher pedigree. 
-You are auditing this AI-generated storyboard BEFORE the studio commits money to video generation. 
-Your job: make this feel like a real film, not AI slop. 
-Be ruthless about continuity (wardrobe, props, time-of-day, location), character casting consistency across frames, 
-emotional arc, pacing, and whether each frame earns its place. 
+const SYSTEM_PROMPT = `You are a 39-year veteran film director — Spielberg / Villeneuve / Fincher pedigree.
+You are auditing this AI-generated storyboard BEFORE the studio commits money to video generation.
+Your job: make this feel like a real film, not AI slop.
+Be ruthless about continuity (wardrobe, props, time-of-day, location), character casting consistency across frames,
+emotional arc, pacing, and whether each frame earns its place.
 Suggest concrete fixes the team can apply in one click — never vague notes.
 
 Return ONLY a single valid JSON object matching this exact shape (no markdown, no preamble):
@@ -63,6 +63,7 @@ Return ONLY a single valid JSON object matching this exact shape (no markdown, n
 }`;
 
 function buildUserContent(body: ReviewBody): any[] {
+  // OpenAI-compatible multimodal: array of { type: "text" | "image_url" } parts
   const content: any[] = [];
 
   const header = [
@@ -97,11 +98,11 @@ Return the JSON now.`,
     content.push({ type: "text", text: sceneText });
 
     if (s.startFrameUrl) {
-      content.push({ type: "image", source: { type: "url", url: s.startFrameUrl }, });
+      content.push({ type: "image_url", image_url: { url: s.startFrameUrl } });
       content.push({ type: "text", text: `↑ Scene ${s.sceneNumber} START frame` });
     }
     if (s.endFrameUrl) {
-      content.push({ type: "image", source: { type: "url", url: s.endFrameUrl } });
+      content.push({ type: "image_url", image_url: { url: s.endFrameUrl } });
       content.push({ type: "text", text: `↑ Scene ${s.sceneNumber} END frame` });
     }
   }
@@ -109,30 +110,30 @@ Return the JSON now.`,
   return content;
 }
 
-async function callClaude(model: string, body: ReviewBody) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+async function callGateway(model: string, body: ReviewBody) {
+  return await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
-      "x-api-key": ANTHROPIC_KEY!,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
+      "Authorization": `Bearer ${LOVABLE_API_KEY!}`,
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       model,
-      max_tokens: 8000,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: buildUserContent(body) }],
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: buildUserContent(body) },
+      ],
+      response_format: { type: "json_object" },
     }),
   });
-  return res;
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    if (!ANTHROPIC_KEY) {
-      return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY not configured" }), {
+    if (!LOVABLE_API_KEY) {
+      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -144,28 +145,30 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Cap at 30 scenes worth of images to keep tokens reasonable
-    const trimmed: ReviewBody = {
-      ...body,
-      scenes: body.scenes.slice(0, 30),
-    };
+    // Cap at 30 scenes to keep tokens reasonable
+    const trimmed: ReviewBody = { ...body, scenes: body.scenes.slice(0, 30) };
 
-    let res = await callClaude(PRIMARY_MODEL, trimmed);
-    if (!res.ok && [402, 403, 404, 429].includes(res.status)) {
-      console.warn(`[director-review] ${PRIMARY_MODEL} returned ${res.status}, falling back`);
-      res = await callClaude(FALLBACK_MODEL, trimmed);
+    let res = await callGateway(PRIMARY_MODEL, trimmed);
+    if (!res.ok && [402, 403, 404, 429, 500, 502, 503].includes(res.status)) {
+      console.warn(`[director-review] ${PRIMARY_MODEL} returned ${res.status}, falling back to ${FALLBACK_MODEL}`);
+      res = await callGateway(FALLBACK_MODEL, trimmed);
     }
 
     if (!res.ok) {
       const errText = await res.text();
-      console.error("[director-review] Anthropic error", res.status, errText);
-      return new Response(JSON.stringify({ error: "Director review failed", detail: errText }), {
+      console.error("[director-review] Gateway error", res.status, errText);
+      const userMsg = res.status === 402
+        ? "AI credits exhausted. Add funds in Settings → Workspace → Usage."
+        : res.status === 429
+          ? "Rate limit reached. Try again in a moment."
+          : "Director review failed";
+      return new Response(JSON.stringify({ error: userMsg, detail: errText }), {
         status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const data = await res.json();
-    const raw = data?.content?.[0]?.text || "";
+    const raw = data?.choices?.[0]?.message?.content || "";
     let review: any = null;
     try {
       review = JSON.parse(raw);
