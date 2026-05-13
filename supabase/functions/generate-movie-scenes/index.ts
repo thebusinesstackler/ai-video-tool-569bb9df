@@ -294,81 +294,30 @@ CRITICAL JSON SAFETY RULES:
 
       console.log('Raw AI response length:', generatedContent.length);
 
-    // Extract JSON from markdown code blocks if present
-    const jsonMatch = generatedContent.match(/```(?:json)?\s*(\[[\s\S]*\])\s*```/);
-    if (jsonMatch) {
-      generatedContent = jsonMatch[1];
-      console.log('Extracted JSON from code block');
-    }
+    // Strip optional code fences if model added them
+    const fenceMatch = generatedContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (fenceMatch) generatedContent = fenceMatch[1];
+    generatedContent = generatedContent.trim();
 
-    // Try to find JSON array in the response
-    const arrayMatch = generatedContent.match(/\[[\s\S]*\]/);
-    if (arrayMatch) {
-      generatedContent = arrayMatch[0];
-    }
-
-    console.log('Content to parse (first 500 chars):', generatedContent.substring(0, 500));
-
-    // Parse the scenes with multiple fallback strategies
-    let scenes;
-    let lastError;
-    
-    // Try 1: Direct parse (content is already valid JSON)
+    let parsed: any;
     try {
-      scenes = JSON.parse(generatedContent);
-      console.log('Parsed directly');
-    } catch (e1) {
-      lastError = e1;
-      console.log('Direct parse failed, trying cleanup...');
-      
-      // Try 2: Clean up common issues
+      parsed = JSON.parse(generatedContent);
+    } catch (e) {
+      // Last-resort cleanup: strip control chars + trailing commas
+      const cleaned = generatedContent
+        .replace(/^\uFEFF/, '')
+        .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, '')
+        .replace(/,\s*([\]}])/g, '$1');
       try {
-        let cleaned = generatedContent
-          // Remove any BOM or invisible characters at start
-          .replace(/^\uFEFF/, '')
-          // Fix unescaped newlines inside strings (replace actual newlines with spaces in string values)
-          .trim();
-        
-        scenes = JSON.parse(cleaned);
-        console.log('Parsed after basic cleanup');
+        parsed = JSON.parse(cleaned);
       } catch (e2) {
-        lastError = e2;
-        console.log('Basic cleanup failed, trying aggressive cleanup...');
-        
-        // Try 3: More aggressive cleanup
-        try {
-          // Remove control characters except those that are valid in JSON strings
-          let aggressive = generatedContent
-            .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, '')
-            .trim();
-          
-          scenes = JSON.parse(aggressive);
-          console.log('Parsed after aggressive cleanup');
-        } catch (e3) {
-          lastError = e3;
-          console.log('Aggressive cleanup failed, trying line-by-line fix...');
-          
-          // Try 4: Fix common JSON issues
-          try {
-            let fixed = generatedContent
-              // Remove trailing commas before ] or }
-              .replace(/,\s*([\]}])/g, '$1')
-              // Fix single quotes to double quotes (careful with apostrophes)
-              .replace(/(?<![a-zA-Z])'([^']*)'(?![a-zA-Z])/g, '"$1"')
-              .trim();
-            
-            scenes = JSON.parse(fixed);
-            console.log('Parsed after fixing common JSON issues');
-          } catch (e4) {
-            console.error('All parse attempts failed');
-            console.error('Last error:', e4);
-            console.error('Content preview:', generatedContent.substring(0, 500));
-            throw new Error(`Failed to parse AI response: ${e4 instanceof Error ? e4.message : 'Unknown error'}`);
-          }
-        }
+        console.error('JSON parse failed. Preview:', generatedContent.substring(0, 800));
+        throw new Error(`Failed to parse AI response: ${e2 instanceof Error ? e2.message : 'Unknown error'}`);
       }
     }
 
+    // Accept either {scenes:[...]} (json_object mode) or a bare array
+    const scenes = Array.isArray(parsed) ? parsed : parsed?.scenes;
     if (!Array.isArray(scenes) || scenes.length === 0) {
       throw new Error('Invalid scenes format - expected non-empty array');
     }
