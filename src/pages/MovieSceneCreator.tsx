@@ -2729,7 +2729,7 @@ const MovieSceneCreator = () => {
       const enhancedPrompt = `${describeData.imagePrompt}. Camera: ${frameData?.cameraAngle || 'eye-level'}. Position: ${frameData?.position || ''}`;
 
       const { data: imageData, error: imageError } = await supabase.functions.invoke('generate-scene-image', {
-        body: { prompt: enhancedPrompt, referenceImages, characterDescription }
+        body: { prompt: enhancedPrompt, referenceImages, characterDescription: finalCharacterDescription }
       });
 
       if (imageError) throw imageError;
