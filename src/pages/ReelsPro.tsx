@@ -83,7 +83,7 @@ export default function ReelsPro() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ messages: apiMessages }),
+        body: JSON.stringify({ messages: apiMessages, quality }),
       });
       if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
 
