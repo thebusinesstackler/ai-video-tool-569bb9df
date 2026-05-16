@@ -174,6 +174,29 @@ async function uploadTTSAudio(
   return urlData.publicUrl;
 }
 
+async function tryCreateTTSUrl(
+  supabase: any,
+  text: string,
+  sceneNumber: number,
+  openAiKey: string,
+  gender: string
+): Promise<string | null> {
+  try {
+    const ttsBytes = await generateOpenAITTS(
+      text,
+      openAiKey,
+      gender,
+      'Speak with confident energy, like a professional YouTube creator. Natural pace, engaging delivery.'
+    );
+    const ttsUrl = await uploadTTSAudio(supabase, ttsBytes, sceneNumber);
+    console.log(`Scene ${sceneNumber}: TTS audio uploaded: ${ttsUrl}`);
+    return ttsUrl;
+  } catch (error) {
+    console.warn(`Scene ${sceneNumber}: TTS unavailable, continuing with silent video fallback`, error);
+    return null;
+  }
+}
+
 // Detect gender from character description
 function detectGender(desc?: string): string {
   if (!desc) return 'male';
@@ -638,22 +661,31 @@ Absolutely no text, no captions, no subtitles, no watermarks.`;
           if (!supabase) throw new Error('Supabase client required for TTS upload');
           
           const gender = detectGender(characterDescription);
-          const ttsBytes = await generateOpenAITTS(
-            scene.narration,
-            OPENAI_API_KEY!,
-            gender,
-            'Speak with confident energy, like a professional YouTube creator. Natural pace, engaging delivery.'
-          );
-          const ttsUrl = await uploadTTSAudio(supabase, ttsBytes, scene.sceneNumber);
-          console.log(`Scene ${scene.sceneNumber}: TTS audio uploaded: ${ttsUrl}`);
-          
-          apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';
-          requestBody = {
-            image: imageUrl,
-            audio: ttsUrl,
-            resolution: '720p'
-          };
-          sceneHasEmbeddedAudio = true;
+          const ttsUrl = await tryCreateTTSUrl(supabase, scene.narration, scene.sceneNumber, OPENAI_API_KEY!, gender);
+
+          if (ttsUrl) {
+            apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';
+            requestBody = {
+              image: imageUrl,
+              audio: ttsUrl,
+              resolution: '720p'
+            };
+            sceneHasEmbeddedAudio = true;
+          } else {
+            const sora2Durations = [4, 8, 12, 16, 20];
+            const sora2Duration = sora2Durations.reduce((best, d) => Math.abs(d - clipDuration) < Math.abs(best - clipDuration) ? d : best, 8);
+            apiEndpoint = 'https://api.wavespeed.ai/api/v3/openai/sora-2/image-to-video';
+            requestBody = {
+              image: imageUrl,
+              prompt: `${scene.visualDescription}. ${charContext} ${topicContext}
+Context: This scene represents the caption/narration: "${scene.narration}"
+Cinematic motion, natural confident expression, direct-to-camera energy, professional color grading.
+Atmospheric ambient audio only. No speech. No text, no captions, no subtitles, no watermarks.`,
+              duration: sora2Duration,
+              aspect_ratio: '9:16'
+            };
+            sceneHasEmbeddedAudio = false;
+          }
           
         } else if (videoModel === 'sora-2') {
           // ====== SORA-2: Intro/Outro/B-roll scenes (non-narrator) ======
