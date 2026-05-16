@@ -355,7 +355,7 @@ serve(async (req) => {
 
     // Priority 3: WaveSpeed Gemini 2.5 Pro TTS — same provider as Movie Scene Creator
     if (wavespeedApiKey) {
-      const result = await generateWavespeedGeminiTTS(text, wavespeedApiKey, gender);
+      const result = await generateWavespeedGeminiTTS(text, wavespeedApiKey, gender, voiceSeed);
       if (result) {
         return new Response(JSON.stringify({ ...result, isClonedVoice: false, provider: 'wavespeed-gemini' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
