@@ -802,7 +802,7 @@ Absolutely no text, no captions, no subtitles, no watermarks.`;
           
           if (!supabase) throw new Error('Supabase client required for TTS upload');
           
-          const gender = detectGender(characterDescription);
+          const gender = detectGender(characterDescription, aiTwin);
           const ttsUrl = await tryCreateTTSUrl(supabase, scene.narration, scene.sceneNumber, OPENAI_API_KEY!, gender, aiTwin, authHeader);
 
           if (ttsUrl) {
@@ -879,7 +879,7 @@ Atmospheric ambient audio. No speech. No text, no captions, no subtitles, no wat
           
           if (!supabase) throw new Error('Supabase client required for TTS upload');
           
-          const gender = detectGender(characterDescription);
+          const gender = detectGender(characterDescription, aiTwin);
           const ttsUrl = await tryCreateTTSUrl(supabase, scene.narration, scene.sceneNumber, OPENAI_API_KEY!, gender, aiTwin, authHeader);
 
           if (ttsUrl) {
