@@ -301,13 +301,14 @@ serve(async (req) => {
     const body = await req.json();
     const userMessages: any[] = body.messages || [];
     const model: string = body.model || 'google/gemini-3-flash-preview';
+    const quality: string = body.quality === '720p' ? '720p' : '480p';
 
     const messages: any[] = [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: SYSTEM_PROMPT + `\n\nVideo quality for this session: ${quality} (${quality === '480p' ? 'standard/cheaper' : 'HD'}).` },
       ...userMessages,
     ];
 
-    const ctx = { authHeader, userId, userClient };
+    const ctx = { authHeader, userId, userClient, quality };
 
     const stream = new ReadableStream({
       async start(controller) {
