@@ -6820,27 +6820,34 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                     restorePreviewScenes(updatedScenes, updatedVoiceovers);
                   }}
                   onApplyVoiceToAll={(voiceId) => {
-                    // When user likes a voice, set it as the selected voice for all future generations
+                    // User picked a Wavespeed voice in the preview — apply that exact voice to every scene.
+                    // Important: clear any twin voice-cloning key, otherwise TTS will keep using the clone and ignore voiceId.
                     setSelectedVoice(voiceId);
-                    // Regenerate voice for all scenes with this voice
-                    const voiceConfig = { voice: voiceId, voiceEngine: 'wavespeed' as const };
-                    previewScenes.forEach(async (scene) => {
-                      if (scene.narration?.trim()) {
-                        const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
-                        regenerateSceneVoice(
-                          scene.sceneNumber,
-                          scene.narration,
-                          voiceConfig.voice,
-                          selectedTwin?.voice_cloning_key || undefined,
-                          voiceConfig.voiceEngine,
-                          undefined,
-                          user?.id,
-                          selectedTwin?.gender || undefined,
-                          selectedTwin?.id || `${selectedTwin?.gender || 'narrator'}-${selectedTwin?.name || 'default'}`
-                        );
-                      }
+                    const seed = `wavespeed-${voiceId}`;
+                    let count = 0;
+                    previewScenes.forEach((scene) => {
+                      if (!scene.narration?.trim()) return;
+                      sceneVoiceMetaRef.current.set(scene.sceneNumber, {
+                        seed,
+                        gender: undefined,
+                        voiceCloningKey: undefined,
+                        voiceEngine: 'wavespeed',
+                        voice: voiceId,
+                      });
+                      regenerateSceneVoice(
+                        scene.sceneNumber,
+                        scene.narration,
+                        voiceId,
+                        undefined, // no cloning key — use the picked voice
+                        'wavespeed',
+                        undefined,
+                        user?.id,
+                        undefined,
+                        seed
+                      );
+                      count++;
                     });
-                    toast({ title: "Voice Applied to All Scenes", description: `${voiceId.replace(/_/g, ' ')} will be used for all scenes.` });
+                    toast({ title: 'Voice applied to all scenes', description: `Regenerating ${count} scene${count === 1 ? '' : 's'} with ${voiceId.replace(/_/g, ' ')}.` });
                   }}
                   availableVoices={[
                     { id: 'English_radiant_girl', label: 'Radiant Girl', gender: 'Female' },
