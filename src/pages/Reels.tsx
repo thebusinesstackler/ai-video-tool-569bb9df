@@ -2408,50 +2408,44 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
         setProgressStatus(`Generating ${videoTasks.length} video clips with WaveSpeed...`);
 
         const completedVideos: { sceneNumber: number; videoUrl: string }[] = [];
-        const maxPollingTime = 300000;
+        // InfiniteTalk HD and other long-form models can take 10-15+ min per clip.
+        // Use a generous 20 min foreground budget; anything beyond that hands the
+        // ENTIRE job (not just pending) to the background system so the user still
+        // gets a complete, properly-stitched video including every paid-for clip.
+        const maxPollingTime = 1200000; // 20 minutes
         const pollInterval = 5000;
         const startTime = Date.now();
 
         while (completedVideos.length < videoTasks.length) {
           if (Date.now() - startTime > maxPollingTime) {
-            console.warn(`Video polling timed out after ${maxPollingTime / 1000}s. ${completedVideos.length}/${videoTasks.length} completed.`);
-            
-            // Hand off incomplete tasks to background job system
-            const pendingTasks = videoTasks.filter((t: any) => !completedVideos.find(v => v.sceneNumber === t.sceneNumber));
-            if (pendingTasks.length > 0 && user) {
+            console.warn(`Video polling timed out after ${maxPollingTime / 1000}s. ${completedVideos.length}/${videoTasks.length} completed — handing full job to background.`);
+
+            // Hand off ALL tasks (completed + pending) so background re-polls and
+            // stitches the complete set. Avoids partial-stitch loss.
+            if (user) {
               try {
                 registerJob({
                   topic: project.topic || topic || 'Untitled Reel',
                   userId: user.id,
-                  videoTasks: pendingTasks.map((t: any) => ({ taskId: t.taskId, sceneNumber: t.sceneNumber, hasEmbeddedAudio: t.hasEmbeddedAudio })),
+                  videoTasks: videoTasks.map((t: any) => ({ taskId: t.taskId, sceneNumber: t.sceneNumber, hasEmbeddedAudio: t.hasEmbeddedAudio })),
                   generatedScenes,
                   voiceovers,
                   hasEmbeddedAudio,
                 });
                 toast({
-                  title: "⏳ Video moved to background",
-                  description: "Your video is still generating. You'll be notified when it's ready — check the indicator in the top bar.",
+                  title: "⏳ Moved to background",
+                  description: "Your video is taking longer than expected. We'll finish rendering and stitching in the background — you'll be notified when it's ready.",
                 });
               } catch (bgErr) {
                 console.warn('Failed to register background job:', bgErr);
               }
             }
-            
-            // If some completed, continue with those; otherwise exit early
-            if (completedVideos.length === 0) {
-              setProject(prev => ({ ...prev, status: 'idle' }));
-              setProgress(0);
-              setProgressStatus('');
-              activeGenerationRef.current = null;
-              return;
-            }
-            
-            for (const task of videoTasks) {
-              if (!completedVideos.find(v => v.sceneNumber === task.sceneNumber)) {
-                completedVideos.push({ sceneNumber: task.sceneNumber, videoUrl: '' });
-              }
-            }
-            break;
+
+            setProject(prev => ({ ...prev, status: 'idle' }));
+            setProgress(0);
+            setProgressStatus('');
+            activeGenerationRef.current = null;
+            return;
           }
 
           for (const task of videoTasks) {
