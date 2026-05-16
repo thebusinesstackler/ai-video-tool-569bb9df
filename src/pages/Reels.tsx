@@ -342,7 +342,7 @@ const Reels = () => {
         const scene = project.generatedScenes.find(s => s.sceneNumber === v.sceneNumber);
         return {
           url: v.videoUrl,
-          name: scene?.narration?.slice(0, 60) || `Scene ${v.sceneNumber}`,
+          name: scene?.text?.slice(0, 60) || `Scene ${v.sceneNumber}`,
           thumbnail: scene?.imageUrl || undefined,
         };
       });
@@ -356,7 +356,7 @@ const Reels = () => {
       .filter(s => s.videoUrl)
       .map((s, idx) => ({
         url: s.videoUrl!,
-        name: s.narration?.slice(0, 60) || `Scene ${idx + 1}`,
+        name: s.text?.slice(0, 60) || `Scene ${idx + 1}`,
         thumbnail: s.imageUrl || undefined,
       }));
     if (clips.length === 0 && reel.video_url) {
