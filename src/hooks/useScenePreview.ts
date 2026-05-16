@@ -124,6 +124,8 @@ interface UseScenePreviewResult {
   clearReference: () => void;
   resetPreview: () => void;
   restorePreviewScenes: (scenes: PreviewScene[], vos: { sceneNumber: number; audioUrl: string; storageUrl?: string; duration: number }[]) => void;
+  setSceneVoiceMeta: (sceneNumber: number, voiceMeta: SceneVoiceMeta | undefined) => void;
+  setAllScenesVoiceMeta: (voiceMeta: SceneVoiceMeta | undefined) => void;
   insertScene: (insertIndex: number, type: 'broll' | 'intro' | 'outro', prompt: string) => Promise<void>;
   deleteScene: (sceneNumber: number) => void;
 }
