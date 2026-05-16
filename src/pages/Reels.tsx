@@ -331,6 +331,9 @@ const Reels = () => {
   const [isManualStitching, setIsManualStitching] = useState(false);
   const [editingSceneNumber, setEditingSceneNumber] = useState<number | null>(null);
   const [editSceneText, setEditSceneText] = useState('');
+
+  // Per-scene voice metadata so users can copy a voice from one scene to another
+  const sceneVoiceMetaRef = useRef<Map<number, { seed: string; gender?: string; voiceCloningKey?: string; voiceEngine?: string; voice?: string }>>(new Map());
   
   // Scene preview hook
   const { 
