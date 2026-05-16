@@ -232,8 +232,9 @@ async function runTool(
         durationSec: args.durationSec,
         aspectRatio: '9:16',
         source: 'reels-pro',
+        quality: ctx.quality,
       }, ctx.authHeader);
-      return { taskId: data.taskId, model: data.model };
+      return { taskId: data.taskId, model: data.model, quality: ctx.quality };
     }
 
     case 'poll_video_task': {
