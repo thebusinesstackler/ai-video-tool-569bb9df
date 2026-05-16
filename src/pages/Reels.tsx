@@ -2891,7 +2891,39 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     return { voice: 'ai-auto', voiceEngine: 'sora-2' };
   };
 
-  const getResolvedVoiceLabel = () => resolveVoiceForGeneration().voice.replace(/_/g, ' ');
+  // SINGLE SOURCE OF TRUTH for the voice of a given scene.
+  // Order of precedence:
+  //   1. Scene's own voiceMeta (set by Copy/Paste/Apply-to-All/regenerate with override)
+  //   2. The legacy in-memory map (kept for back-compat during this render)
+  //   3. The global twin/selected-voice configuration
+  const resolveSceneVoice = (sceneNumber: number) => {
+    const scene = previewScenes.find(s => s.sceneNumber === sceneNumber);
+    if (scene?.voiceMeta) return { ...scene.voiceMeta };
+
+    const legacy = sceneVoiceMetaRef.current.get(sceneNumber);
+    if (legacy) return { ...legacy };
+
+    const cfg = resolveVoiceForGeneration();
+    const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
+    return {
+      seed: selectedTwin?.id || `${selectedTwin?.gender || 'narrator'}-${selectedTwin?.name || 'default'}`,
+      gender: selectedTwin?.gender || undefined,
+      voiceCloningKey: selectedTwin?.voice_cloning_key || undefined,
+      voiceEngine: cfg.voiceEngine,
+      voice: cfg.voice,
+      label: selectedTwin ? `AI Twin – ${selectedTwin.name}` : cfg.voice.replace(/_/g, ' '),
+    };
+  };
+
+  // Atomic write: persist on the scene AND update the legacy map so any in-flight code paths still see it.
+  const applySceneVoiceMeta = (sceneNumber: number, meta: ReturnType<typeof resolveSceneVoice>) => {
+    sceneVoiceMetaRef.current.set(sceneNumber, meta);
+    setSceneVoiceMeta(sceneNumber, meta);
+  };
+  const applyVoiceMetaToAllScenes = (meta: ReturnType<typeof resolveSceneVoice>) => {
+    previewScenes.forEach(s => sceneVoiceMetaRef.current.set(s.sceneNumber, meta));
+    setAllScenesVoiceMeta(meta);
+  };
 
   const getResolvedVoiceDescription = () => {
     const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
