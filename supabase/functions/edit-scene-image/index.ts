@@ -234,7 +234,20 @@ serve(async (req) => {
     const generateWithLovableAI = async (): Promise<string | null> => {
       if (!LOVABLE_API_KEY) return null;
       try {
-        console.log('Generating image via Lovable AI Gateway (Gemini)');
+        console.log(`Generating image via Lovable AI Gateway (Gemini) with ${allReferenceImages.length} ref image(s)`);
+
+        // Build multimodal user content: reference images first, then the text prompt
+        const userContent: any[] = [];
+        for (const refUrl of allReferenceImages.slice(0, 4)) {
+          userContent.push({ type: 'image_url', image_url: { url: refUrl } });
+        }
+        userContent.push({
+          type: 'text',
+          text: allReferenceImages.length > 0
+            ? `Use the person in the reference image(s) as the EXACT character for this scene — preserve their face, gender, ethnicity, hair, age, and identity precisely. Then generate this scene:\n\n${enhancedPrompt}`
+            : enhancedPrompt,
+        });
+
         const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -243,7 +256,7 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             model: 'google/gemini-3.1-flash-image-preview',
-            messages: [{ role: 'user', content: enhancedPrompt }],
+            messages: [{ role: 'user', content: userContent }],
             modalities: ['image', 'text'],
           }),
         });
