@@ -188,9 +188,18 @@ async function generateOpenAITTS(
 
   if (!resp.ok) {
     const errText = await resp.text();
-    // Fallback to Chirp3 on any OpenAI failure (quota, billing, etc.)
+    // Try Google TTS via API key first (uses billing-enabled project)
+    if (Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY')) {
+      try {
+        console.warn(`OpenAI TTS failed (${resp.status}), trying Google TTS (api-key)`);
+        return await generateGoogleTTSWithApiKey(text, gender);
+      } catch (gErr) {
+        console.warn('Google TTS api-key fallback failed:', gErr);
+      }
+    }
+    // Then OAuth Chirp3 (requires service-account project to have billing)
     if (Deno.env.get('GOOGLE_CLOUD_SERVICE_ACCOUNT')) {
-      console.warn(`OpenAI TTS failed (${resp.status}), falling back to Chirp3-HD`);
+      console.warn(`OpenAI TTS failed (${resp.status}), falling back to Chirp3-HD (oauth)`);
       return await generateChirp3TTS(text, gender);
     }
     throw new Error(`OpenAI TTS failed (${resp.status}): ${errText}`);
