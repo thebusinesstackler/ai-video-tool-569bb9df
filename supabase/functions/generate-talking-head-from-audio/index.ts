@@ -41,6 +41,7 @@ serve(async (req) => {
     const aspectRatio: string = body.aspectRatio || '9:16';
     const source: string = body.source || 'podcast';
     const sourceId: string | null = body.sourceId || null;
+    const quality: string = (body.quality === '720p' || body.quality === 'hd') ? '720p' : (body.quality === '480p' ? '480p' : 'auto');
 
     if (!audioUrl || typeof audioUrl !== 'string') {
       return new Response(JSON.stringify({ error: 'audioUrl required' }), {
