@@ -361,7 +361,8 @@ serve(async (req) => {
       videoModel = 'wan-2.1-i2v-480p',
       sceneDuration = undefined,
       productImageUrl = null,
-      productName = null
+      productName = null,
+      aiTwin = null
     } = await req.json();
 
     if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
