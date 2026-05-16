@@ -799,6 +799,8 @@ export function useScenePreview(): UseScenePreviewResult {
     clearReference,
     resetPreview,
     restorePreviewScenes,
+    setSceneVoiceMeta,
+    setAllScenesVoiceMeta,
     regenerateSceneVoice,
     insertScene,
     deleteScene,
