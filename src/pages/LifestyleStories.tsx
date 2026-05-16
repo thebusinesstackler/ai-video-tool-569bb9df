@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { getFriendlyError } from '@/lib/errorClassifier';
 import { createWaveSpeedVideo, getWaveSpeedVideoJob } from '@/lib/wavespeed';
 import { ConversationBuilder } from '@/components/ConversationBuilder';
+import { RegenerateVideoDialog } from '@/components/RegenerateVideoDialog';
 import {
   Globe, Sparkles, Play, Clock, Film, Music, Mic, Loader2, CheckCircle2,
   ArrowRight, RefreshCw, ChevronRight, Wand2, AlertCircle, Video, FileText, Trash2
@@ -1159,7 +1160,23 @@ const LifestyleStories = () => {
               {/* Final video player */}
               {completedVideoUrl && (
                 <div className="space-y-2">
-                  <p className="text-sm font-medium">Final Video</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium">Final Video</p>
+                    <RegenerateVideoDialog
+                      videoUrl={completedVideoUrl}
+                      defaultScript={
+                        selectedConcept !== null
+                          ? (concepts[selectedConcept]?.voiceover_script
+                              || concepts[selectedConcept]?.scenes?.map(s => s.narration).filter(Boolean).join(' ')
+                              || '')
+                          : ''
+                      }
+                      aspectRatio="9:16"
+                      defaultTwinId={selectedTwinId}
+                      source="lifestyle-stories"
+                      onComplete={(newUrl) => setCompletedVideoUrl(newUrl)}
+                    />
+                  </div>
                   <video src={completedVideoUrl} controls className="w-full rounded-lg" />
                 </div>
               )}
