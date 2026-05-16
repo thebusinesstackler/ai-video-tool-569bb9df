@@ -48,10 +48,38 @@ export const useBackgroundVideo = () => {
   return ctx;
 };
 
+const STORAGE_KEY = 'background-video-jobs';
+const MAX_JOB_AGE_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+function loadPersistedJobs(): BackgroundJob[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as BackgroundJob[];
+    return parsed.filter(j => Date.now() - j.createdAt < MAX_JOB_AGE_MS);
+  } catch {
+    return [];
+  }
+}
+
+function persistJobs(jobs: BackgroundJob[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(jobs));
+  } catch (e) {
+    console.warn('[BackgroundJob] Failed to persist jobs:', e);
+  }
+}
+
 export const BackgroundVideoProvider = ({ children }: { children: React.ReactNode }) => {
   const { toast } = useToast();
-  const [jobs, setJobs] = useState<BackgroundJob[]>([]);
+  const [jobs, setJobs] = useState<BackgroundJob[]>(() => loadPersistedJobs());
   const pollingRef = useRef<Map<string, boolean>>(new Map());
+  const pollJobRef = useRef<((job: BackgroundJob) => void) | null>(null);
+
+  // Persist jobs to localStorage whenever they change
+  useEffect(() => {
+    persistJobs(jobs);
+  }, [jobs]);
 
   const registerJob = useCallback((jobData: Omit<BackgroundJob, 'id' | 'completedVideos' | 'status' | 'progress' | 'createdAt'>): string => {
     const id = crypto.randomUUID();
@@ -65,7 +93,7 @@ export const BackgroundVideoProvider = ({ children }: { children: React.ReactNod
     };
     setJobs(prev => [...prev, job]);
     // Start polling immediately
-    pollJob(job);
+    pollJobRef.current?.(job);
     return id;
   }, []);
 
@@ -255,6 +283,22 @@ export const BackgroundVideoProvider = ({ children }: { children: React.ReactNod
       pollingRef.current.delete(job.id);
     }
   }, [toast, updateJob]);
+
+  // Keep latest pollJob in ref so registerJob/resume effects can call it
+  useEffect(() => {
+    pollJobRef.current = pollJob;
+  }, [pollJob]);
+
+  // Resume polling for any persisted in-progress jobs on mount
+  useEffect(() => {
+    const resumable = jobs.filter(
+      j => (j.status === 'polling' || j.status === 'stitching' || j.status === 'saving')
+        && !pollingRef.current.get(j.id)
+    );
+    resumable.forEach(j => pollJobRef.current?.(j));
+    // Only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Clean up completed/failed jobs older than 10 minutes
   useEffect(() => {
