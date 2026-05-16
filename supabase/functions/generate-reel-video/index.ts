@@ -46,30 +46,33 @@ function base64ToUint8Array(base64: string): Uint8Array {
   return bytes;
 }
 
-// ── Speechify TTS fallback (shared voices) ─────────────────────────────────
-async function generateSpeechifyTTS(
+// ── Google Chirp3-HD TTS fallback ──────────────────────────────────────────
+async function generateChirp3TTS(
   text: string,
   apiKey: string,
   gender?: string,
 ): Promise<Uint8Array> {
   const isFemale = gender?.toLowerCase() === 'female' || gender?.toLowerCase() === 'woman';
-  const voiceId = isFemale ? 'evelyn' : 'henry';
-  const resp = await fetch('https://api.sws.speechify.com/v1/audio/speech', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ input: text.length > 5000 ? text.substring(0, 5000) : text, voice_id: voiceId, audio_format: 'mp3' }),
-  });
-  if (!resp.ok) throw new Error(`Speechify TTS failed (${resp.status}): ${await resp.text()}`);
-  const contentType = resp.headers.get('content-type') || '';
-  if (contentType.includes('application/json')) {
-    const j = await resp.json();
-    if (!j.audio_data) throw new Error('Speechify returned no audio_data');
-    const bin = atob(j.audio_data);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    return bytes;
-  }
-  return new Uint8Array(await resp.arrayBuffer());
+  const voiceName = isFemale ? 'en-US-Chirp3-HD-Aoede' : 'en-US-Chirp3-HD-Charon';
+  const resp = await fetch(
+    `https://texttospeech.googleapis.com/v1beta1/text:synthesize?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        input: { text: text.length > 5000 ? text.substring(0, 5000) : text },
+        voice: { languageCode: 'en-US', name: voiceName },
+        audioConfig: { audioEncoding: 'MP3' },
+      }),
+    }
+  );
+  if (!resp.ok) throw new Error(`Chirp3 TTS failed (${resp.status}): ${await resp.text()}`);
+  const data = await resp.json();
+  if (!data.audioContent) throw new Error('Chirp3 returned no audioContent');
+  const bin = atob(data.audioContent);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
 }
 
 // ── OpenAI TTS for clear narrator speech ──────────────────────────────────
@@ -105,11 +108,11 @@ async function generateOpenAITTS(
 
   if (!resp.ok) {
     const errText = await resp.text();
-    // Fallback to Speechify on any OpenAI failure (quota, billing, etc.)
-    const speechifyKey = Deno.env.get('SPEECHIFY_API_KEY');
-    if (speechifyKey) {
-      console.warn(`OpenAI TTS failed (${resp.status}), falling back to Speechify`);
-      return await generateSpeechifyTTS(text, speechifyKey, gender);
+    // Fallback to Chirp3 on any OpenAI failure (quota, billing, etc.)
+    const chirp3Key = Deno.env.get('CHIRP3_API_KEY');
+    if (chirp3Key) {
+      console.warn(`OpenAI TTS failed (${resp.status}), falling back to Chirp3-HD`);
+      return await generateChirp3TTS(text, chirp3Key, gender);
     }
     throw new Error(`OpenAI TTS failed (${resp.status}): ${errText}`);
   }
