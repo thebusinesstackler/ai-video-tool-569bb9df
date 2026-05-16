@@ -216,14 +216,37 @@ serve(async (req) => {
       }
     }
     
-    // Priority 3: Speechify shared voices (default fallback when OpenAI quota fails)
-    const trySpeechifyShared = async () => {
-      if (!speechifyApiKey) return null;
+    // Priority 3: Google Chirp3-HD fallback (covers OpenAI quota errors)
+    const chirp3Key = Deno.env.get('CHIRP3_API_KEY');
+    const tryChirp3 = async () => {
+      if (!chirp3Key) return null;
       const genderLower = (gender || '').toLowerCase();
       const isFemale = genderLower === 'female' || genderLower === 'woman';
-      const defaultVoice = isFemale ? 'evelyn' : 'henry';
-      console.log(`Using Speechify shared voice: ${defaultVoice}`);
-      return await generateSpeechifyTTS(text, speechifyApiKey, defaultVoice, validatedSpeed);
+      const voiceName = isFemale ? 'en-US-Chirp3-HD-Aoede' : 'en-US-Chirp3-HD-Charon';
+      try {
+        const resp = await fetch(
+          `https://texttospeech.googleapis.com/v1beta1/text:synthesize?key=${chirp3Key}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              input: { text: text.length > 5000 ? text.substring(0, 5000) : text },
+              voice: { languageCode: 'en-US', name: voiceName },
+              audioConfig: { audioEncoding: 'MP3', speakingRate: validatedSpeed },
+            }),
+          }
+        );
+        if (!resp.ok) {
+          console.error('Chirp3 error:', resp.status, await resp.text());
+          return null;
+        }
+        const data = await resp.json();
+        if (!data.audioContent) return null;
+        return { audioContent: data.audioContent, audioUrl: `data:audio/mp3;base64,${data.audioContent}` };
+      } catch (e) {
+        console.error('Chirp3 exception:', e);
+        return null;
+      }
     };
 
     // Priority 4: OpenAI TTS for non-cloned voices (clear, natural speech)
@@ -269,17 +292,16 @@ serve(async (req) => {
         return new Response(JSON.stringify({ ...result, isClonedVoice: false, provider: 'openai' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
-      console.log('OpenAI TTS failed, trying Speechify shared voice fallback');
+      console.log('OpenAI TTS failed, trying Chirp3-HD fallback');
     }
 
-    // Speechify shared-voice fallback (covers OpenAI quota errors + Google billing-disabled)
-    const speechifyResult = await trySpeechifyShared();
-    if (speechifyResult) {
-      return new Response(JSON.stringify({ ...speechifyResult, isClonedVoice: false, provider: 'speechify-shared' }),
+    // Chirp3-HD fallback (covers OpenAI quota errors)
+    const chirp3Result = await tryChirp3();
+    if (chirp3Result) {
+      return new Response(JSON.stringify({ ...chirp3Result, isClonedVoice: false, provider: 'chirp3' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-    console.log('Speechify fallback failed, trying Google Cloud TTS fallback');
-    }
+    console.log('Chirp3 fallback failed, trying Google Cloud TTS fallback');
 
     // Priority 4: Google Cloud standard TTS fallback
     const googleFallbackKey = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
