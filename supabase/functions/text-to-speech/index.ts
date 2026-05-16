@@ -322,6 +322,7 @@ serve(async (req) => {
     console.log(`TTS request - Voice: ${voice}, Pitch: ${validatedPitch}, Text length: ${text.length}`);
 
     const speechifyApiKey = Deno.env.get('SPEECHIFY_API_KEY');
+    const wavespeedApiKey = Deno.env.get('WAVESPEED_API_KEY');
 
     // Priority 1: Speechify cloned voice
     if (speechifyVoiceId && speechifyApiKey) {
@@ -331,8 +332,8 @@ serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
     }
-    
-    // Priority 2: Google Cloud cloned voice (cloning only, not standard voices)
+
+    // Priority 2: Google Cloud cloned voice
     if (voiceCloningKey) {
       const googleApiKey = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
       if (googleApiKey) {
@@ -343,7 +344,17 @@ serve(async (req) => {
         }
       }
     }
-    
+
+    // Priority 3: WaveSpeed Gemini 2.5 Pro TTS — same provider as Movie Scene Creator
+    if (wavespeedApiKey) {
+      const result = await generateWavespeedGeminiTTS(text, wavespeedApiKey, gender);
+      if (result) {
+        return new Response(JSON.stringify({ ...result, isClonedVoice: false, provider: 'wavespeed-gemini' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      console.log('WaveSpeed Gemini TTS failed, falling through to other providers');
+    }
+
     // Priority 3: Google Chirp3-HD fallback via OAuth service account
     const tryChirp3 = async () => {
       const accessToken = await getGoogleAccessToken();
