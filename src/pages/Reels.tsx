@@ -2310,9 +2310,12 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
 
       const scenesWithAudioDurations = activeScenes.map(scene => {
         const voiceover = voiceovers.find(v => v.sceneNumber === scene.sceneNumber);
+        const previewScene = previewScenes.find(ps => ps.sceneNumber === scene.sceneNumber);
+        const voiceMeta = previewScene?.voiceMeta || sceneVoiceMetaRef.current.get(scene.sceneNumber);
         return {
           ...scene,
-          audioDuration: voiceover?.duration
+          audioDuration: voiceover?.duration,
+          voiceMeta,
         };
       });
 
