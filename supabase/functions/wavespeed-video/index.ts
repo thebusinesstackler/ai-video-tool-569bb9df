@@ -570,6 +570,12 @@ serve(async (req) => {
         }
       }
 
+      // Attach WaveSpeed webhook so completed videos auto-land in Reels + ChatCut
+      try {
+        const webhookEndpoint = `${supabaseUrl}/functions/v1/wavespeed-webhook`;
+        requestBody.webhook = { endpoint: webhookEndpoint };
+      } catch (_) { /* non-fatal */ }
+
       console.log('Sending request to WaveSpeed API:', apiEndpoint);
       console.log('Request body:', requestBody);
 
