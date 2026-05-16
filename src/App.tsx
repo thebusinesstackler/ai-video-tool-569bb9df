@@ -13,6 +13,7 @@ import Movies from "./pages/Movies";
 import Characters from "./pages/Characters";
 import Settings from "./pages/Settings";
 import Reels from "./pages/Reels";
+import ReelsPro from "./pages/ReelsPro";
 import Gallery from "./pages/Gallery";
 import AITwin from "./pages/AITwin";
 import TestimonialCommercial from "./pages/TestimonialCommercial";
@@ -72,6 +73,7 @@ const App = () => (
               <Route path="/projects" element={<Navigate to="/reels" replace />} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
               <Route path="/reels" element={<ProtectedRoute><Reels /></ProtectedRoute>} />
+              <Route path="/reels-pro" element={<ProtectedRoute><ReelsPro /></ProtectedRoute>} />
               <Route path="/gallery" element={<ProtectedRoute><Gallery /></ProtectedRoute>} />
               <Route path="/ai-twin" element={<ProtectedRoute><AITwin /></ProtectedRoute>} />
               <Route path="/testimonial-commercial" element={<ProtectedRoute><TestimonialCommercial /></ProtectedRoute>} />
