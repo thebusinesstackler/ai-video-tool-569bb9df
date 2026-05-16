@@ -8026,6 +8026,17 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                               Download
                             </Button>
                           )}
+                          {(reel.scenes?.some(s => s.videoUrl) || reel.video_url) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openChatcutForReel(reel)}
+                              title="Send clips to ChatCut AI"
+                            >
+                              <Scissors className="w-4 h-4 mr-2" />
+                              ChatCut
+                            </Button>
+                          )}
                           {reel.video_url && (
                             <Button
                               variant="outline"
