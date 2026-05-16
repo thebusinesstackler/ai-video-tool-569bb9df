@@ -59,8 +59,13 @@ serve(async (req) => {
       });
     }
 
-    const model = durationSec <= HD_MAX_SECONDS ? 'infinitetalk-hd' : 'infinitetalk';
-    console.log(`[talking-head-from-audio] user=${userId} duration=${durationSec}s model=${model} aspect=${aspectRatio}`);
+    // Quality override: explicit 480p forces standard (cheaper); 720p forces HD; auto routes by duration
+    const model = quality === '480p'
+      ? 'infinitetalk'
+      : quality === '720p'
+        ? 'infinitetalk-hd'
+        : (durationSec <= HD_MAX_SECONDS ? 'infinitetalk-hd' : 'infinitetalk');
+    console.log(`[talking-head-from-audio] user=${userId} duration=${durationSec}s quality=${quality} model=${model} aspect=${aspectRatio}`);
 
     const prompt = `Natural, expressive talking-head video. Precise lip-sync to the provided audio. Warm direct eye contact, subtle natural micro head movement, soft expressive eyebrows, gentle breathing. Daylight, unretouched authentic look. No on-screen text.`;
 
