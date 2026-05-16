@@ -83,6 +83,8 @@ export interface PreviewScene {
   audioUrl: string | null;
   audioDuration: number;
   isGenerating: boolean;
+  isGeneratingImage?: boolean;
+  isGeneratingVoice?: boolean;
   isRegenerating?: boolean;
   isReference?: boolean;
 }
@@ -152,7 +154,7 @@ export function useScenePreview(): UseScenePreviewResult {
     setProgress(5);
     setProgressStatus('Initializing preview...');
 
-    // Initialize preview scenes
+    // Initialize preview scenes — both image and voice start as "generating"
     const initialScenes: PreviewScene[] = scenes.map(scene => ({
       sceneNumber: scene.sceneNumber,
       narration: scene.narration,
@@ -160,7 +162,9 @@ export function useScenePreview(): UseScenePreviewResult {
       imageUrl: null,
       audioUrl: null,
       audioDuration: scene.duration,
-      isGenerating: true
+      isGenerating: true,
+      isGeneratingImage: true,
+      isGeneratingVoice: videoModel !== 'veo3' && !customAudioUrl && !!scene.narration?.trim(),
     }));
     setPreviewScenes(initialScenes);
 
