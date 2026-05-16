@@ -88,6 +88,16 @@ const LifestyleStories = () => {
   const [storyId, setStoryId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<any[]>([]);
   const [loadingDrafts, setLoadingDrafts] = useState(false);
+  const { twins } = useAITwins();
+  const [selectedTwinId, setSelectedTwinId] = useState<string | null>(null);
+  const selectedTwin = selectedTwinId ? twins.find(t => t.id === selectedTwinId) || null : null;
+
+  // Auto-select the first twin that has a cloned voice
+  useEffect(() => {
+    if (selectedTwinId || !twins.length) return;
+    const withVoice = twins.find(t => !!t.voice_cloning_key);
+    if (withVoice) setSelectedTwinId(withVoice.id);
+  }, [twins, selectedTwinId]);
 
   // Load existing drafts on mount
   useEffect(() => {
