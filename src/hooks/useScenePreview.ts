@@ -83,6 +83,8 @@ export interface PreviewScene {
   audioUrl: string | null;
   audioDuration: number;
   isGenerating: boolean;
+  isGeneratingImage?: boolean;
+  isGeneratingVoice?: boolean;
   isRegenerating?: boolean;
   isReference?: boolean;
 }
@@ -152,7 +154,7 @@ export function useScenePreview(): UseScenePreviewResult {
     setProgress(5);
     setProgressStatus('Initializing preview...');
 
-    // Initialize preview scenes
+    // Initialize preview scenes — both image and voice start as "generating"
     const initialScenes: PreviewScene[] = scenes.map(scene => ({
       sceneNumber: scene.sceneNumber,
       narration: scene.narration,
@@ -160,7 +162,9 @@ export function useScenePreview(): UseScenePreviewResult {
       imageUrl: null,
       audioUrl: null,
       audioDuration: scene.duration,
-      isGenerating: true
+      isGenerating: true,
+      isGeneratingImage: true,
+      isGeneratingVoice: videoModel !== 'veo3' && !customAudioUrl && !!scene.narration?.trim(),
     }));
     setPreviewScenes(initialScenes);
 
@@ -215,6 +219,9 @@ export function useScenePreview(): UseScenePreviewResult {
               audioUrl: '',
               duration: scene.duration || 2
             });
+            setPreviewScenes(prev => prev.map(ps =>
+              ps.sceneNumber === scene.sceneNumber ? { ...ps, isGeneratingVoice: false } : ps
+            ));
             continue;
           }
 
@@ -236,6 +243,9 @@ export function useScenePreview(): UseScenePreviewResult {
                 audioUrl: '',
                 duration: scene.duration || 5
               });
+              setPreviewScenes(prev => prev.map(ps =>
+                ps.sceneNumber === scene.sceneNumber ? { ...ps, isGeneratingVoice: false } : ps
+              ));
               continue;
             }
 
@@ -285,8 +295,12 @@ export function useScenePreview(): UseScenePreviewResult {
               // Update preview scene with audio (prefer storage URL)
               setPreviewScenes(prev => prev.map(ps =>
                 ps.sceneNumber === scene.sceneNumber
-                  ? { ...ps, audioUrl, audioDuration: actualDuration }
+                  ? { ...ps, audioUrl, audioDuration: actualDuration, isGeneratingVoice: false }
                   : ps
+              ));
+            } else {
+              setPreviewScenes(prev => prev.map(ps =>
+                ps.sceneNumber === scene.sceneNumber ? { ...ps, isGeneratingVoice: false } : ps
               ));
             }
           } catch (ttsErr) {
@@ -296,6 +310,9 @@ export function useScenePreview(): UseScenePreviewResult {
               audioUrl: '',
               duration: scene.duration || 5
             });
+            setPreviewScenes(prev => prev.map(ps =>
+              ps.sceneNumber === scene.sceneNumber ? { ...ps, isGeneratingVoice: false } : ps
+            ));
           }
 
           setProgress(5 + Math.round(((i + 1) / scenes.length) * 25));
@@ -340,7 +357,7 @@ export function useScenePreview(): UseScenePreviewResult {
             console.error('Image generation error for scene', scene.sceneNumber, ':', imageError);
             setPreviewScenes(prev => prev.map(ps =>
               ps.sceneNumber === scene.sceneNumber
-                ? { ...ps, isGenerating: false }
+                ? { ...ps, isGenerating: false, isGeneratingImage: false }
                 : ps
             ));
             continue;
@@ -349,7 +366,7 @@ export function useScenePreview(): UseScenePreviewResult {
           if (imageData?.imageUrl) {
             setPreviewScenes(prev => prev.map(ps =>
               ps.sceneNumber === scene.sceneNumber
-                ? { ...ps, imageUrl: imageData.imageUrl, isGenerating: false }
+                ? { ...ps, imageUrl: imageData.imageUrl, isGenerating: false, isGeneratingImage: false }
                 : ps
             ));
             
@@ -366,7 +383,7 @@ export function useScenePreview(): UseScenePreviewResult {
           } else {
             setPreviewScenes(prev => prev.map(ps =>
               ps.sceneNumber === scene.sceneNumber
-                ? { ...ps, isGenerating: false }
+                ? { ...ps, isGenerating: false, isGeneratingImage: false }
                 : ps
             ));
           }
@@ -374,7 +391,7 @@ export function useScenePreview(): UseScenePreviewResult {
           console.error('Image generation failed for scene', scene.sceneNumber, ':', imgErr);
           setPreviewScenes(prev => prev.map(ps =>
             ps.sceneNumber === scene.sceneNumber
-              ? { ...ps, isGenerating: false }
+              ? { ...ps, isGenerating: false, isGeneratingImage: false }
               : ps
           ));
         }
@@ -571,9 +588,9 @@ export function useScenePreview(): UseScenePreviewResult {
       return;
     }
 
-    // Mark scene as regenerating voice
+    // Mark scene as regenerating voice (shows "Generating voice…" placeholder)
     setPreviewScenes(prev => prev.map(ps =>
-      ps.sceneNumber === sceneNumber ? { ...ps, isRegenerating: true } : ps
+      ps.sceneNumber === sceneNumber ? { ...ps, isRegenerating: true, isGeneratingVoice: true, audioUrl: null } : ps
     ));
 
     try {
@@ -626,7 +643,7 @@ export function useScenePreview(): UseScenePreviewResult {
         // Update preview scene
         setPreviewScenes(prev => prev.map(ps =>
           ps.sceneNumber === sceneNumber
-            ? { ...ps, audioUrl, audioDuration: actualDuration, isRegenerating: false }
+            ? { ...ps, audioUrl, audioDuration: actualDuration, isRegenerating: false, isGeneratingVoice: false }
             : ps
         ));
 
@@ -637,7 +654,7 @@ export function useScenePreview(): UseScenePreviewResult {
     } catch (error: any) {
       console.error('Voice regeneration error:', error);
       setPreviewScenes(prev => prev.map(ps =>
-        ps.sceneNumber === sceneNumber ? { ...ps, isRegenerating: false } : ps
+        ps.sceneNumber === sceneNumber ? { ...ps, isRegenerating: false, isGeneratingVoice: false } : ps
       ));
       toast({ title: 'Voice Regeneration Failed', description: error.message, variant: 'destructive' });
     }
@@ -648,6 +665,8 @@ export function useScenePreview(): UseScenePreviewResult {
     const cleanedScenes = scenes.map(s => ({
       ...s,
       isGenerating: false,
+      isGeneratingImage: false,
+      isGeneratingVoice: false,
       isRegenerating: false,
     }));
     setPreviewScenes(cleanedScenes);
@@ -706,14 +725,14 @@ export function useScenePreview(): UseScenePreviewResult {
 
       setPreviewScenes(prev => prev.map(ps =>
         ps.sceneNumber === insertIndex + 1
-          ? { ...ps, imageUrl: data.imageUrl, isGenerating: false }
+          ? { ...ps, imageUrl: data.imageUrl, isGenerating: false, isGeneratingImage: false }
           : ps
       ));
 
       toast({ title: `✨ ${type === 'broll' ? 'B-Roll' : type === 'intro' ? 'Intro' : 'Outro'} Added` });
     } catch (err: any) {
       setPreviewScenes(prev => prev.map(ps =>
-        ps.sceneNumber === insertIndex + 1 ? { ...ps, isGenerating: false } : ps
+        ps.sceneNumber === insertIndex + 1 ? { ...ps, isGenerating: false, isGeneratingImage: false } : ps
       ));
       toast({ title: 'Generation Failed', description: err.message, variant: 'destructive' });
     }
