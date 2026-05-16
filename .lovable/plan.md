@@ -1,69 +1,60 @@
-
 ## Goal
-Replace the `gpt-4o-mini-tts` narration path in **Reels** and **Lifestyle Stories** with the same voice stack the Movie Scene Creator uses:
 
-1. **Speechify** cloned voice when an AI Twin with a Speechify `voice_cloning_key` is selected
-2. **Gemini 2.5 Pro multi-speaker** when the script has 2+ characters
-3. Google cloned voice as a silent fallback (already inside the existing function)
+Add **Multi-Speaker Conversation Mode** to Reels and Lifestyle Stories. User describes a conversation topic, AI writes a 2–4 person back-and-forth dialogue, and the video cuts between each speaker's AI Twin (Movie Scene Creator style).
 
-No new edge function is needed — both `text-to-speech` and `multi-voice-tts` already do all the heavy lifting. The work is mainly **routing** + **passing twin metadata** through the Reels/Stories pipeline.
+## What's already in place (reuse, don't rebuild)
 
----
+1. **`generate-conversation-dialogue` edge fn** — already writes labeled `[{character, line, emotion}]` JSON for 2 speakers via Claude. Will extend to accept 2–4 speakers.
+2. **`multi-voice-tts` edge fn** — already takes a `dialogue[]` + `voiceAssignments[]` and returns stitched audio (Speechify clone → Google clone → Gemini multi-speaker fallback).
+3. **`buildVoiceAssignments()` helper** in `src/lib/voiceUtils.ts` — already exists for this exact payload shape.
+4. **`generate-reel-video`** — already routes through `text-to-speech`; needs a new branch for multi-speaker mode that generates **one clip per dialogue line** (each line lip-synced to its own twin) and stitches them in order.
 
 ## Changes
 
-### 1. `supabase/functions/generate-reel-video/index.ts`
-Currently `tryCreateTTSUrl(...)` calls OpenAI's `gpt-4o-mini-tts` directly. Refactor it to:
+### 1. `supabase/functions/generate-conversation-dialogue/index.ts`
+- Accept `characterNames: string[]` of length 2–4 (currently hard-coded to first two).
+- Update Claude prompt to handle N speakers and rotate lines naturally.
+- Keep the same output shape: `{ conversation: [{character, line, emotion}] }`.
 
-- Accept an optional `twin` object (`{ id, voice_cloning_key, voice_engine, google_voice_id, gender }`) and an optional `dialogue` array (for multi-character scenes).
-- Routing:
-  - **If `dialogue.length >= 2` with 2+ unique speakers** → `supabase.functions.invoke('multi-voice-tts', { dialogue, voiceAssignments })`. Decode the returned base64, upload to the `reels` storage bucket, return the URL.
-  - **Else if `twin.voice_cloning_key` is a UUID (Speechify)** → `supabase.functions.invoke('text-to-speech', { text, voice: 'cloned', speechifyVoiceId: twin.voice_cloning_key })`. Upload returned audio to storage.
-  - **Else if `twin.voice_cloning_key` exists (Google clone)** → same function with `voiceCloningKey: twin.voice_cloning_key`.
-  - **Else** → fall back to current OpenAI path (kept only as last resort so existing flows without a twin still work).
-- Remove `gpt-4o-mini-tts` as the primary path.
+### 2. New mode in Reels (`src/pages/Reels.tsx`)
+Add a **"Conversation"** mode toggle next to existing mode selector (alongside cinematic / talking-head). When active:
+- **Speaker picker:** select 2–4 AI Twins (must have `voice_cloning_key`).
+- **Topic textarea:** "Describe what they're talking about" (free-form).
+- **Tone selector:** reuse existing tone options.
+- **Generate Dialogue** button → calls `generate-conversation-dialogue` with the selected speaker names; renders the resulting labeled lines in an editable list (per-line text + speaker dropdown).
+- **Generate Video** → posts the dialogue + selected twins to `generate-reel-video` with new `mode: "conversation"` flag.
 
-Pass the selected twin into the per-scene loop from the existing request payload (Reels already sends `aiTwin` / `characterId` — surface it into `tryCreateTTSUrl`).
+### 3. New mode in Lifestyle Stories (`src/pages/LifestyleStories.tsx`)
+Same UI block + same payload shape — reuse a shared component `src/components/ConversationBuilder.tsx`.
 
-### 2. `src/pages/LifestyleStories.tsx`
-Two TTS callsites (lines 301 and 487) currently invoke `text-to-speech` with the default OpenAI voice. Update both:
+### 4. Shared component `src/components/ConversationBuilder.tsx` (new)
+Self-contained:
+- Speaker count slider (2–4)
+- N twin pickers (filtered to those with cloned voices)
+- Topic + tone inputs
+- Dialogue editor (add/remove/reorder lines, edit speaker per line)
+- `onGenerate(dialogue, twins)` callback
+Used by both pages → ~250 lines, isolated from the giant page files.
 
-- Read the currently selected Twin from existing state (the page already supports a Twin selector via `useAITwins`; if none is selected, prompt the user once via toast rather than silently falling back).
-- Build the same body the Movie page uses:
-  ```ts
-  { text, voice: 'cloned',
-    speechifyVoiceId: isSpeechifyVoiceId(twin.voice_cloning_key) ? twin.voice_cloning_key : undefined,
-    voiceCloningKey: !isSpeechifyVoiceId(twin.voice_cloning_key) ? twin.voice_cloning_key : undefined }
-  ```
-- Extract `isSpeechifyVoiceId` from `MovieSceneCreator.tsx` into a small shared helper at `src/lib/voiceUtils.ts` and import it from all three pages.
+### 5. `supabase/functions/generate-reel-video/index.ts` — conversation branch
+New top-level branch when `mode === 'conversation'`:
+- For each dialogue line:
+  - TTS that line via `text-to-speech` using the corresponding twin's voice clone (reusing existing `tryCreateTTSUrl` with `twin` param).
+  - Lip-sync that twin's reference image to the audio via `wavespeed-ai/infinitetalk-hd` (same model already used elsewhere).
+- Concatenate the per-line video clips via Creatomate (already wired) or canvas fallback to produce the final video.
+- Persist segment URLs so partial regeneration still works.
 
-### 3. Shared helper: `src/lib/voiceUtils.ts` (new)
-- `isSpeechifyVoiceId(key)` — UUID regex test
-- `buildVoicePayload(twin, text)` — returns the `text-to-speech` body
-- `buildVoiceAssignments(twins)` — returns the `voiceAssignments` array shape `multi-voice-tts` expects
-
-This keeps Movies, Reels, and Stories on identical routing logic.
-
-### 4. UI surface
-- **Reels** (`src/pages/Reels.tsx` / the active script panel): the AI Twin selector already exists; add a small "Voice: <TwinName> (Speechify clone)" indicator under the narration step so users see which voice will be used. No new picker.
-- **Lifestyle Stories** (`src/pages/LifestyleStories.tsx`): add the same Twin selector dropdown if it isn't already present, defaulting to the user's first Twin with a `voice_cloning_key`.
-
-### 5. Memory update
-Update `mem://technical/audio/voice-engine-modernization` to reflect that Reels & Stories now use **Speechify cloned voice + Gemini 2.5 Pro multi-speaker**, with `gpt-4o-mini-tts` retained only as a no-twin fallback. Lip-sync model (`infinitetalk-hd`) is unchanged.
-
----
+### 6. Memory update
+Update `mem://technical/audio/voice-engine-modernization` to note: Reels/Stories now support **conversation mode** with 2–4 speakers via `multi-voice-tts` + `infinitetalk-hd` lip-sync per line.
 
 ## Out of scope
-- No changes to lip-sync / video models.
-- No new edge function.
-- No changes to Movie Scene Creator (it already works).
-- No new secrets needed — `SPEECHIFY_API_KEY`, `WAVESPEED_API_KEY`, `GOOGLE_CLOUD_TTS_API_KEY` already configured.
-
----
+- Side-by-side / split-screen layouts (user picked Movie-style cuts only).
+- More than 4 speakers.
+- Importing existing single-speaker scripts (not requested).
+- B-roll cutaways during dialogue (can be a follow-up).
 
 ## Verification
-1. Generate a Reel with a Twin that has a Speechify clone → audio plays in that voice.
-2. Generate a Reel with a Twin that has a Google clone (non-UUID key) → still works.
-3. Generate a Lifestyle Story with a Twin selected → narration uses cloned voice.
-4. Generate a multi-character script in Reels (if/when introduced) → routes to `multi-voice-tts`.
-5. Generate with no Twin → falls back to existing OpenAI path; toast informs user.
+1. Pick 3 twins → describe a conversation → AI writes labeled dialogue → edit one line → generate.
+2. Final video cuts between speakers, each lip-syncs to their own voice clone.
+3. Works in both Reels and Lifestyle Stories from the same shared component.
+4. Falls back gracefully when only 2 twins are picked.
