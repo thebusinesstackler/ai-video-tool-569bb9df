@@ -91,13 +91,15 @@ const TOOLS: ToolDef[] = [
     type: 'function',
     function: {
       name: 'generate_talking_head',
-      description: 'Start an InfiniteTalk HD lip-sync video. Returns a wavespeed taskId — must be polled.',
+      description: 'Start an InfiniteTalk lip-sync video. Returns a wavespeed taskId — must be polled. When the video completes WaveSpeed pushes it via webhook so it auto-saves to the user\'s Reels library and creates a ChatCut draft. Always pass topic + script so the autosave names things correctly.',
       parameters: {
         type: 'object',
         properties: {
           audioUrl: { type: 'string', description: 'audioUrl from synthesize_voice' },
           twinId: { type: 'string', description: 'AI Twin id' },
           durationSec: { type: 'number', description: 'Audio duration in seconds' },
+          topic: { type: 'string', description: 'Reel topic (used to name the saved reel + ChatCut draft)' },
+          script: { type: 'string', description: 'Final narration text being lip-synced (used for reel scene record)' },
         },
         required: ['audioUrl', 'twinId', 'durationSec'],
       },
