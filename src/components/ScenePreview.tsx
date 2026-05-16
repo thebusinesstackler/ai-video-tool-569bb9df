@@ -670,6 +670,30 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
                             </Button>
                           )}
                         </div>
+                        {onRegenerateVoice && scene.narration?.trim() && (
+                          <div className="flex items-center gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 flex-1 text-[10px]"
+                              onClick={() => onRegenerateVoice(scene.sceneNumber, 'female')}
+                              disabled={scene.isRegenerating || disabled}
+                              title="Regenerate with a female voice"
+                            >
+                              ♀ Female voice
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 flex-1 text-[10px]"
+                              onClick={() => onRegenerateVoice(scene.sceneNumber, 'male')}
+                              disabled={scene.isRegenerating || disabled}
+                              title="Regenerate with a male voice"
+                            >
+                              ♂ Male voice
+                            </Button>
+                          </div>
+                        )}
                         {onGenerateVoiceSample && availableVoices.length > 0 && scene.narration?.trim() && (
                           <Button
                             variant="ghost"
