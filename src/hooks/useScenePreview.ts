@@ -219,6 +219,9 @@ export function useScenePreview(): UseScenePreviewResult {
               audioUrl: '',
               duration: scene.duration || 2
             });
+            setPreviewScenes(prev => prev.map(ps =>
+              ps.sceneNumber === scene.sceneNumber ? { ...ps, isGeneratingVoice: false } : ps
+            ));
             continue;
           }
 
@@ -240,6 +243,9 @@ export function useScenePreview(): UseScenePreviewResult {
                 audioUrl: '',
                 duration: scene.duration || 5
               });
+              setPreviewScenes(prev => prev.map(ps =>
+                ps.sceneNumber === scene.sceneNumber ? { ...ps, isGeneratingVoice: false } : ps
+              ));
               continue;
             }
 
@@ -289,8 +295,12 @@ export function useScenePreview(): UseScenePreviewResult {
               // Update preview scene with audio (prefer storage URL)
               setPreviewScenes(prev => prev.map(ps =>
                 ps.sceneNumber === scene.sceneNumber
-                  ? { ...ps, audioUrl, audioDuration: actualDuration }
+                  ? { ...ps, audioUrl, audioDuration: actualDuration, isGeneratingVoice: false }
                   : ps
+              ));
+            } else {
+              setPreviewScenes(prev => prev.map(ps =>
+                ps.sceneNumber === scene.sceneNumber ? { ...ps, isGeneratingVoice: false } : ps
               ));
             }
           } catch (ttsErr) {
@@ -300,6 +310,9 @@ export function useScenePreview(): UseScenePreviewResult {
               audioUrl: '',
               duration: scene.duration || 5
             });
+            setPreviewScenes(prev => prev.map(ps =>
+              ps.sceneNumber === scene.sceneNumber ? { ...ps, isGeneratingVoice: false } : ps
+            ));
           }
 
           setProgress(5 + Math.round(((i + 1) / scenes.length) * 25));
