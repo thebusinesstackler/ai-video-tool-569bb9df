@@ -738,22 +738,26 @@ Atmospheric ambient audio. No speech. No text, no captions, no subtitles, no wat
           if (!supabase) throw new Error('Supabase client required for TTS upload');
           
           const gender = detectGender(characterDescription);
-          const ttsBytes = await generateOpenAITTS(
-            scene.narration,
-            OPENAI_API_KEY!,
-            gender,
-            'Speak with confident energy, like a professional YouTube creator. Natural pace, engaging delivery.'
-          );
-          const ttsUrl = await uploadTTSAudio(supabase, ttsBytes, scene.sceneNumber);
-          console.log(`Scene ${scene.sceneNumber}: TTS audio uploaded: ${ttsUrl}`);
-          
-          apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';
-          requestBody = {
-            image: imageUrl,
-            audio: ttsUrl,
-            resolution: '720p'
-          };
-          sceneHasEmbeddedAudio = true;
+          const ttsUrl = await tryCreateTTSUrl(supabase, scene.narration, scene.sceneNumber, OPENAI_API_KEY!, gender);
+
+          if (ttsUrl) {
+            apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';
+            requestBody = {
+              image: imageUrl,
+              audio: ttsUrl,
+              resolution: '720p'
+            };
+            sceneHasEmbeddedAudio = true;
+          } else {
+            apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/wan-2.1-i2v-480p';
+            requestBody = {
+              image: imageUrl,
+              prompt: `${scene.visualDescription}. ${charContext} ${topicContext}
+Context: This scene represents the caption/narration: "${scene.narration}"
+Natural expression, confident direct-to-camera delivery, cinematic lighting. No text, captions, subtitles, or watermarks.`
+            };
+            sceneHasEmbeddedAudio = false;
+          }
           
         } else if (isNarratorScene && enableLipSync && videoModel === 'wan-2.5-video-extend') {
           // ====== WAN 2.5 VIDEO EXTEND: Two-step pipeline ======
