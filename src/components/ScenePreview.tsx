@@ -644,6 +644,14 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
                       </div>
                     </div>
 
+                    {/* Voice — generating placeholder */}
+                    {!scene.audioUrl && scene.isGeneratingVoice && scene.narration?.trim() && (
+                      <div className="mt-1.5 flex items-center gap-2 px-2 py-1.5 rounded bg-muted/60 border border-border">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
+                        <span className="text-[11px] text-muted-foreground">Generating voice…</span>
+                      </div>
+                    )}
+
                     {/* Audio player below card */}
                     {scene.audioUrl && (
                       <div className="mt-1.5 space-y-1">
@@ -675,11 +683,24 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
                         )}
                       </div>
                     )}
-                    {!scene.audioUrl && onGenerateVoiceSample && availableVoices.length > 0 && scene.narration?.trim() && (
+                    {/* Voice failed — offer regenerate */}
+                    {!scene.audioUrl && !scene.isGeneratingVoice && scene.narration?.trim() && onRegenerateVoice && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-1.5 h-7 text-[11px] w-full text-amber-600 border-amber-500/40 hover:bg-amber-500/10"
+                        onClick={() => onRegenerateVoice(scene.sceneNumber)}
+                        disabled={disabled}
+                      >
+                        <RefreshCw className="w-3 h-3 mr-1" />
+                        Voice failed — Generate
+                      </Button>
+                    )}
+                    {!scene.audioUrl && !scene.isGeneratingVoice && onGenerateVoiceSample && availableVoices.length > 0 && scene.narration?.trim() && (
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="mt-1.5 h-6 text-[10px] w-full text-muted-foreground hover:text-primary"
+                        className="mt-1 h-6 text-[10px] w-full text-muted-foreground hover:text-primary"
                         onClick={() => openVoicePreview(scene)}
                       >
                         <Mic className="w-3 h-3 mr-1" />
