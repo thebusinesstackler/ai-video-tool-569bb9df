@@ -158,7 +158,7 @@ async function invokeEdgeFn(name: string, body: unknown, authHeader: string): Pr
 async function runTool(
   name: string,
   args: any,
-  ctx: { authHeader: string; userId: string; userClient: any }
+  ctx: { authHeader: string; userId: string; userClient: any; quality: string }
 ): Promise<any> {
   switch (name) {
     case 'list_twins': {
