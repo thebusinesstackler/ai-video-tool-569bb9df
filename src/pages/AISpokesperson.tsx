@@ -26,6 +26,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Input } from '@/components/ui/input';
 import { LogoUploadInline } from '@/components/LogoUploadInline';
 import { getFriendlyError } from '@/lib/errorClassifier';
+import { AudioUploadTalkingHead } from '@/components/podcast/AudioUploadTalkingHead';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Upload } from 'lucide-react';
 
 import type { AITwin } from '@/types/aiTwin';
 
