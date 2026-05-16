@@ -15,6 +15,9 @@ import {
   ArrowRight, RefreshCw, ChevronRight, Wand2, AlertCircle, Video, FileText, Trash2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAITwins } from '@/hooks/useAITwins';
+import { isSpeechifyVoiceId } from '@/lib/voiceUtils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatDistanceToNow } from 'date-fns';
 
 interface BrandAnalysis {
