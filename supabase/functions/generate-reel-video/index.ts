@@ -85,6 +85,44 @@ async function getGoogleAccessToken(): Promise<string | null> {
   } catch (e) { console.error('Google OAuth exception', e); return null; }
 }
 
+// ── Google Cloud TTS via API key (uses billing-enabled project tied to the key) ──
+async function generateGoogleTTSWithApiKey(text: string, gender?: string): Promise<Uint8Array> {
+  const apiKey = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
+  if (!apiKey) throw new Error('GOOGLE_CLOUD_TTS_API_KEY not set');
+  const isFemale = gender?.toLowerCase() === 'female' || gender?.toLowerCase() === 'woman';
+  // Try Chirp3-HD first, fall back to Studio/Neural2 if not enabled for this key
+  const voiceCandidates = isFemale
+    ? [{ name: 'en-US-Chirp3-HD-Aoede' }, { name: 'en-US-Studio-O' }, { name: 'en-US-Neural2-F' }]
+    : [{ name: 'en-US-Chirp3-HD-Charon' }, { name: 'en-US-Studio-Q' }, { name: 'en-US-Neural2-D' }];
+  let lastErr = '';
+  for (const voice of voiceCandidates) {
+    const resp = await fetch(
+      `https://texttospeech.googleapis.com/v1beta1/text:synthesize?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          input: { text: text.length > 5000 ? text.substring(0, 5000) : text },
+          voice: { languageCode: 'en-US', name: voice.name },
+          audioConfig: { audioEncoding: 'MP3' },
+        }),
+      }
+    );
+    if (resp.ok) {
+      const data = await resp.json();
+      if (!data.audioContent) { lastErr = 'no audioContent'; continue; }
+      const bin = atob(data.audioContent);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      console.log(`Google TTS (api-key) succeeded with voice ${voice.name}`);
+      return bytes;
+    }
+    lastErr = `${resp.status}: ${await resp.text()}`;
+    console.warn(`Google TTS voice ${voice.name} failed → ${lastErr.substring(0, 200)}`);
+  }
+  throw new Error(`Google TTS (api-key) failed: ${lastErr}`);
+}
+
 // ── Google Chirp3-HD TTS fallback (OAuth) ──────────────────────────────────
 async function generateChirp3TTS(text: string, gender?: string): Promise<Uint8Array> {
   const accessToken = await getGoogleAccessToken();
@@ -150,9 +188,18 @@ async function generateOpenAITTS(
 
   if (!resp.ok) {
     const errText = await resp.text();
-    // Fallback to Chirp3 on any OpenAI failure (quota, billing, etc.)
+    // Try Google TTS via API key first (uses billing-enabled project)
+    if (Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY')) {
+      try {
+        console.warn(`OpenAI TTS failed (${resp.status}), trying Google TTS (api-key)`);
+        return await generateGoogleTTSWithApiKey(text, gender);
+      } catch (gErr) {
+        console.warn('Google TTS api-key fallback failed:', gErr);
+      }
+    }
+    // Then OAuth Chirp3 (requires service-account project to have billing)
     if (Deno.env.get('GOOGLE_CLOUD_SERVICE_ACCOUNT')) {
-      console.warn(`OpenAI TTS failed (${resp.status}), falling back to Chirp3-HD`);
+      console.warn(`OpenAI TTS failed (${resp.status}), falling back to Chirp3-HD (oauth)`);
       return await generateChirp3TTS(text, gender);
     }
     throw new Error(`OpenAI TTS failed (${resp.status}): ${errText}`);

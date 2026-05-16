@@ -338,51 +338,53 @@ serve(async (req) => {
       console.log('OpenAI TTS failed, trying Chirp3-HD fallback');
     }
 
-    // Chirp3-HD fallback (covers OpenAI quota errors)
+    // Google Cloud TTS via API key (uses billing-enabled project tied to key) — try BEFORE OAuth Chirp3
+    const googleFallbackKey = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
+    if (googleFallbackKey) {
+      const genderLower = (gender || '').toLowerCase();
+      const isFemale = genderLower === 'female' || genderLower === 'woman';
+      const voiceCandidates = isFemale
+        ? ['en-US-Chirp3-HD-Aoede', 'en-US-Studio-O', 'en-US-Neural2-F']
+        : ['en-US-Chirp3-HD-Charon', 'en-US-Studio-Q', 'en-US-Neural2-D'];
+      for (const voiceName of voiceCandidates) {
+        try {
+          console.log(`Using Google Cloud TTS (api-key) with voice: ${voiceName}`);
+          const gResp = await fetch(
+            `https://texttospeech.googleapis.com/v1beta1/text:synthesize?key=${googleFallbackKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                input: { text: text.length > 5000 ? text.substring(0, 5000) : text },
+                voice: { languageCode: 'en-US', name: voiceName },
+                audioConfig: { audioEncoding: 'MP3', speakingRate: validatedSpeed },
+              }),
+            }
+          );
+          if (gResp.ok) {
+            const gData = await gResp.json();
+            if (gData.audioContent) {
+              return new Response(JSON.stringify({
+                audioContent: gData.audioContent,
+                audioUrl: `data:audio/mp3;base64,${gData.audioContent}`,
+                isClonedVoice: false,
+                provider: 'google-apikey',
+              }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+            }
+          } else {
+            console.warn(`Google TTS voice ${voiceName} → ${gResp.status}: ${(await gResp.text()).substring(0, 200)}`);
+          }
+        } catch (e) {
+          console.error('Google TTS api-key exception:', e);
+        }
+      }
+    }
+
+    // OAuth Chirp3-HD fallback last (requires service-account project to have billing enabled)
     const chirp3Result = await tryChirp3();
     if (chirp3Result) {
       return new Response(JSON.stringify({ ...chirp3Result, isClonedVoice: false, provider: 'chirp3' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-    console.log('Chirp3 fallback failed, trying Google Cloud TTS fallback');
-
-    // Priority 4: Google Cloud standard TTS fallback
-    const googleFallbackKey = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
-    if (googleFallbackKey) {
-      try {
-        const genderLower = (gender || '').toLowerCase();
-        const isFemale = genderLower === 'female' || genderLower === 'woman';
-        const googleVoiceName = isFemale ? 'en-US-Journey-F' : 'en-US-Journey-D';
-        console.log(`Using Google Cloud TTS fallback with voice: ${googleVoiceName}`);
-        
-        const gResp = await fetch(
-          `https://texttospeech.googleapis.com/v1/text:synthesize?key=${googleFallbackKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              input: { text: text.length > 5000 ? text.substring(0, 5000) : text },
-              voice: { languageCode: 'en-US', name: googleVoiceName },
-              audioConfig: { audioEncoding: 'MP3', speakingRate: validatedSpeed },
-            }),
-          }
-        );
-        if (gResp.ok) {
-          const gData = await gResp.json();
-          if (gData.audioContent) {
-            return new Response(JSON.stringify({
-              audioContent: gData.audioContent,
-              audioUrl: `data:audio/mp3;base64,${gData.audioContent}`,
-              isClonedVoice: false,
-              provider: 'google-fallback',
-            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-          }
-        } else {
-          console.error('Google TTS fallback error:', gResp.status, await gResp.text());
-        }
-      } catch (e) {
-        console.error('Google TTS fallback exception:', e);
-      }
     }
     
     throw new Error('No TTS engine available or all attempts failed');
