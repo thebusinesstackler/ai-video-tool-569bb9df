@@ -42,6 +42,8 @@ interface ScenePreviewProps {
   onGenerateVoiceSample?: (req: VoiceSampleRequest) => Promise<{ audioUrl: string } | null>;
   onApplyVoiceSample?: (sceneNumber: number, audioUrl: string) => void;
   onApplyVoiceToAll?: (voiceId: string) => void;
+  onCopyVoiceFromScene?: (targetSceneNumber: number, sourceSceneNumber: number) => void;
+  onApplyVoiceToAllScenes?: (sourceSceneNumber: number) => void;
   availableVoices?: { id: string; label: string; gender?: string }[];
   onCreateVideo: () => void;
   isCreatingVideo: boolean;
