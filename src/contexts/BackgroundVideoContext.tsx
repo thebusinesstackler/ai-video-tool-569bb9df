@@ -112,7 +112,7 @@ export const BackgroundVideoProvider = ({ children }: { children: React.ReactNod
     if (pollingRef.current.get(job.id)) return; // Already polling
     pollingRef.current.set(job.id, true);
 
-    const maxPollingTime = 300000; // 5 minutes
+    const maxPollingTime = 1800000; // 30 minutes — InfiniteTalk HD can take 10-15 min per clip
     const pollInterval = 5000;
     const startTime = Date.now();
     const completedVideos: { sceneNumber: number; videoUrl: string }[] = [];
