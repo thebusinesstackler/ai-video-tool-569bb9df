@@ -197,8 +197,9 @@ serve(async (req) => {
     }
 
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-    if (!OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY is not configured');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!OPENAI_API_KEY && !LOVABLE_API_KEY) {
+      throw new Error('No image generation provider configured');
     }
 
     const allReferenceImages: string[] = referenceImages && referenceImages.length > 0
@@ -229,6 +230,36 @@ serve(async (req) => {
     // Enhance the prompt for better DALL-E output, with character constraint
     const enhancedPrompt = await enhancePromptForDallE(rawPrompt, characterDescription || undefined);
 
+    // Helper: Lovable AI Gateway image generation (free Gemini, no API key cost)
+    const generateWithLovableAI = async (): Promise<string | null> => {
+      if (!LOVABLE_API_KEY) return null;
+      try {
+        console.log('Generating image via Lovable AI Gateway (Gemini)');
+        const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-3.1-flash-image-preview',
+            messages: [{ role: 'user', content: enhancedPrompt }],
+            modalities: ['image', 'text'],
+          }),
+        });
+        if (!resp.ok) {
+          console.error('Lovable AI image error:', resp.status, await resp.text());
+          return null;
+        }
+        const data = await resp.json();
+        const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+        return imageUrl || null;
+      } catch (e) {
+        console.error('Lovable AI image exception:', e);
+        return null;
+      }
+    };
+
     const MAX_RETRIES = 2;
     let lastError: Error | null = null;
 
@@ -239,7 +270,19 @@ serve(async (req) => {
           await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
         }
 
-        const imageUrl = await generateWithOpenAI(enhancedPrompt, OPENAI_API_KEY);
+        let imageUrl: string | null = null;
+        if (OPENAI_API_KEY) {
+          try {
+            imageUrl = await generateWithOpenAI(enhancedPrompt, OPENAI_API_KEY);
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            console.warn('OpenAI failed, trying Lovable AI fallback:', msg);
+          }
+        }
+
+        if (!imageUrl) imageUrl = await generateWithLovableAI();
+
+        if (!imageUrl) throw new Error('All image providers failed');
 
         console.log('Image generated successfully, camera angle:', cameraAngle);
 
@@ -256,12 +299,6 @@ serve(async (req) => {
           return new Response(
             JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
             { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        if (lastError.message === 'AUTH_ERROR') {
-          return new Response(
-            JSON.stringify({ error: 'OpenAI API key invalid or payment issue. Check your API key.' }),
-            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
