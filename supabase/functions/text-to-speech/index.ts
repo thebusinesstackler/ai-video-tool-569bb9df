@@ -136,7 +136,11 @@ async function generateSpeechifyTTS(
         audio_format: 'mp3'
       }),
     });
-    if (!response.ok) return null;
+    if (!response.ok) {
+      const errText = await response.text().catch(() => '');
+      console.error(`Speechify ${voiceId} → ${response.status}: ${errText.substring(0, 200)}`);
+      return null;
+    }
 
     const contentType = response.headers.get('content-type') || '';
     let base64Audio: string;
