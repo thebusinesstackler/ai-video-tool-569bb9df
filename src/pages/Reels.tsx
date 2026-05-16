@@ -8210,6 +8210,12 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
           }}
         />
       )}
+      <SendToChatcutDialog
+        open={chatcutDialogOpen}
+        onOpenChange={setChatcutDialogOpen}
+        clips={chatcutClips}
+        title={chatcutTitle}
+      />
     </Layout>
   );
 };
