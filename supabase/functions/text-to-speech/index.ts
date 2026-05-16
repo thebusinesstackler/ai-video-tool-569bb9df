@@ -269,7 +269,16 @@ serve(async (req) => {
         return new Response(JSON.stringify({ ...result, isClonedVoice: false, provider: 'openai' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
-      console.log('OpenAI TTS failed, trying Google Cloud TTS fallback');
+      console.log('OpenAI TTS failed, trying Speechify shared voice fallback');
+    }
+
+    // Speechify shared-voice fallback (covers OpenAI quota errors + Google billing-disabled)
+    const speechifyResult = await trySpeechifyShared();
+    if (speechifyResult) {
+      return new Response(JSON.stringify({ ...speechifyResult, isClonedVoice: false, provider: 'speechify-shared' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    console.log('Speechify fallback failed, trying Google Cloud TTS fallback');
     }
 
     // Priority 4: Google Cloud standard TTS fallback
