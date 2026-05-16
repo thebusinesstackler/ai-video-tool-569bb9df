@@ -494,22 +494,34 @@ const LifestyleStories = () => {
       setProductionStatus(prev => ({ ...prev, voiceover: 'in_progress' }));
       setProductionErrors(prev => { const n = { ...prev }; delete n.voiceover; return n; });
       try {
-        let speechifyVoiceId: string | undefined;
-        try {
-          const { data: matchData } = await supabase.functions.invoke('match-speechify-voice', {
-            body: {
-              characterDescription: `Brand: ${brandAnalysis?.brand_name || ''}. Audience: ${brandAnalysis?.target_audience || ''}. Visual style: ${brandAnalysis?.visual_style || ''}. Concept: ${concept.type} — ${concept.hook}`,
-              tone: brandAnalysis?.brand_tone || concept.music_mood,
-              scriptSample: concept.voiceover_script,
-            },
-          });
-          speechifyVoiceId = matchData?.voiceId;
-        } catch (e) {
-          console.warn('Speechify voice match failed:', e);
+        const twinKey = selectedTwin?.voice_cloning_key || null;
+        const twinIsSpeechify = isSpeechifyVoiceId(twinKey);
+        let speechifyVoiceId: string | undefined = twinIsSpeechify ? twinKey! : undefined;
+        const voiceCloningKey: string | undefined = twinKey && !twinIsSpeechify ? twinKey : undefined;
+
+        if (!speechifyVoiceId && !voiceCloningKey) {
+          try {
+            const { data: matchData } = await supabase.functions.invoke('match-speechify-voice', {
+              body: {
+                characterDescription: `Brand: ${brandAnalysis?.brand_name || ''}. Audience: ${brandAnalysis?.target_audience || ''}. Visual style: ${brandAnalysis?.visual_style || ''}. Concept: ${concept.type} — ${concept.hook}`,
+                tone: brandAnalysis?.brand_tone || concept.music_mood,
+                scriptSample: concept.voiceover_script,
+              },
+            });
+            speechifyVoiceId = matchData?.voiceId;
+          } catch (e) {
+            console.warn('Speechify voice match failed:', e);
+          }
         }
 
         const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-          body: { text: concept.voiceover_script, voice: 'alloy', speechifyVoiceId },
+          body: {
+            text: concept.voiceover_script,
+            voice: speechifyVoiceId || voiceCloningKey ? 'cloned' : 'alloy',
+            speechifyVoiceId,
+            voiceCloningKey,
+            gender: selectedTwin?.gender || undefined,
+          },
         });
         if (ttsError) throw ttsError;
         const voiceoverUrl = ttsData?.audioUrl || null;
