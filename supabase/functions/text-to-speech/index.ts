@@ -36,7 +36,45 @@ function sanitizeForTTS(text: string): string {
   return c;
 }
 
-// WaveSpeed MiniMax TTS removed — Sora-2 native audio used for non-cloned voices
+// ── Google Cloud OAuth (service-account → access token) ─────────────────────
+let _gToken: { token: string; exp: number } | null = null;
+function _b64url(input: ArrayBuffer | Uint8Array | string): string {
+  let bytes: Uint8Array;
+  if (typeof input === 'string') bytes = new TextEncoder().encode(input);
+  else if (input instanceof ArrayBuffer) bytes = new Uint8Array(input);
+  else bytes = input;
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function _pemToDer(pem: string): ArrayBuffer {
+  const b64 = pem.replace(/-----BEGIN [^-]+-----/g, '').replace(/-----END [^-]+-----/g, '').replace(/\s+/g, '');
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes.buffer;
+}
+async function getGoogleAccessToken(): Promise<string | null> {
+  const raw = Deno.env.get('GOOGLE_CLOUD_SERVICE_ACCOUNT');
+  if (!raw) return null;
+  if (_gToken && _gToken.exp - 60 > Math.floor(Date.now() / 1000)) return _gToken.token;
+  try {
+    const sa = JSON.parse(raw);
+    const now = Math.floor(Date.now() / 1000);
+    const header = { alg: 'RS256', typ: 'JWT' };
+    const payload = { iss: sa.client_email, scope: 'https://www.googleapis.com/auth/cloud-platform', aud: 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600 };
+    const signingInput = `${_b64url(JSON.stringify(header))}.${_b64url(JSON.stringify(payload))}`;
+    const key = await crypto.subtle.importKey('pkcs8', _pemToDer(sa.private_key), { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
+    const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(signingInput));
+    const jwt = `${signingInput}.${_b64url(sig)}`;
+    const resp = await fetch('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}` });
+    if (!resp.ok) { console.error('Google OAuth failed', resp.status, await resp.text()); return null; }
+    const data = await resp.json();
+    _gToken = { token: data.access_token, exp: now + (data.expires_in || 3600) };
+    return _gToken.token;
+  } catch (e) { console.error('Google OAuth exception', e); return null; }
+}
+
 
 async function generateOpenAITTS(
   text: string,
@@ -216,19 +254,24 @@ serve(async (req) => {
       }
     }
     
-    // Priority 3: Google Chirp3-HD fallback (covers OpenAI quota errors)
-    const chirp3Key = Deno.env.get('CHIRP3_API_KEY');
+    // Priority 3: Google Chirp3-HD fallback via OAuth service account
     const tryChirp3 = async () => {
-      if (!chirp3Key) return null;
+      const accessToken = await getGoogleAccessToken();
+      if (!accessToken) return null;
       const genderLower = (gender || '').toLowerCase();
       const isFemale = genderLower === 'female' || genderLower === 'woman';
       const voiceName = isFemale ? 'en-US-Chirp3-HD-Aoede' : 'en-US-Chirp3-HD-Charon';
       try {
+        const sa = JSON.parse(Deno.env.get('GOOGLE_CLOUD_SERVICE_ACCOUNT') || '{}');
         const resp = await fetch(
-          `https://texttospeech.googleapis.com/v1beta1/text:synthesize?key=${chirp3Key}`,
+          'https://texttospeech.googleapis.com/v1beta1/text:synthesize',
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+              ...(sa.project_id ? { 'x-goog-user-project': sa.project_id } : {}),
+            },
             body: JSON.stringify({
               input: { text: text.length > 5000 ? text.substring(0, 5000) : text },
               voice: { languageCode: 'en-US', name: voiceName },
