@@ -274,6 +274,49 @@ async function generateClonedTTSViaEdge(
   }
 }
 
+async function generateFromExplicitVoiceMeta(
+  text: string,
+  voiceMeta: any,
+  authHeader: string | null,
+): Promise<Uint8Array | null> {
+  try {
+    const url = Deno.env.get('SUPABASE_URL');
+    const anon = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_PUBLISHABLE_KEY');
+    if (!url) return null;
+    const resp = await fetch(`${url}/functions/v1/text-to-speech`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authHeader ? { Authorization: authHeader } : {}),
+        ...(anon ? { apikey: anon } : {}),
+      },
+      body: JSON.stringify({
+        text,
+        voice: voiceMeta.voice || 'ai-auto',
+        voiceEngine: voiceMeta.voiceEngine || 'wavespeed',
+        gender: voiceMeta.gender,
+        speechifyVoiceId: voiceMeta.voiceEngine === 'speechify' ? voiceMeta.voiceCloningKey : undefined,
+        voiceCloningKey: voiceMeta.voiceEngine !== 'speechify' && voiceMeta.voiceCloningKey ? voiceMeta.voiceCloningKey : undefined,
+      }),
+    });
+    if (!resp.ok) {
+      console.warn(`text-to-speech (explicit meta) returned ${resp.status}`);
+      return null;
+    }
+    const data = await resp.json();
+    const b64 = data?.audioContent;
+    if (!b64) return null;
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    console.log(`Explicit voiceMeta TTS (voice=${voiceMeta.voice}, engine=${voiceMeta.voiceEngine}) — ${bytes.length} bytes`);
+    return bytes;
+  } catch (e) {
+    console.warn('generateFromExplicitVoiceMeta failed:', e);
+    return null;
+  }
+}
+
 async function tryCreateTTSUrl(
   supabase: any,
   text: string,
@@ -282,12 +325,24 @@ async function tryCreateTTSUrl(
   gender: string,
   twin?: any,
   authHeader?: string | null,
+  voiceMeta?: any,
 ): Promise<string | null> {
   let ttsBytes: Uint8Array | null = null;
 
+  // ZEROTH: explicit per-scene voice meta from the preview UI (Copy voice / Apply to all / Wavespeed picker).
+  // This is the user's most recent intent and always wins.
+  if (voiceMeta && (voiceMeta.voice || voiceMeta.voiceCloningKey)) {
+    try {
+      ttsBytes = await generateFromExplicitVoiceMeta(text, voiceMeta, authHeader || null);
+      if (ttsBytes) console.log(`Scene ${sceneNumber}: used per-scene voiceMeta`);
+    } catch (e) {
+      console.warn(`Scene ${sceneNumber}: explicit voiceMeta TTS failed`, e);
+    }
+  }
+
   // PRIMARY: route through the shared TTS edge fn whenever a twin is supplied
   // (gives us Speechify/Google cloned voice — same as MovieSceneCreator)
-  if (twin?.voice_cloning_key) {
+  if (!ttsBytes && twin?.voice_cloning_key) {
     try {
       ttsBytes = await generateClonedTTSViaEdge(text, twin, gender, authHeader || null);
     } catch (e) {
@@ -310,7 +365,6 @@ async function tryCreateTTSUrl(
   }
 
   // FINAL FALLBACK: shared text-to-speech edge fn (has Wavespeed Gemini / multi-provider routing)
-  // This bypasses Chirp3 billing issues and ensures InfiniteTalk always gets audio.
   if (!ttsBytes) {
     try {
       ttsBytes = await generateClonedTTSViaEdge(text, twin || {}, gender, authHeader || null);
@@ -803,9 +857,9 @@ Absolutely no text, no captions, no subtitles, no watermarks.`;
           if (!supabase) throw new Error('Supabase client required for TTS upload');
           
           // PREFER the preview audio the user already approved — only regenerate if missing
-          const gender = detectGender(characterDescription, aiTwin);
+          const gender = (scene as any).voiceMeta?.gender || detectGender(characterDescription, aiTwin);
           const ttsUrl = audioUrl
-            || await tryCreateTTSUrl(supabase, scene.narration, scene.sceneNumber, OPENAI_API_KEY!, gender, aiTwin, authHeader);
+            || await tryCreateTTSUrl(supabase, scene.narration, scene.sceneNumber, OPENAI_API_KEY!, gender, aiTwin, authHeader, (scene as any).voiceMeta);
           if (audioUrl) console.log(`Scene ${scene.sceneNumber}: reusing preview voiceover (${audioUrl})`);
 
           if (ttsUrl) {
@@ -883,9 +937,9 @@ Atmospheric ambient audio. No speech. No text, no captions, no subtitles, no wat
           if (!supabase) throw new Error('Supabase client required for TTS upload');
           
           // PREFER the preview audio the user already approved — only regenerate if missing
-          const gender = detectGender(characterDescription, aiTwin);
+          const gender = (scene as any).voiceMeta?.gender || detectGender(characterDescription, aiTwin);
           const ttsUrl = audioUrl
-            || await tryCreateTTSUrl(supabase, scene.narration, scene.sceneNumber, OPENAI_API_KEY!, gender, aiTwin, authHeader);
+            || await tryCreateTTSUrl(supabase, scene.narration, scene.sceneNumber, OPENAI_API_KEY!, gender, aiTwin, authHeader, (scene as any).voiceMeta);
           if (audioUrl) console.log(`Scene ${scene.sceneNumber}: reusing preview voiceover (${audioUrl})`);
 
           if (ttsUrl) {

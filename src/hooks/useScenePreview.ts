@@ -75,6 +75,15 @@ const saveImageToGallery = async (
   }
 };
 
+export interface SceneVoiceMeta {
+  seed?: string;
+  gender?: string;
+  voiceCloningKey?: string;
+  voiceEngine?: string;
+  voice?: string;
+  label?: string;
+}
+
 export interface PreviewScene {
   sceneNumber: number;
   narration: string;
@@ -87,6 +96,7 @@ export interface PreviewScene {
   isGeneratingVoice?: boolean;
   isRegenerating?: boolean;
   isReference?: boolean;
+  voiceMeta?: SceneVoiceMeta;
 }
 
 interface Scene {
@@ -114,6 +124,8 @@ interface UseScenePreviewResult {
   clearReference: () => void;
   resetPreview: () => void;
   restorePreviewScenes: (scenes: PreviewScene[], vos: { sceneNumber: number; audioUrl: string; storageUrl?: string; duration: number }[]) => void;
+  setSceneVoiceMeta: (sceneNumber: number, voiceMeta: SceneVoiceMeta | undefined) => void;
+  setAllScenesVoiceMeta: (voiceMeta: SceneVoiceMeta | undefined) => void;
   insertScene: (insertIndex: number, type: 'broll' | 'intro' | 'outro', prompt: string) => Promise<void>;
   deleteScene: (sceneNumber: number) => void;
 }
@@ -681,6 +693,16 @@ export function useScenePreview(): UseScenePreviewResult {
     setVoiceovers(vos);
   };
 
+  const setSceneVoiceMeta = (sceneNumber: number, voiceMeta: SceneVoiceMeta | undefined) => {
+    setPreviewScenes(prev => prev.map(ps =>
+      ps.sceneNumber === sceneNumber ? { ...ps, voiceMeta } : ps
+    ));
+  };
+
+  const setAllScenesVoiceMeta = (voiceMeta: SceneVoiceMeta | undefined) => {
+    setPreviewScenes(prev => prev.map(ps => ({ ...ps, voiceMeta })));
+  };
+
   const resetPreview = () => {
     setPreviewScenes([]);
     setVoiceovers([]);
@@ -777,6 +799,8 @@ export function useScenePreview(): UseScenePreviewResult {
     clearReference,
     resetPreview,
     restorePreviewScenes,
+    setSceneVoiceMeta,
+    setAllScenesVoiceMeta,
     regenerateSceneVoice,
     insertScene,
     deleteScene,

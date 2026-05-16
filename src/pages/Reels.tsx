@@ -333,7 +333,7 @@ const Reels = () => {
   const [editSceneText, setEditSceneText] = useState('');
 
   // Per-scene voice metadata so users can copy a voice from one scene to another
-  const sceneVoiceMetaRef = useRef<Map<number, { seed: string; gender?: string; voiceCloningKey?: string; voiceEngine?: string; voice?: string }>>(new Map());
+  const sceneVoiceMetaRef = useRef<Map<number, { seed?: string; gender?: string; voiceCloningKey?: string; voiceEngine?: string; voice?: string; label?: string }>>(new Map());
   
   // Scene preview hook
   const { 
@@ -354,6 +354,8 @@ const Reels = () => {
     clearReference,
     resetPreview,
     restorePreviewScenes,
+    setSceneVoiceMeta,
+    setAllScenesVoiceMeta,
     insertScene: insertPreviewScene,
     deleteScene: deletePreviewScene,
   } = useScenePreview();
@@ -2308,9 +2310,12 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
 
       const scenesWithAudioDurations = activeScenes.map(scene => {
         const voiceover = voiceovers.find(v => v.sceneNumber === scene.sceneNumber);
+        const previewScene = previewScenes.find(ps => ps.sceneNumber === scene.sceneNumber);
+        const voiceMeta = previewScene?.voiceMeta || sceneVoiceMetaRef.current.get(scene.sceneNumber);
         return {
           ...scene,
-          audioDuration: voiceover?.duration
+          audioDuration: voiceover?.duration,
+          voiceMeta,
         };
       });
 
@@ -2889,7 +2894,39 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     return { voice: 'ai-auto', voiceEngine: 'sora-2' };
   };
 
-  const getResolvedVoiceLabel = () => resolveVoiceForGeneration().voice.replace(/_/g, ' ');
+  // SINGLE SOURCE OF TRUTH for the voice of a given scene.
+  // Order of precedence:
+  //   1. Scene's own voiceMeta (set by Copy/Paste/Apply-to-All/regenerate with override)
+  //   2. The legacy in-memory map (kept for back-compat during this render)
+  //   3. The global twin/selected-voice configuration
+  const resolveSceneVoice = (sceneNumber: number) => {
+    const scene = previewScenes.find(s => s.sceneNumber === sceneNumber);
+    if (scene?.voiceMeta) return { ...scene.voiceMeta };
+
+    const legacy = sceneVoiceMetaRef.current.get(sceneNumber);
+    if (legacy) return { ...legacy };
+
+    const cfg = resolveVoiceForGeneration();
+    const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
+    return {
+      seed: selectedTwin?.id || `${selectedTwin?.gender || 'narrator'}-${selectedTwin?.name || 'default'}`,
+      gender: selectedTwin?.gender || undefined,
+      voiceCloningKey: selectedTwin?.voice_cloning_key || undefined,
+      voiceEngine: cfg.voiceEngine,
+      voice: cfg.voice,
+      label: selectedTwin ? `AI Twin – ${selectedTwin.name}` : cfg.voice.replace(/_/g, ' '),
+    };
+  };
+
+  // Atomic write: persist on the scene AND update the legacy map so any in-flight code paths still see it.
+  const applySceneVoiceMeta = (sceneNumber: number, meta: ReturnType<typeof resolveSceneVoice>) => {
+    sceneVoiceMetaRef.current.set(sceneNumber, meta);
+    setSceneVoiceMeta(sceneNumber, meta);
+  };
+  const applyVoiceMetaToAllScenes = (meta: ReturnType<typeof resolveSceneVoice>) => {
+    previewScenes.forEach(s => sceneVoiceMetaRef.current.set(s.sceneNumber, meta));
+    setAllScenesVoiceMeta(meta);
+  };
 
   const getResolvedVoiceDescription = () => {
     const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
@@ -6709,51 +6746,39 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                   onRegenerateVoice={(sceneNumber, genderOverride) => {
                     const scene = previewScenes.find(s => s.sceneNumber === sceneNumber);
                     if (!scene?.narration?.trim()) return;
-                    const voiceConfig = resolveVoiceForGeneration();
-                    const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
-                    const effectiveGender = genderOverride || selectedTwin?.gender || undefined;
-                    // When user explicitly overrides gender, use a gender-scoped seed so a new voice is picked
-                    const effectiveSeed = genderOverride
-                      ? `override-${genderOverride}-${selectedTwin?.id || 'narrator'}-${sceneNumber}-${Date.now()}`
-                      : (selectedTwin?.id || `${effectiveGender || 'narrator'}-${selectedTwin?.name || 'default'}`);
-                    const effectiveCloneKey = genderOverride ? undefined : (selectedTwin?.voice_cloning_key || undefined);
-                    const effectiveEngine = genderOverride ? 'wavespeed' : voiceConfig.voiceEngine;
-                    sceneVoiceMetaRef.current.set(sceneNumber, {
-                      seed: effectiveSeed,
-                      gender: effectiveGender,
-                      voiceCloningKey: effectiveCloneKey,
-                      voiceEngine: effectiveEngine,
-                      voice: voiceConfig.voice,
-                    });
+                    const base = resolveSceneVoice(sceneNumber);
+                    const meta = genderOverride
+                      ? {
+                          ...base,
+                          gender: genderOverride,
+                          voiceCloningKey: undefined,
+                          voiceEngine: 'wavespeed',
+                          seed: `override-${genderOverride}-${sceneNumber}-${Date.now()}`,
+                          label: `${genderOverride === 'female' ? 'Female' : 'Male'} (override)`,
+                        }
+                      : base;
+                    applySceneVoiceMeta(sceneNumber, meta);
                     regenerateSceneVoice(
                       sceneNumber,
                       scene.narration,
-                      voiceConfig.voice,
-                      effectiveCloneKey,
-                      effectiveEngine,
+                      meta.voice || 'ai-auto',
+                      meta.voiceCloningKey,
+                      meta.voiceEngine,
                       undefined,
                       user?.id,
-                      effectiveGender,
-                      effectiveSeed
+                      meta.gender,
+                      meta.seed
                     );
                   }}
                   onCopyVoiceFromScene={(targetSceneNumber, sourceSceneNumber) => {
                     const target = previewScenes.find(s => s.sceneNumber === targetSceneNumber);
                     if (!target?.narration?.trim()) return;
-                    const voiceConfig = resolveVoiceForGeneration();
-                    const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
-                    const sourceMeta = sceneVoiceMetaRef.current.get(sourceSceneNumber) || {
-                      seed: selectedTwin?.id || `${selectedTwin?.gender || 'narrator'}-${selectedTwin?.name || 'default'}`,
-                      gender: selectedTwin?.gender || undefined,
-                      voiceCloningKey: selectedTwin?.voice_cloning_key || undefined,
-                      voiceEngine: voiceConfig.voiceEngine,
-                      voice: voiceConfig.voice,
-                    };
-                    sceneVoiceMetaRef.current.set(targetSceneNumber, sourceMeta);
+                    const sourceMeta = resolveSceneVoice(sourceSceneNumber);
+                    applySceneVoiceMeta(targetSceneNumber, sourceMeta);
                     regenerateSceneVoice(
                       targetSceneNumber,
                       target.narration,
-                      sourceMeta.voice || voiceConfig.voice,
+                      sourceMeta.voice || 'ai-auto',
                       sourceMeta.voiceCloningKey,
                       sourceMeta.voiceEngine,
                       undefined,
@@ -6764,15 +6789,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                     toast({ title: 'Voice copied', description: `Applied voice from scene ${sourceSceneNumber} to scene ${targetSceneNumber}.` });
                   }}
                   onApplyVoiceToAllScenes={(sourceSceneNumber) => {
-                    const voiceConfig = resolveVoiceForGeneration();
-                    const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
-                    const sourceMeta = sceneVoiceMetaRef.current.get(sourceSceneNumber) || {
-                      seed: selectedTwin?.id || `${selectedTwin?.gender || 'narrator'}-${selectedTwin?.name || 'default'}`,
-                      gender: selectedTwin?.gender || undefined,
-                      voiceCloningKey: selectedTwin?.voice_cloning_key || undefined,
-                      voiceEngine: voiceConfig.voiceEngine,
-                      voice: voiceConfig.voice,
-                    };
+                    const sourceMeta = resolveSceneVoice(sourceSceneNumber);
                     let count = 0;
                     previewScenes.forEach(s => {
                       if (s.sceneNumber === sourceSceneNumber || !s.narration?.trim()) return;
@@ -6780,7 +6797,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       regenerateSceneVoice(
                         s.sceneNumber,
                         s.narration,
-                        sourceMeta.voice || voiceConfig.voice,
+                        sourceMeta.voice || 'ai-auto',
                         sourceMeta.voiceCloningKey,
                         sourceMeta.voiceEngine,
                         undefined,
@@ -6790,6 +6807,8 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       );
                       count++;
                     });
+                    // Persist on scenes (source already has it; siblings inherit it)
+                    setAllScenesVoiceMeta(sourceMeta);
                     toast({ title: 'Applying voice to all scenes', description: `Regenerating ${count} scene${count === 1 ? '' : 's'} with the voice from scene ${sourceSceneNumber}.` });
                   }}
                   onGenerateVoiceSample={async (req) => {
@@ -6821,29 +6840,30 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                   }}
                   onApplyVoiceToAll={(voiceId) => {
                     // User picked a Wavespeed voice in the preview — apply that exact voice to every scene.
-                    // Important: clear any twin voice-cloning key, otherwise TTS will keep using the clone and ignore voiceId.
+                    // Important: clear the twin voice-cloning key, otherwise TTS will keep using the clone and ignore voiceId.
                     setSelectedVoice(voiceId);
-                    const seed = `wavespeed-${voiceId}`;
+                    const meta = {
+                      seed: `wavespeed-${voiceId}`,
+                      gender: undefined,
+                      voiceCloningKey: undefined,
+                      voiceEngine: 'wavespeed',
+                      voice: voiceId,
+                      label: voiceId.replace(/_/g, ' '),
+                    };
+                    applyVoiceMetaToAllScenes(meta);
                     let count = 0;
                     previewScenes.forEach((scene) => {
                       if (!scene.narration?.trim()) return;
-                      sceneVoiceMetaRef.current.set(scene.sceneNumber, {
-                        seed,
-                        gender: undefined,
-                        voiceCloningKey: undefined,
-                        voiceEngine: 'wavespeed',
-                        voice: voiceId,
-                      });
                       regenerateSceneVoice(
                         scene.sceneNumber,
                         scene.narration,
                         voiceId,
-                        undefined, // no cloning key — use the picked voice
+                        undefined,
                         'wavespeed',
                         undefined,
                         user?.id,
                         undefined,
-                        seed
+                        meta.seed
                       );
                       count++;
                     });
