@@ -207,12 +207,20 @@ async function generateWavespeedGeminiTTS(
   text: string,
   apiKey: string,
   gender?: string,
+  voiceSeed?: string,
 ): Promise<{ audioContent: string; audioUrl: string } | null> {
   try {
     const genderLower = (gender || '').toLowerCase();
     const isFemale = genderLower === 'female' || genderLower === 'woman';
     const pool = isFemale ? FEMALE_GEMINI_VOICES : MALE_GEMINI_VOICES;
-    const voiceName = pool[Math.floor(Math.random() * pool.length)];
+    // Deterministic voice selection: same seed → same voice across all scenes
+    let idx = 0;
+    if (voiceSeed) {
+      let h = 0;
+      for (let i = 0; i < voiceSeed.length; i++) h = ((h << 5) - h + voiceSeed.charCodeAt(i)) | 0;
+      idx = Math.abs(h) % pool.length;
+    }
+    const voiceName = pool[idx];
     const scriptText = `Narrator: ${text}`;
     console.log(`WaveSpeed Gemini TTS → voice ${voiceName}`);
 
