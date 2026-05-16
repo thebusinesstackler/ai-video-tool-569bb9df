@@ -216,7 +216,17 @@ serve(async (req) => {
       }
     }
     
-    // Priority 3: OpenAI TTS for non-cloned voices (clear, natural speech)
+    // Priority 3: Speechify shared voices (default fallback when OpenAI quota fails)
+    const trySpeechifyShared = async () => {
+      if (!speechifyApiKey) return null;
+      const genderLower = (gender || '').toLowerCase();
+      const isFemale = genderLower === 'female' || genderLower === 'woman';
+      const defaultVoice = isFemale ? 'evelyn' : 'henry';
+      console.log(`Using Speechify shared voice: ${defaultVoice}`);
+      return await generateSpeechifyTTS(text, speechifyApiKey, defaultVoice, validatedSpeed);
+    };
+
+    // Priority 4: OpenAI TTS for non-cloned voices (clear, natural speech)
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     if (openaiApiKey) {
       // Map legacy WaveSpeed/MiniMax voice IDs to valid OpenAI voices
@@ -259,7 +269,16 @@ serve(async (req) => {
         return new Response(JSON.stringify({ ...result, isClonedVoice: false, provider: 'openai' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
-      console.log('OpenAI TTS failed, trying Google Cloud TTS fallback');
+      console.log('OpenAI TTS failed, trying Speechify shared voice fallback');
+    }
+
+    // Speechify shared-voice fallback (covers OpenAI quota errors + Google billing-disabled)
+    const speechifyResult = await trySpeechifyShared();
+    if (speechifyResult) {
+      return new Response(JSON.stringify({ ...speechifyResult, isClonedVoice: false, provider: 'speechify-shared' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    console.log('Speechify fallback failed, trying Google Cloud TTS fallback');
     }
 
     // Priority 4: Google Cloud standard TTS fallback

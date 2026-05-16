@@ -46,6 +46,32 @@ function base64ToUint8Array(base64: string): Uint8Array {
   return bytes;
 }
 
+// ── Speechify TTS fallback (shared voices) ─────────────────────────────────
+async function generateSpeechifyTTS(
+  text: string,
+  apiKey: string,
+  gender?: string,
+): Promise<Uint8Array> {
+  const isFemale = gender?.toLowerCase() === 'female' || gender?.toLowerCase() === 'woman';
+  const voiceId = isFemale ? 'evelyn' : 'henry';
+  const resp = await fetch('https://api.sws.speechify.com/v1/audio/speech', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ input: text.length > 5000 ? text.substring(0, 5000) : text, voice_id: voiceId, audio_format: 'mp3' }),
+  });
+  if (!resp.ok) throw new Error(`Speechify TTS failed (${resp.status}): ${await resp.text()}`);
+  const contentType = resp.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    const j = await resp.json();
+    if (!j.audio_data) throw new Error('Speechify returned no audio_data');
+    const bin = atob(j.audio_data);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  }
+  return new Uint8Array(await resp.arrayBuffer());
+}
+
 // ── OpenAI TTS for clear narrator speech ──────────────────────────────────
 async function generateOpenAITTS(
   text: string,
@@ -79,6 +105,12 @@ async function generateOpenAITTS(
 
   if (!resp.ok) {
     const errText = await resp.text();
+    // Fallback to Speechify on any OpenAI failure (quota, billing, etc.)
+    const speechifyKey = Deno.env.get('SPEECHIFY_API_KEY');
+    if (speechifyKey) {
+      console.warn(`OpenAI TTS failed (${resp.status}), falling back to Speechify`);
+      return await generateSpeechifyTTS(text, speechifyKey, gender);
+    }
     throw new Error(`OpenAI TTS failed (${resp.status}): ${errText}`);
   }
   return new Uint8Array(await resp.arrayBuffer());
