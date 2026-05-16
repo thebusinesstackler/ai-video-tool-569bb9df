@@ -5,6 +5,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { RegenerateVideoDialog } from '@/components/RegenerateVideoDialog';
+import { SendToChatcutDialog, type ChatcutHandoffClip } from '@/components/SendToChatcutDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
