@@ -13,6 +13,7 @@ import Movies from "./pages/Movies";
 import Characters from "./pages/Characters";
 import Settings from "./pages/Settings";
 import Reels from "./pages/Reels";
+import ReelsPro from "./pages/ReelsPro";
 import Gallery from "./pages/Gallery";
 import AITwin from "./pages/AITwin";
 import TestimonialCommercial from "./pages/TestimonialCommercial";
