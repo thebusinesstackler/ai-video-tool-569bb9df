@@ -802,8 +802,11 @@ Absolutely no text, no captions, no subtitles, no watermarks.`;
           
           if (!supabase) throw new Error('Supabase client required for TTS upload');
           
+          // PREFER the preview audio the user already approved — only regenerate if missing
           const gender = detectGender(characterDescription, aiTwin);
-          const ttsUrl = await tryCreateTTSUrl(supabase, scene.narration, scene.sceneNumber, OPENAI_API_KEY!, gender, aiTwin, authHeader);
+          const ttsUrl = audioUrl
+            || await tryCreateTTSUrl(supabase, scene.narration, scene.sceneNumber, OPENAI_API_KEY!, gender, aiTwin, authHeader);
+          if (audioUrl) console.log(`Scene ${scene.sceneNumber}: reusing preview voiceover (${audioUrl})`);
 
           if (ttsUrl) {
             apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';
