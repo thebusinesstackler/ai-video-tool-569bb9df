@@ -738,6 +738,9 @@ const LifestyleStories = () => {
             </CardContent>
           </Card>
 
+          {/* Multi-speaker conversation builder */}
+          <ConversationBuilder aspectRatio="9:16" source="lifestyle-stories" />
+
           {/* Saved Drafts */}
           {drafts.length > 0 && (
             <Card>
