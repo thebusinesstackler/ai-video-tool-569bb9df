@@ -253,6 +253,7 @@ async function generateClonedTTSViaEdge(
         speechifyVoiceId,
         voiceCloningKey,
         gender,
+        voiceEngine: speechifyVoiceId ? 'speechify' : (voiceCloningKey ? 'google' : 'wavespeed'),
       }),
     });
     if (!resp.ok) {
@@ -282,30 +283,53 @@ async function tryCreateTTSUrl(
   twin?: any,
   authHeader?: string | null,
 ): Promise<string | null> {
-  try {
-    let ttsBytes: Uint8Array | null = null;
+  let ttsBytes: Uint8Array | null = null;
 
-    // PRIMARY: route through the shared TTS edge fn whenever a twin is supplied
-    // (gives us Speechify/Google cloned voice — same as MovieSceneCreator)
-    if (twin?.voice_cloning_key) {
+  // PRIMARY: route through the shared TTS edge fn whenever a twin is supplied
+  // (gives us Speechify/Google cloned voice — same as MovieSceneCreator)
+  if (twin?.voice_cloning_key) {
+    try {
       ttsBytes = await generateClonedTTSViaEdge(text, twin, gender, authHeader || null);
+    } catch (e) {
+      console.warn(`Scene ${sceneNumber}: cloned TTS via edge failed`, e);
     }
+  }
 
-    // FALLBACK: legacy OpenAI gpt-4o-mini-tts narrator (used when no twin clone)
-    if (!ttsBytes) {
+  // SECONDARY: OpenAI gpt-4o-mini-tts narrator
+  if (!ttsBytes) {
+    try {
       ttsBytes = await generateOpenAITTS(
         text,
         openAiKey,
         gender,
         'Speak with confident energy, like a professional YouTube creator. Natural pace, engaging delivery.'
       );
+    } catch (e) {
+      console.warn(`Scene ${sceneNumber}: OpenAI TTS failed, will try edge fn fallback`, e);
     }
+  }
 
+  // FINAL FALLBACK: shared text-to-speech edge fn (has Wavespeed Gemini / multi-provider routing)
+  // This bypasses Chirp3 billing issues and ensures InfiniteTalk always gets audio.
+  if (!ttsBytes) {
+    try {
+      ttsBytes = await generateClonedTTSViaEdge(text, twin || {}, gender, authHeader || null);
+    } catch (e) {
+      console.warn(`Scene ${sceneNumber}: final edge TTS fallback failed`, e);
+    }
+  }
+
+  if (!ttsBytes) {
+    console.warn(`Scene ${sceneNumber}: ALL TTS providers failed — falling back to silent video`);
+    return null;
+  }
+
+  try {
     const ttsUrl = await uploadTTSAudio(supabase, ttsBytes, sceneNumber);
     console.log(`Scene ${sceneNumber}: TTS audio uploaded: ${ttsUrl}`);
     return ttsUrl;
-  } catch (error) {
-    console.warn(`Scene ${sceneNumber}: TTS unavailable, continuing with silent video fallback`, error);
+  } catch (e) {
+    console.warn(`Scene ${sceneNumber}: TTS upload failed`, e);
     return null;
   }
 }
