@@ -585,7 +585,9 @@ export function useScenePreview(): UseScenePreviewResult {
     speechifyVoiceId?: string,
     voiceEngine?: string,
     googleVoiceId?: string,
-    userId?: string
+    userId?: string,
+    gender?: string,
+    voiceSeed?: string
   ) => {
     if (!narration?.trim()) {
       toast({ title: 'No narration', description: 'This scene has no narration to generate voice for.', variant: 'destructive' });
@@ -604,7 +606,9 @@ export function useScenePreview(): UseScenePreviewResult {
           voice: speechifyVoiceId ? undefined : voice,
           speechifyVoiceId: speechifyVoiceId || undefined,
           voiceEngine: voiceEngine || undefined,
-          googleVoiceId: googleVoiceId || undefined
+          googleVoiceId: googleVoiceId || undefined,
+          gender: gender || undefined,
+          voiceSeed: voiceSeed || speechifyVoiceId || googleVoiceId || `${gender || 'narrator'}-default`,
         }
       });
 
