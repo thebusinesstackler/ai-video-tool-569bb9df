@@ -330,6 +330,43 @@ const Reels = () => {
   
   // Stitching state
   const [isManualStitching, setIsManualStitching] = useState(false);
+  const [chatcutDialogOpen, setChatcutDialogOpen] = useState(false);
+  const [chatcutClips, setChatcutClips] = useState<ChatcutHandoffClip[]>([]);
+  const [chatcutTitle, setChatcutTitle] = useState<string>('');
+
+  const openChatcutForCurrent = () => {
+    const clips: ChatcutHandoffClip[] = project.videoClips
+      .filter(v => v.videoUrl)
+      .sort((a, b) => a.sceneNumber - b.sceneNumber)
+      .map(v => {
+        const scene = project.generatedScenes.find(s => s.sceneNumber === v.sceneNumber);
+        return {
+          url: v.videoUrl,
+          name: scene?.narration?.slice(0, 60) || `Scene ${v.sceneNumber}`,
+          thumbnail: scene?.imageUrl || undefined,
+        };
+      });
+    setChatcutClips(clips);
+    setChatcutTitle(project.topic || 'Reel Project');
+    setChatcutDialogOpen(true);
+  };
+
+  const openChatcutForReel = (reel: SavedReel) => {
+    const clips: ChatcutHandoffClip[] = (reel.scenes || [])
+      .filter(s => s.videoUrl)
+      .map((s, idx) => ({
+        url: s.videoUrl!,
+        name: s.narration?.slice(0, 60) || `Scene ${idx + 1}`,
+        thumbnail: s.imageUrl || undefined,
+      }));
+    if (clips.length === 0 && reel.video_url) {
+      clips.push({ url: reel.video_url, name: reel.topic, thumbnail: reel.thumbnail_url || undefined });
+    }
+    setChatcutClips(clips);
+    setChatcutTitle(reel.topic);
+    setChatcutDialogOpen(true);
+  };
+
   const [editingSceneNumber, setEditingSceneNumber] = useState<number | null>(null);
   const [editSceneText, setEditSceneText] = useState('');
 
