@@ -10,6 +10,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { getFriendlyError } from '@/lib/errorClassifier';
 import { createWaveSpeedVideo, getWaveSpeedVideoJob } from '@/lib/wavespeed';
+import { ConversationBuilder } from '@/components/ConversationBuilder';
 import {
   Globe, Sparkles, Play, Clock, Film, Music, Mic, Loader2, CheckCircle2,
   ArrowRight, RefreshCw, ChevronRight, Wand2, AlertCircle, Video, FileText, Trash2
@@ -737,6 +738,9 @@ const LifestyleStories = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Multi-speaker conversation builder */}
+          <ConversationBuilder aspectRatio="9:16" source="lifestyle-stories" />
 
           {/* Saved Drafts */}
           {drafts.length > 0 && (

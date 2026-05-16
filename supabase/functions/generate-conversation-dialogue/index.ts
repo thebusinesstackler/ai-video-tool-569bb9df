@@ -12,18 +12,28 @@ serve(async (req) => {
   }
 
   try {
-    const { 
+    const {
       sceneDescription, characterNames, tone, location, timeOfDay, sceneTitle,
-      storyBible, movieIdea, scenePosition, previousSceneSummary, characterPersonalities, transitionAction
+      storyBible, movieIdea, scenePosition, previousSceneSummary, characterPersonalities, transitionAction,
+      // Reels/Stories conversation mode
+      topic, exchanges,
     } = await req.json();
 
-    if (!sceneDescription) throw new Error('Scene description is required');
-    if (!characterNames || characterNames.length < 2) throw new Error('At least 2 character names are required');
+    // ─── Validate ────────────────────────────────────────────────────────────
+    if (!Array.isArray(characterNames) || characterNames.length < 2) {
+      throw new Error('characterNames must be an array of at least 2 names');
+    }
+    if (characterNames.length > 4) {
+      throw new Error('Maximum 4 speakers supported');
+    }
+    const description = sceneDescription || topic;
+    if (!description) throw new Error('sceneDescription or topic is required');
 
-    const char1 = characterNames[0];
-    const char2 = characterNames[1];
-    console.log('Generating cinematic dialogue between:', char1, 'and', char2);
+    const speakers = characterNames.slice(0, 4);
+    const numExchanges = Math.max(4, Math.min(Number(exchanges) || 8, 14));
+    console.log(`Generating ${numExchanges} exchanges between ${speakers.length} speakers:`, speakers.join(', '));
 
+    // ─── Context for movie-style dialogue (optional) ────────────────────────
     let storyContext = '';
     if (movieIdea) storyContext += `MOVIE CONCEPT: ${movieIdea}\n`;
     if (storyBible) {
@@ -35,51 +45,55 @@ serve(async (req) => {
 
     let characterContext = '';
     if (characterPersonalities) {
-      characterContext = Object.entries(characterPersonalities).map(([name, personality]) => `${name}: ${personality}`).join('\n');
+      characterContext = Object.entries(characterPersonalities)
+        .map(([name, personality]) => `${name}: ${personality}`)
+        .join('\n');
     }
 
     let sceneTypeGuidance = '';
     if (scenePosition) {
-      if (scenePosition.includes('1 of') || scenePosition.toLowerCase().includes('opening')) sceneTypeGuidance = 'OPENING scene — establish the characters and their dynamic.';
-      else if (scenePosition.toLowerCase().includes('climax')) sceneTypeGuidance = 'CLIMAX scene — maximum emotional stakes.';
-      else if (scenePosition.toLowerCase().includes('resolution') || scenePosition.toLowerCase().includes('final')) sceneTypeGuidance = 'RESOLUTION scene — emotional payoff, closure.';
+      const sp = String(scenePosition).toLowerCase();
+      if (sp.includes('1 of') || sp.includes('opening')) sceneTypeGuidance = 'OPENING scene — establish the characters and their dynamic.';
+      else if (sp.includes('climax')) sceneTypeGuidance = 'CLIMAX scene — maximum emotional stakes.';
+      else if (sp.includes('resolution') || sp.includes('final')) sceneTypeGuidance = 'RESOLUTION scene — emotional payoff, closure.';
     }
 
-    const prompt = `You are writing dialogue for a REAL MOVIE SCENE between two characters.
+    const speakerList = speakers.map((s, i) => `${i + 1}. ${s}`).join('\n');
+    const exampleSpeaker1 = speakers[0];
+    const exampleSpeaker2 = speakers[1];
 
-${storyContext ? `STORY CONTEXT:\n${storyContext}` : ''}
+    const prompt = `You are writing dialogue for a real video scene between ${speakers.length} speakers.
 
-CHARACTERS:
-1. ${char1}
-2. ${char2}
-${characterContext ? `\nCHARACTER PERSONALITIES:\n${characterContext}` : ''}
-
-SCENE: "${sceneTitle || 'Untitled'}"
-LOCATION: ${location || 'Unknown'} — ${timeOfDay || 'Day'}
-MOOD: ${tone || 'dramatic'}
+${storyContext ? `STORY CONTEXT:\n${storyContext}\n` : ''}
+SPEAKERS:
+${speakerList}
+${characterContext ? `\nCHARACTER PERSONALITIES:\n${characterContext}\n` : ''}
+${sceneTitle ? `SCENE: "${sceneTitle}"` : ''}
+${location ? `LOCATION: ${location}${timeOfDay ? ` — ${timeOfDay}` : ''}` : ''}
+${tone ? `MOOD: ${tone}` : ''}
 ${scenePosition ? `POSITION IN STORY: ${scenePosition}` : ''}
 ${sceneTypeGuidance ? `\n${sceneTypeGuidance}` : ''}
 ${transitionAction ? `WHAT HAPPENS: ${transitionAction}` : ''}
 
-SCENE DESCRIPTION:
-${sceneDescription}
+CONVERSATION TOPIC / SCENE:
+${description}
 
 WRITING RULES:
-1. EVERY LINE MUST BE LABELED: {"character": "${char1}", "line": "...", "emotion": "..."}
-2. SOUND LIKE REAL ACTORS — distinct vocabulary, rhythm, personality per character
-3. Maximum ONE "..." in the ENTIRE conversation
-4. Mix short punchy lines with longer flowing ones
-5. Include "emotion" field with specific actable directions
-6. NO stage directions in "line" field — only spoken words
-7. Every line must matter — no filler
+1. EVERY LINE MUST BE LABELED with one of the exact speaker names above.
+2. Each speaker has a distinct voice, vocabulary, rhythm, and POV — they should not sound interchangeable.
+3. Rotate naturally between all ${speakers.length} speakers. Do not leave anyone silent.
+4. Maximum ONE ellipsis ("...") in the entire conversation.
+5. Mix short punchy lines with longer flowing ones.
+6. Include an "emotion" field per line (e.g., "skeptical", "excited", "soft and curious").
+7. NO stage directions or parentheticals inside "line" — only spoken words.
+8. Every line must matter. No filler.
+9. Generate roughly ${numExchanges} exchanges (around ${numExchanges * 1.5}–${numExchanges * 2} total lines).
 
-Return ONLY a valid JSON array:
+Return ONLY a valid JSON array, no commentary:
 [
-  {"character": "${char1}", "line": "Their exact words.", "emotion": "specific emotional direction"},
-  {"character": "${char2}", "line": "Their response.", "emotion": "specific emotional direction"}
-]
-
-Generate 6-10 exchanges (12-20 total lines). Return ONLY the JSON array.`;
+  {"character": "${exampleSpeaker1}", "line": "Their exact words.", "emotion": "specific emotional direction"},
+  {"character": "${exampleSpeaker2}", "line": "Their response.", "emotion": "specific emotional direction"}
+]`;
 
     try {
       const result = await callClaude({
@@ -95,7 +109,6 @@ Generate 6-10 exchanges (12-20 total lines). Return ONLY the JSON array.`;
 
       let dialogueContent = result.text.trim();
       dialogueContent = dialogueContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      console.log('Raw dialogue content:', dialogueContent);
 
       let conversation;
       try {
@@ -108,27 +121,39 @@ Generate 6-10 exchanges (12-20 total lines). Return ONLY the JSON array.`;
 
       if (!Array.isArray(conversation)) throw new Error('Dialogue response is not an array');
 
-      const cleanedConversation = conversation.map((entry: any) => {
-        let charName = entry.character || 'Unknown';
-        const char1Lower = char1.toLowerCase().replace(/\s+/g, '');
-        const char2Lower = char2.toLowerCase().replace(/\s+/g, '');
-        const entryCharLower = charName.toLowerCase().replace(/\s+/g, '');
-        if (entryCharLower.includes(char1Lower) || char1Lower.includes(entryCharLower)) charName = char1;
-        else if (entryCharLower.includes(char2Lower) || char2Lower.includes(entryCharLower)) charName = char2;
+      // ─── Normalize character names to one of the requested speakers ────────
+      const lowerSpeakers = speakers.map(s => ({ name: s, lower: s.toLowerCase().replace(/\s+/g, '') }));
+      const cleanedConversation = conversation
+        .map((entry: any) => {
+          const rawName = (entry.character || '').toString();
+          const rawLower = rawName.toLowerCase().replace(/\s+/g, '');
+          let matched = lowerSpeakers.find(s => s.lower === rawLower)?.name;
+          if (!matched) matched = lowerSpeakers.find(s => rawLower.includes(s.lower) || s.lower.includes(rawLower))?.name;
+          const character = matched || speakers[0];
 
-        let line = (entry.line || '').replace(/\([^)]*\)/g, '').replace(/\[[^\]]*\]/g, '').replace(/\*[^*]*\*/g, '').trim();
-        let ellipsisCount = 0;
-        line = line.replace(/\.{3}/g, () => { ellipsisCount++; return ellipsisCount <= 1 ? '...' : '.'; });
-        line = line.replace(/…/g, () => { ellipsisCount++; return ellipsisCount <= 1 ? '...' : '.'; });
+          let line = (entry.line || '')
+            .replace(/\([^)]*\)/g, '')
+            .replace(/\[[^\]]*\]/g, '')
+            .replace(/\*[^*]*\*/g, '')
+            .trim();
+          let ellipsisCount = 0;
+          line = line.replace(/\.{3}/g, () => { ellipsisCount++; return ellipsisCount <= 1 ? '...' : '.'; });
+          line = line.replace(/…/g, () => { ellipsisCount++; return ellipsisCount <= 1 ? '...' : '.'; });
 
-        return { character: charName, line, emotion: entry.emotion || undefined };
-      }).filter((entry: any) => entry.line.length > 0);
+          return { character, line, emotion: entry.emotion || undefined };
+        })
+        .filter((e: any) => e.line.length > 0);
 
-      console.log('Generated cinematic conversation:', cleanedConversation.length, 'lines');
+      console.log(`Generated conversation: ${cleanedConversation.length} lines across ${speakers.length} speakers`);
 
+      // Per-character concatenated dialogue (legacy contract for MovieSceneCreator)
       const dialogueByCharacter: Record<string, string> = {};
-      dialogueByCharacter[char1] = cleanedConversation.filter((e: any) => e.character === char1).map((e: any) => e.line).join(' ');
-      dialogueByCharacter[char2] = cleanedConversation.filter((e: any) => e.character === char2).map((e: any) => e.line).join(' ');
+      for (const s of speakers) {
+        dialogueByCharacter[s] = cleanedConversation
+          .filter((e: any) => e.character === s)
+          .map((e: any) => e.line)
+          .join(' ');
+      }
 
       return new Response(
         JSON.stringify({ conversation: cleanedConversation, dialogueByCharacter }),

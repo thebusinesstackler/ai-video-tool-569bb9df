@@ -10,6 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ConversationBuilder } from '@/components/ConversationBuilder';
+import { MessageSquare } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -4067,12 +4069,18 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                   <span className="hidden sm:inline">Drafts {draftReels.length > 0 ? `(${draftReels.length})` : ''}</span>
                   <span className="sm:hidden">Drafts {draftReels.length > 0 ? `(${draftReels.length})` : ''}</span>
                 </TabsTrigger>
+                <TabsTrigger value="conversation" className="flex-1 sm:flex-none data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  <span className="hidden sm:inline">Conversation</span>
+                  <span className="sm:hidden">Convo</span>
+                </TabsTrigger>
                 <TabsTrigger value="history" className="flex-1 sm:flex-none data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                   <History className="w-4 h-4 mr-2" />
                   <span className="hidden sm:inline">My Reels ({savedReels.length})</span>
                   <span className="sm:hidden">Reels ({savedReels.length})</span>
                 </TabsTrigger>
               </TabsList>
+
 
               {/* Mobile Mode Selector (Advanced only) */}
               {isMobile && isAdvanced && (
@@ -7898,6 +7906,12 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                 })}
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="conversation" className="space-y-6">
+            <div className="max-w-3xl mx-auto">
+              <ConversationBuilder aspectRatio="9:16" source="reels" />
+            </div>
           </TabsContent>
 
           <TabsContent value="history" className="space-y-6">
