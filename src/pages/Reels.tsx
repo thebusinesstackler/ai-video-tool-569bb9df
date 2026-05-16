@@ -71,6 +71,7 @@ import {
   Film,
   Plus,
   Package
+  Scissors,
 } from 'lucide-react';
 import { ScenePreview } from '@/components/ScenePreview';
 import { TimelineEditor } from '@/components/TimelineEditor';
