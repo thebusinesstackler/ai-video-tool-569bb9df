@@ -775,7 +775,7 @@ Absolutely no text, no captions, no subtitles, no watermarks.`;
           if (!supabase) throw new Error('Supabase client required for TTS upload');
           
           const gender = detectGender(characterDescription);
-          const ttsUrl = await tryCreateTTSUrl(supabase, scene.narration, scene.sceneNumber, OPENAI_API_KEY!, gender);
+          const ttsUrl = await tryCreateTTSUrl(supabase, scene.narration, scene.sceneNumber, OPENAI_API_KEY!, gender, aiTwin, authHeader);
 
           if (ttsUrl) {
             apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';
@@ -852,7 +852,7 @@ Atmospheric ambient audio. No speech. No text, no captions, no subtitles, no wat
           if (!supabase) throw new Error('Supabase client required for TTS upload');
           
           const gender = detectGender(characterDescription);
-          const ttsUrl = await tryCreateTTSUrl(supabase, scene.narration, scene.sceneNumber, OPENAI_API_KEY!, gender);
+          const ttsUrl = await tryCreateTTSUrl(supabase, scene.narration, scene.sceneNumber, OPENAI_API_KEY!, gender, aiTwin, authHeader);
 
           if (ttsUrl) {
             apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';
