@@ -918,11 +918,31 @@ const LifestyleStories = () => {
         {/* Step 3: Video Concepts */}
         {step === 'concepts' && concepts.length > 0 && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
               <h2 className="text-xl font-semibold">Video Concepts</h2>
-              <Button variant="outline" size="sm" onClick={() => setStep('analysis')}>
-                <RefreshCw className="w-4 h-4 mr-2" /> Regenerate
-              </Button>
+              <div className="flex items-center gap-2">
+                {twins.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Mic className="w-4 h-4 text-muted-foreground" />
+                    <Select value={selectedTwinId ?? 'none'} onValueChange={(v) => setSelectedTwinId(v === 'none' ? null : v)}>
+                      <SelectTrigger className="w-[220px] h-9">
+                        <SelectValue placeholder="Voice: Auto" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Auto-matched voice</SelectItem>
+                        {twins.map(t => (
+                          <SelectItem key={t.id} value={t.id} disabled={!t.voice_cloning_key}>
+                            {t.name}{t.voice_cloning_key ? ` (${isSpeechifyVoiceId(t.voice_cloning_key) ? 'Speechify' : 'Google'} clone)` : ' (no voice)'}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <Button variant="outline" size="sm" onClick={() => setStep('analysis')}>
+                  <RefreshCw className="w-4 h-4 mr-2" /> Regenerate
+                </Button>
+              </div>
             </div>
 
             <Tabs defaultValue="0">
