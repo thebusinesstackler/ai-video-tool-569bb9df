@@ -233,6 +233,14 @@ async function runTool(
         aspectRatio: '9:16',
         source: 'reels-pro',
         quality: ctx.quality,
+        metadata: {
+          autoSaveReel: true,
+          sendToChatcut: true,
+          topic: args.topic || ctx.topic || 'Reels Pro',
+          script: args.script || ctx.script || '',
+          durationSec: args.durationSec,
+          audioUrl: args.audioUrl,
+        },
       }, ctx.authHeader);
       return { taskId: data.taskId, model: data.model, quality: ctx.quality };
     }
