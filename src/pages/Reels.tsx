@@ -354,6 +354,8 @@ const Reels = () => {
     clearReference,
     resetPreview,
     restorePreviewScenes,
+    setSceneVoiceMeta,
+    setAllScenesVoiceMeta,
     insertScene: insertPreviewScene,
     deleteScene: deletePreviewScene,
   } = useScenePreview();
