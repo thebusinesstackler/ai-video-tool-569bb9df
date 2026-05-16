@@ -293,29 +293,40 @@ const LifestyleStories = () => {
       setProductionStatus(prev => ({ ...prev, voiceover: 'in_progress' }));
       let voiceoverUrl: string | null = null;
       try {
-        // Auto-match a Speechify voice to the brand tone and audience
-        let speechifyVoiceId: string | undefined;
-        try {
-          const { data: matchData } = await supabase.functions.invoke('match-speechify-voice', {
-            body: {
-              characterDescription: `Brand: ${brandAnalysis?.brand_name || ''}. Audience: ${brandAnalysis?.target_audience || ''}. Visual style: ${brandAnalysis?.visual_style || ''}. Concept: ${concept.type} — ${concept.hook}`,
-              tone: brandAnalysis?.brand_tone || concept.music_mood,
-              scriptSample: concept.voiceover_script,
-            },
-          });
-          speechifyVoiceId = matchData?.voiceId;
-          if (speechifyVoiceId) {
-            console.log(`🎙️ Lifestyle voice matched: ${matchData.displayName} — ${matchData.reasoning}`);
+        // Prefer the selected AI Twin's cloned voice (same routing as MovieSceneCreator).
+        // Fall back to auto-matched Speechify voice when no twin clone is available.
+        const twinKey = selectedTwin?.voice_cloning_key || null;
+        const twinIsSpeechify = isSpeechifyVoiceId(twinKey);
+        let speechifyVoiceId: string | undefined = twinIsSpeechify ? twinKey! : undefined;
+        const voiceCloningKey: string | undefined = twinKey && !twinIsSpeechify ? twinKey : undefined;
+
+        if (!speechifyVoiceId && !voiceCloningKey) {
+          try {
+            const { data: matchData } = await supabase.functions.invoke('match-speechify-voice', {
+              body: {
+                characterDescription: `Brand: ${brandAnalysis?.brand_name || ''}. Audience: ${brandAnalysis?.target_audience || ''}. Visual style: ${brandAnalysis?.visual_style || ''}. Concept: ${concept.type} — ${concept.hook}`,
+                tone: brandAnalysis?.brand_tone || concept.music_mood,
+                scriptSample: concept.voiceover_script,
+              },
+            });
+            speechifyVoiceId = matchData?.voiceId;
+            if (speechifyVoiceId) {
+              console.log(`🎙️ Lifestyle voice matched: ${matchData.displayName} — ${matchData.reasoning}`);
+            }
+          } catch (e) {
+            console.warn('Speechify voice match failed, using default:', e);
           }
-        } catch (e) {
-          console.warn('Speechify voice match failed, using default:', e);
+        } else {
+          console.log(`🎙️ Using AI Twin cloned voice (${twinIsSpeechify ? 'Speechify' : 'Google'}): ${selectedTwin?.name}`);
         }
 
         const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
           body: {
             text: concept.voiceover_script,
-            voice: 'alloy',
+            voice: speechifyVoiceId || voiceCloningKey ? 'cloned' : 'alloy',
             speechifyVoiceId,
+            voiceCloningKey,
+            gender: selectedTwin?.gender || undefined,
           },
         });
         if (ttsError) throw ttsError;
