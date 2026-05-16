@@ -380,14 +380,31 @@ serve(async (req) => {
       }
     }
 
-    // OAuth Chirp3-HD fallback last (requires service-account project to have billing enabled)
+    // OAuth Chirp3-HD fallback (requires service-account project to have billing enabled)
     const chirp3Result = await tryChirp3();
     if (chirp3Result) {
       return new Response(JSON.stringify({ ...chirp3Result, isClonedVoice: false, provider: 'chirp3' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-    
-    throw new Error('No TTS engine available or all attempts failed');
+
+    // Last-resort: Speechify generic public voice (works even with no twin / no cloned voice)
+    if (speechifyApiKey) {
+      const genderLower = (gender || '').toLowerCase();
+      const isFemale = genderLower === 'female' || genderLower === 'woman';
+      const speechifyDefaults = isFemale
+        ? ['lisa', 'monica', 'kate']
+        : ['henry', 'ben', 'george'];
+      for (const vId of speechifyDefaults) {
+        console.log(`Speechify fallback with voice: ${vId}`);
+        const result = await generateSpeechifyTTS(text, speechifyApiKey, vId, validatedSpeed);
+        if (result) {
+          return new Response(JSON.stringify({ ...result, isClonedVoice: false, provider: 'speechify-fallback' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+      }
+    }
+
+    throw new Error('All TTS providers failed (OpenAI quota / Google billing / Speechify). Your draft is saved — try again shortly.');
     
   } catch (error) {
     console.error('TTS error:', error);
