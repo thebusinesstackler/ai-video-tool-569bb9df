@@ -253,6 +253,7 @@ async function generateClonedTTSViaEdge(
         speechifyVoiceId,
         voiceCloningKey,
         gender,
+        voiceEngine: speechifyVoiceId ? 'speechify' : (voiceCloningKey ? 'google' : 'wavespeed'),
       }),
     });
     if (!resp.ok) {
