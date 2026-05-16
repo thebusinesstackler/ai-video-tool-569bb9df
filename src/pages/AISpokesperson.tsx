@@ -26,6 +26,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Input } from '@/components/ui/input';
 import { LogoUploadInline } from '@/components/LogoUploadInline';
 import { getFriendlyError } from '@/lib/errorClassifier';
+import { AudioUploadTalkingHead } from '@/components/podcast/AudioUploadTalkingHead';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Upload } from 'lucide-react';
 
 import type { AITwin } from '@/types/aiTwin';
 
@@ -88,6 +91,7 @@ const AISpokesperson = () => {
   const [selectedDuration, setSelectedDuration] = useState('60');
   const [settingsExpanded, setSettingsExpanded] = useState(false);
   const [twinPickerOpen, setTwinPickerOpen] = useState(false);
+  const [inputMode, setInputMode] = useState<'script' | 'audio'>('script');
   
   // Video generation
   const [isGenerating, setIsGenerating] = useState(false);
@@ -733,6 +737,18 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
           <CreatorModeToggle mode={mode} onModeChange={setMode} />
         </div>
 
+        <Tabs value={inputMode} onValueChange={(v) => setInputMode(v as 'script' | 'audio')}>
+          <TabsList className="grid grid-cols-2 w-full max-w-md">
+            <TabsTrigger value="script"><Wand2 className="w-3.5 h-3.5 mr-1" /> From script</TabsTrigger>
+            <TabsTrigger value="audio"><Upload className="w-3.5 h-3.5 mr-1" /> Upload audio</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {inputMode === 'audio' ? (
+          <AudioUploadTalkingHead source="spokesperson" />
+        ) : (
+        <>
+
         {/* Progress Panel */}
         {(isGenerating || isGeneratingScript) && (
           <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent overflow-hidden">
@@ -1296,6 +1312,8 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
               </div>
             )}
           </div>
+        )}
+        </>
         )}
       </div>
     </Layout>
