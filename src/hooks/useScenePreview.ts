@@ -588,9 +588,9 @@ export function useScenePreview(): UseScenePreviewResult {
       return;
     }
 
-    // Mark scene as regenerating voice
+    // Mark scene as regenerating voice (shows "Generating voice…" placeholder)
     setPreviewScenes(prev => prev.map(ps =>
-      ps.sceneNumber === sceneNumber ? { ...ps, isRegenerating: true } : ps
+      ps.sceneNumber === sceneNumber ? { ...ps, isRegenerating: true, isGeneratingVoice: true, audioUrl: null } : ps
     ));
 
     try {
@@ -643,7 +643,7 @@ export function useScenePreview(): UseScenePreviewResult {
         // Update preview scene
         setPreviewScenes(prev => prev.map(ps =>
           ps.sceneNumber === sceneNumber
-            ? { ...ps, audioUrl, audioDuration: actualDuration, isRegenerating: false }
+            ? { ...ps, audioUrl, audioDuration: actualDuration, isRegenerating: false, isGeneratingVoice: false }
             : ps
         ));
 
@@ -654,7 +654,7 @@ export function useScenePreview(): UseScenePreviewResult {
     } catch (error: any) {
       console.error('Voice regeneration error:', error);
       setPreviewScenes(prev => prev.map(ps =>
-        ps.sceneNumber === sceneNumber ? { ...ps, isRegenerating: false } : ps
+        ps.sceneNumber === sceneNumber ? { ...ps, isRegenerating: false, isGeneratingVoice: false } : ps
       ));
       toast({ title: 'Voice Regeneration Failed', description: error.message, variant: 'destructive' });
     }
@@ -665,6 +665,8 @@ export function useScenePreview(): UseScenePreviewResult {
     const cleanedScenes = scenes.map(s => ({
       ...s,
       isGenerating: false,
+      isGeneratingImage: false,
+      isGeneratingVoice: false,
       isRegenerating: false,
     }));
     setPreviewScenes(cleanedScenes);
