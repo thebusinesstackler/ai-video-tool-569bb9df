@@ -723,7 +723,7 @@ export function useScenePreview(): UseScenePreviewResult {
 
       setPreviewScenes(prev => prev.map(ps =>
         ps.sceneNumber === insertIndex + 1
-          ? { ...ps, imageUrl: data.imageUrl, isGenerating: false }
+          ? { ...ps, imageUrl: data.imageUrl, isGenerating: false, isGeneratingImage: false }
           : ps
       ));
 
