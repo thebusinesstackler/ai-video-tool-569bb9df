@@ -5547,7 +5547,7 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                             if (referenceToUse) { setExternalReference(referenceToUse); if (preReferenceTransformation) setCharacterTransformation(preReferenceTransformation); }
                             const selectedTwin = aiTwins.find(t => t.id === selectedTwinId);
                             const voiceConfig = resolveVoiceForGeneration();
-                            generatePreview(project.scenes, user?.id, referenceToUse || undefined, voiceConfig.voice || selectedVoice, characterRefImage || undefined, characterDescription || selectedTwin?.face_description || undefined, selectedTwin?.voice_cloning_key || undefined, selectedTwin?.reference_images || [], customAudioMode === 'upload' && customAudioUrl ? customAudioUrl : undefined, customAudioMode === 'upload' && customAudioDuration ? customAudioDuration : undefined, voiceConfig.voiceEngine, undefined, videoModel, selectedProductImageUrl || undefined, selectedProductName || undefined);
+                            generatePreview(project.scenes, user?.id, referenceToUse || undefined, voiceConfig.voice || selectedVoice, characterRefImage || undefined, characterDescription || selectedTwin?.face_description || undefined, selectedTwin?.voice_cloning_key || undefined, selectedTwin?.reference_images || [], customAudioMode === 'upload' && customAudioUrl ? customAudioUrl : undefined, customAudioMode === 'upload' && customAudioDuration ? customAudioDuration : undefined, voiceConfig.voiceEngine, undefined, videoModel, selectedProductImageUrl || undefined, selectedProductName || undefined, selectedTwin?.gender || undefined, selectedTwin?.id || `${selectedTwin?.gender || 'narrator'}-${selectedTwin?.name || 'default'}`);
                           }} disabled={isGenerating || isGeneratingPreview} className="w-full bg-gradient-primary hover:opacity-90">
                             {isGeneratingPreview ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ImageIcon className="w-4 h-4 mr-2" />}
                             Generate Preview
@@ -6545,7 +6545,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           undefined,
                           videoModel,
                           selectedProductImageUrl || undefined,
-                          selectedProductName || undefined
+                          selectedProductName || undefined,
+                          selectedTwin?.gender || undefined,
+                          selectedTwin?.id || `${selectedTwin?.gender || 'narrator'}-${selectedTwin?.name || 'default'}`
                         );
                       }}
                       disabled={isGenerating || isGeneratingPreview}
@@ -6668,7 +6670,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           selectedTwin?.voice_cloning_key || undefined,
                           voiceConfig.voiceEngine,
                           undefined,
-                          user?.id
+                          user?.id,
+                          selectedTwin?.gender || undefined,
+                          selectedTwin?.id || `${selectedTwin?.gender || 'narrator'}-${selectedTwin?.name || 'default'}`
                         );
                       }}
                       onRegenerateScene={(sceneNumber) => {
@@ -6711,7 +6715,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       selectedTwin?.voice_cloning_key || undefined,
                       voiceConfig.voiceEngine,
                       undefined,
-                      user?.id
+                      user?.id,
+                      selectedTwin?.gender || undefined,
+                      selectedTwin?.id || `${selectedTwin?.gender || 'narrator'}-${selectedTwin?.name || 'default'}`
                     );
                   }}
                   onGenerateVoiceSample={async (req) => {
@@ -6756,7 +6762,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           selectedTwin?.voice_cloning_key || undefined,
                           voiceConfig.voiceEngine,
                           undefined,
-                          user?.id
+                          user?.id,
+                          selectedTwin?.gender || undefined,
+                          selectedTwin?.id || `${selectedTwin?.gender || 'narrator'}-${selectedTwin?.name || 'default'}`
                         );
                       }
                     });

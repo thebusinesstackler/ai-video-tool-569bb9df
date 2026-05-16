@@ -105,9 +105,9 @@ interface UseScenePreviewResult {
   referenceImageUrl: string | null;
   characterTransformation: string;
   setCharacterTransformation: (transformation: string) => void;
-  generatePreview: (scenes: Scene[], userId?: string, referenceImageUrl?: string, voice?: string, characterRefImage?: string, characterDescription?: string, speechifyVoiceId?: string, allReferenceImages?: string[], customAudioUrl?: string, customAudioDuration?: number, voiceEngine?: string, googleVoiceId?: string, videoModel?: string, productImageUrl?: string, productName?: string) => Promise<void>;
+  generatePreview: (scenes: Scene[], userId?: string, referenceImageUrl?: string, voice?: string, characterRefImage?: string, characterDescription?: string, speechifyVoiceId?: string, allReferenceImages?: string[], customAudioUrl?: string, customAudioDuration?: number, voiceEngine?: string, googleVoiceId?: string, videoModel?: string, productImageUrl?: string, productName?: string, gender?: string, voiceSeed?: string) => Promise<void>;
   regenerateSceneImage: (sceneNumber: number, visualDescription: string) => Promise<void>;
-  regenerateSceneVoice: (sceneNumber: number, narration: string, voice?: string, speechifyVoiceId?: string, voiceEngine?: string, googleVoiceId?: string, userId?: string) => Promise<void>;
+  regenerateSceneVoice: (sceneNumber: number, narration: string, voice?: string, speechifyVoiceId?: string, voiceEngine?: string, googleVoiceId?: string, userId?: string, gender?: string, voiceSeed?: string) => Promise<void>;
   regenerateWithReference: (sceneNumber: number, visualDescription: string, referenceImageUrl: string, transformation?: string, characterDescription?: string, productImageUrl?: string, productName?: string) => Promise<void>;
   setSceneAsReference: (sceneNumber: number) => void;
   setExternalReference: (imageUrl: string) => void;
@@ -143,7 +143,9 @@ export function useScenePreview(): UseScenePreviewResult {
     googleVoiceId?: string,
     videoModel?: string,
     productImageUrl?: string,
-    productName?: string
+    productName?: string,
+    gender?: string,
+    voiceSeed?: string
   ) => {
     const activeReference = refImageUrl || referenceImageUrl || characterRefImage;
     // Use all reference images if provided, otherwise use just the active reference
@@ -232,7 +234,9 @@ export function useScenePreview(): UseScenePreviewResult {
                 voice: speechifyVoiceId ? undefined : voice,
                 speechifyVoiceId: speechifyVoiceId || undefined,
                 voiceEngine: voiceEngine || undefined,
-                googleVoiceId: googleVoiceId || undefined
+                googleVoiceId: googleVoiceId || undefined,
+                gender: gender || undefined,
+                voiceSeed: voiceSeed || speechifyVoiceId || googleVoiceId || `${gender || 'narrator'}-default`,
               }
             });
 
@@ -581,7 +585,9 @@ export function useScenePreview(): UseScenePreviewResult {
     speechifyVoiceId?: string,
     voiceEngine?: string,
     googleVoiceId?: string,
-    userId?: string
+    userId?: string,
+    gender?: string,
+    voiceSeed?: string
   ) => {
     if (!narration?.trim()) {
       toast({ title: 'No narration', description: 'This scene has no narration to generate voice for.', variant: 'destructive' });
@@ -600,7 +606,9 @@ export function useScenePreview(): UseScenePreviewResult {
           voice: speechifyVoiceId ? undefined : voice,
           speechifyVoiceId: speechifyVoiceId || undefined,
           voiceEngine: voiceEngine || undefined,
-          googleVoiceId: googleVoiceId || undefined
+          googleVoiceId: googleVoiceId || undefined,
+          gender: gender || undefined,
+          voiceSeed: voiceSeed || speechifyVoiceId || googleVoiceId || `${gender || 'narrator'}-default`,
         }
       });
 

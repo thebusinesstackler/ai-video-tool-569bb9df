@@ -207,12 +207,20 @@ async function generateWavespeedGeminiTTS(
   text: string,
   apiKey: string,
   gender?: string,
+  voiceSeed?: string,
 ): Promise<{ audioContent: string; audioUrl: string } | null> {
   try {
     const genderLower = (gender || '').toLowerCase();
     const isFemale = genderLower === 'female' || genderLower === 'woman';
     const pool = isFemale ? FEMALE_GEMINI_VOICES : MALE_GEMINI_VOICES;
-    const voiceName = pool[Math.floor(Math.random() * pool.length)];
+    // Deterministic voice selection: same seed → same voice across all scenes
+    let idx = 0;
+    if (voiceSeed) {
+      let h = 0;
+      for (let i = 0; i < voiceSeed.length; i++) h = ((h << 5) - h + voiceSeed.charCodeAt(i)) | 0;
+      idx = Math.abs(h) % pool.length;
+    }
+    const voiceName = pool[idx];
     const scriptText = `Narrator: ${text}`;
     console.log(`WaveSpeed Gemini TTS → voice ${voiceName}`);
 
@@ -301,7 +309,7 @@ serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const { text: rawText, voice = 'ai-auto', speed = 1, pitch: rawPitch = 0, voiceCloningKey, speechifyVoiceId, gender } = await req.json();
+    const { text: rawText, voice = 'ai-auto', speed = 1, pitch: rawPitch = 0, voiceCloningKey, speechifyVoiceId, gender, voiceSeed } = await req.json();
 
     // Sanitize text before any TTS engine sees it
     const text = sanitizeForTTS(rawText);
@@ -347,7 +355,7 @@ serve(async (req) => {
 
     // Priority 3: WaveSpeed Gemini 2.5 Pro TTS — same provider as Movie Scene Creator
     if (wavespeedApiKey) {
-      const result = await generateWavespeedGeminiTTS(text, wavespeedApiKey, gender);
+      const result = await generateWavespeedGeminiTTS(text, wavespeedApiKey, gender, voiceSeed);
       if (result) {
         return new Response(JSON.stringify({ ...result, isClonedVoice: false, provider: 'wavespeed-gemini' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
