@@ -75,6 +75,15 @@ const saveImageToGallery = async (
   }
 };
 
+export interface SceneVoiceMeta {
+  seed?: string;
+  gender?: string;
+  voiceCloningKey?: string;
+  voiceEngine?: string;
+  voice?: string;
+  label?: string;
+}
+
 export interface PreviewScene {
   sceneNumber: number;
   narration: string;
@@ -87,6 +96,7 @@ export interface PreviewScene {
   isGeneratingVoice?: boolean;
   isRegenerating?: boolean;
   isReference?: boolean;
+  voiceMeta?: SceneVoiceMeta;
 }
 
 interface Scene {
