@@ -166,87 +166,10 @@ export const BackgroundVideoProvider = ({ children }: { children: React.ReactNod
         return;
       }
 
-      updateJob(job.id, { status: 'stitching', progress: 75 });
-
-      // Build clips for Creatomate
+      // Stitching disabled — deliver individual clips (export to ChatCut AI)
       const sortedVideos = validVideos.sort((a, b) => a.sceneNumber - b.sceneNumber);
       const sortedAudios = [...job.voiceovers].sort((a, b) => a.sceneNumber - b.sceneNumber);
-      
-      // Only include audio for non-embedded-audio scenes
-      const perSceneEmbedded: Record<number, boolean> = {};
-      job.videoTasks.forEach(t => { perSceneEmbedded[t.sceneNumber] = t.hasEmbeddedAudio || false; });
-      
-      const audioForStitch = sortedAudios
-        .filter(a => a.audioUrl && a.audioUrl.trim() !== '' && !perSceneEmbedded[a.sceneNumber])
-        .map(a => a.storageUrl || a.audioUrl);
-
-      // Skip stitching for single-clip embedded-audio videos
-      const allEmbedded = job.videoTasks.every(t => t.hasEmbeddedAudio) && audioForStitch.length === 0;
-      const skipStitch = sortedVideos.length === 1 && allEmbedded;
-
-      let finalVideoUrl: string | null = null;
-
-      if (skipStitch) {
-        console.log('[BackgroundJob] Single embedded-audio clip — skipping stitch, using original URL');
-        finalVideoUrl = sortedVideos[0]?.videoUrl || null;
-      } else {
-        // Merge audio if needed
-        let mergedAudioUrl: string | undefined;
-        if (audioForStitch.length > 0) {
-          try {
-            const { data: mergeData } = await supabase.functions.invoke('merge-audio', {
-              body: {
-                segments: sortedAudios
-                  .filter(a => a.audioUrl && !perSceneEmbedded[a.sceneNumber])
-                  .map(a => ({ audioUrl: a.storageUrl || a.audioUrl, duration: a.duration, sceneNumber: a.sceneNumber })),
-                userId: job.userId
-              }
-            });
-            if (mergeData?.audioUrl) mergedAudioUrl = mergeData.audioUrl;
-          } catch (e) {
-            console.warn('Background audio merge failed:', e);
-          }
-        }
-
-        // Try Creatomate cloud stitching
-        try {
-          const clips = sortedVideos.map(v => {
-            const audio = sortedAudios.find(a => a.sceneNumber === v.sceneNumber);
-            return { url: v.videoUrl, duration: audio?.duration || 5, audioDuration: audio?.duration };
-          });
-
-          const { data: stitchData } = await supabase.functions.invoke('creatomate-stitch', {
-            body: { clips, audioUrl: mergedAudioUrl, transition: 'crossfade' }
-          });
-
-          if (stitchData?.success && stitchData?.renderId) {
-            const renderStart = Date.now();
-            while (Date.now() - renderStart < 300000) {
-              if (!pollingRef.current.get(job.id)) return;
-              
-              const { data: status } = await supabase.functions.invoke('creatomate-status', {
-                body: { renderId: stitchData.renderId }
-              });
-
-              if (status?.status === 'succeeded' && status?.url) {
-                finalVideoUrl = status.url;
-                break;
-              }
-              if (status?.status === 'failed') break;
-
-              updateJob(job.id, { progress: 75 + Math.min(20, Math.round(((Date.now() - renderStart) / 300000) * 20)) });
-              await new Promise(r => setTimeout(r, 3000));
-            }
-          }
-        } catch (e) {
-          console.warn('Background Creatomate stitch failed:', e);
-        }
-
-        // If cloud stitch failed, use first clip directly
-        if (!finalVideoUrl) {
-          finalVideoUrl = sortedVideos[0]?.videoUrl || null;
-        }
-      }
+      const finalVideoUrl: string | null = sortedVideos[0]?.videoUrl || null;
 
       // Save to library
       updateJob(job.id, { status: 'saving', progress: 95 });
