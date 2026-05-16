@@ -144,6 +144,9 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
   const [playingVoiceSample, setPlayingVoiceSample] = useState<string | null>(null);
   const voiceSampleRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
 
+  // Voice clipboard: scene number whose voice the user wants to copy to others
+  const [copiedVoiceSceneNumber, setCopiedVoiceSceneNumber] = useState<number | null>(null);
+
   // Product analysis state
   const [productAnalysisOpen, setProductAnalysisOpen] = useState(false);
   const [isAnalyzingProduct, setIsAnalyzingProduct] = useState(false);
