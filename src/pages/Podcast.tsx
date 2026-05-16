@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { PodcastAIDirector, type VideoPlan } from '@/components/PodcastAIDirector';
 import { PodcastFromContent } from '@/components/podcast/PodcastFromContent';
+import { AudioUploadTalkingHead } from '@/components/podcast/AudioUploadTalkingHead';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Mic, Loader2, Play, Download, User, Clock, RotateCcw, Sparkles, Wand2, Check, Globe, Upload, X, Headphones, Layers, History, Trash2, CheckSquare, Square, RefreshCw } from 'lucide-react';
@@ -1272,9 +1273,12 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
         <div className="flex-1 overflow-y-auto order-1 lg:order-2">
           <div className="max-w-xl mx-auto px-4 py-6 space-y-5">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid grid-cols-4 w-full mb-4">
+              <TabsList className="grid grid-cols-5 w-full mb-4">
                 <TabsTrigger value="talking-head">
                   <Mic className="w-3.5 h-3.5 mr-1" /> Single
+                </TabsTrigger>
+                <TabsTrigger value="audio-upload">
+                  <Upload className="w-3.5 h-3.5 mr-1" /> Audio
                 </TabsTrigger>
                 <TabsTrigger value="bulk">
                   <Layers className="w-3.5 h-3.5 mr-1" /> Bulk
@@ -1644,6 +1648,10 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
                 <PodcastFromContent
                   onUseTranscriptForVideo={(t) => setMessage(t)}
                 />
+              </TabsContent>
+
+              <TabsContent value="audio-upload" className="mt-0">
+                <AudioUploadTalkingHead source="podcast" />
               </TabsContent>
 
               {/* ============== BULK QUEUE ============== */}
