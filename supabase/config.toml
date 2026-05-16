@@ -118,3 +118,6 @@ verify_jwt = true
 
 [functions.generate-animated-graphic]
 verify_jwt = true
+
+[functions.wavespeed-webhook]
+verify_jwt = false
