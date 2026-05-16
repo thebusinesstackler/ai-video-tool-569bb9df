@@ -159,13 +159,32 @@ export default function ReelsPro() {
   return (
     <Layout>
       <div className="container mx-auto p-4 md:p-6 max-w-7xl">
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
           <Sparkles className="h-6 w-6 text-primary" />
           <h1 className="text-2xl md:text-3xl font-bold">Reels & Stories Pro</h1>
           <Badge variant="secondary">Beta</Badge>
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Quality</span>
+            <div className="inline-flex rounded-md border border-border overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setQuality("480p")}
+                className={`px-3 py-1.5 text-xs font-medium transition-colors ${quality === "480p" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+              >
+                480p · cheaper
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuality("720p")}
+                className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-border ${quality === "720p" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+              >
+                720p HD
+              </button>
+            </div>
+          </div>
         </div>
         <p className="text-muted-foreground mb-6 text-sm">
-          Chat with Marco Pro — he plans, narrates, and renders long-form talking-head reels (up to 5 min) using your AI Twin and InfiniteTalk HD lip-sync.
+          Chat with Marco Pro — he plans, narrates, and renders long-form talking-head reels (up to 5 min) using your AI Twin and InfiniteTalk lip-sync. Currently rendering at <strong>{quality}</strong>.
         </p>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4 h-[calc(100vh-220px)]">
