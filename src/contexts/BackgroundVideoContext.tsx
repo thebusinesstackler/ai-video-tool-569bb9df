@@ -284,6 +284,22 @@ export const BackgroundVideoProvider = ({ children }: { children: React.ReactNod
     }
   }, [toast, updateJob]);
 
+  // Keep latest pollJob in ref so registerJob/resume effects can call it
+  useEffect(() => {
+    pollJobRef.current = pollJob;
+  }, [pollJob]);
+
+  // Resume polling for any persisted in-progress jobs on mount
+  useEffect(() => {
+    const resumable = jobs.filter(
+      j => (j.status === 'polling' || j.status === 'stitching' || j.status === 'saving')
+        && !pollingRef.current.get(j.id)
+    );
+    resumable.forEach(j => pollJobRef.current?.(j));
+    // Only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Clean up completed/failed jobs older than 10 minutes
   useEffect(() => {
     const interval = setInterval(() => {
