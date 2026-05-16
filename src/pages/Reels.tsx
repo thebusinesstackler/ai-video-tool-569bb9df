@@ -331,6 +331,9 @@ const Reels = () => {
   const [isManualStitching, setIsManualStitching] = useState(false);
   const [editingSceneNumber, setEditingSceneNumber] = useState<number | null>(null);
   const [editSceneText, setEditSceneText] = useState('');
+
+  // Per-scene voice metadata so users can copy a voice from one scene to another
+  const sceneVoiceMetaRef = useRef<Map<number, { seed: string; gender?: string; voiceCloningKey?: string; voiceEngine?: string; voice?: string }>>(new Map());
   
   // Scene preview hook
   const { 
@@ -6711,19 +6714,83 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                     const effectiveGender = genderOverride || selectedTwin?.gender || undefined;
                     // When user explicitly overrides gender, use a gender-scoped seed so a new voice is picked
                     const effectiveSeed = genderOverride
-                      ? `override-${genderOverride}-${selectedTwin?.id || 'narrator'}-${sceneNumber}`
+                      ? `override-${genderOverride}-${selectedTwin?.id || 'narrator'}-${sceneNumber}-${Date.now()}`
                       : (selectedTwin?.id || `${effectiveGender || 'narrator'}-${selectedTwin?.name || 'default'}`);
+                    const effectiveCloneKey = genderOverride ? undefined : (selectedTwin?.voice_cloning_key || undefined);
+                    const effectiveEngine = genderOverride ? 'wavespeed' : voiceConfig.voiceEngine;
+                    sceneVoiceMetaRef.current.set(sceneNumber, {
+                      seed: effectiveSeed,
+                      gender: effectiveGender,
+                      voiceCloningKey: effectiveCloneKey,
+                      voiceEngine: effectiveEngine,
+                      voice: voiceConfig.voice,
+                    });
                     regenerateSceneVoice(
                       sceneNumber,
                       scene.narration,
                       voiceConfig.voice,
-                      genderOverride ? undefined : (selectedTwin?.voice_cloning_key || undefined),
-                      genderOverride ? 'wavespeed' : voiceConfig.voiceEngine,
+                      effectiveCloneKey,
+                      effectiveEngine,
                       undefined,
                       user?.id,
                       effectiveGender,
                       effectiveSeed
                     );
+                  }}
+                  onCopyVoiceFromScene={(targetSceneNumber, sourceSceneNumber) => {
+                    const target = previewScenes.find(s => s.sceneNumber === targetSceneNumber);
+                    if (!target?.narration?.trim()) return;
+                    const voiceConfig = resolveVoiceForGeneration();
+                    const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
+                    const sourceMeta = sceneVoiceMetaRef.current.get(sourceSceneNumber) || {
+                      seed: selectedTwin?.id || `${selectedTwin?.gender || 'narrator'}-${selectedTwin?.name || 'default'}`,
+                      gender: selectedTwin?.gender || undefined,
+                      voiceCloningKey: selectedTwin?.voice_cloning_key || undefined,
+                      voiceEngine: voiceConfig.voiceEngine,
+                      voice: voiceConfig.voice,
+                    };
+                    sceneVoiceMetaRef.current.set(targetSceneNumber, sourceMeta);
+                    regenerateSceneVoice(
+                      targetSceneNumber,
+                      target.narration,
+                      sourceMeta.voice || voiceConfig.voice,
+                      sourceMeta.voiceCloningKey,
+                      sourceMeta.voiceEngine,
+                      undefined,
+                      user?.id,
+                      sourceMeta.gender,
+                      sourceMeta.seed
+                    );
+                    toast({ title: 'Voice copied', description: `Applied voice from scene ${sourceSceneNumber} to scene ${targetSceneNumber}.` });
+                  }}
+                  onApplyVoiceToAllScenes={(sourceSceneNumber) => {
+                    const voiceConfig = resolveVoiceForGeneration();
+                    const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
+                    const sourceMeta = sceneVoiceMetaRef.current.get(sourceSceneNumber) || {
+                      seed: selectedTwin?.id || `${selectedTwin?.gender || 'narrator'}-${selectedTwin?.name || 'default'}`,
+                      gender: selectedTwin?.gender || undefined,
+                      voiceCloningKey: selectedTwin?.voice_cloning_key || undefined,
+                      voiceEngine: voiceConfig.voiceEngine,
+                      voice: voiceConfig.voice,
+                    };
+                    let count = 0;
+                    previewScenes.forEach(s => {
+                      if (s.sceneNumber === sourceSceneNumber || !s.narration?.trim()) return;
+                      sceneVoiceMetaRef.current.set(s.sceneNumber, sourceMeta);
+                      regenerateSceneVoice(
+                        s.sceneNumber,
+                        s.narration,
+                        sourceMeta.voice || voiceConfig.voice,
+                        sourceMeta.voiceCloningKey,
+                        sourceMeta.voiceEngine,
+                        undefined,
+                        user?.id,
+                        sourceMeta.gender,
+                        sourceMeta.seed
+                      );
+                      count++;
+                    });
+                    toast({ title: 'Applying voice to all scenes', description: `Regenerating ${count} scene${count === 1 ? '' : 's'} with the voice from scene ${sourceSceneNumber}.` });
                   }}
                   onGenerateVoiceSample={async (req) => {
                     try {

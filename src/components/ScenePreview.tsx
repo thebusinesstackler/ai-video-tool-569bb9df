@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, RefreshCw, Play, Pause, Image as ImageIcon, Volume2, Star, X, User, Users, Upload, FolderOpen, Pencil, Plus, Film, Type, Trash2, Package, Camera, Mic } from 'lucide-react';
+import { Loader2, RefreshCw, Play, Pause, Image as ImageIcon, Volume2, Star, X, User, Users, Upload, FolderOpen, Pencil, Plus, Film, Type, Trash2, Package, Camera, Mic, Copy, ClipboardPaste, Check } from 'lucide-react';
 import { GalleryImagePicker } from '@/components/GalleryImagePicker';
 import { CAMERA_ANGLES, CAMERA_CATEGORIES, CameraAngle } from '@/data/cameraAngles';
 import { supabase } from '@/integrations/supabase/client';
@@ -42,6 +42,8 @@ interface ScenePreviewProps {
   onGenerateVoiceSample?: (req: VoiceSampleRequest) => Promise<{ audioUrl: string } | null>;
   onApplyVoiceSample?: (sceneNumber: number, audioUrl: string) => void;
   onApplyVoiceToAll?: (voiceId: string) => void;
+  onCopyVoiceFromScene?: (targetSceneNumber: number, sourceSceneNumber: number) => void;
+  onApplyVoiceToAllScenes?: (sourceSceneNumber: number) => void;
   availableVoices?: { id: string; label: string; gender?: string }[];
   onCreateVideo: () => void;
   isCreatingVideo: boolean;
@@ -90,6 +92,8 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
   onGenerateVoiceSample,
   onApplyVoiceSample,
   onApplyVoiceToAll,
+  onCopyVoiceFromScene,
+  onApplyVoiceToAllScenes,
   availableVoices = [],
   onCreateVideo,
   isCreatingVideo,
@@ -139,6 +143,9 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
   const [isGeneratingVoices, setIsGeneratingVoices] = useState(false);
   const [playingVoiceSample, setPlayingVoiceSample] = useState<string | null>(null);
   const voiceSampleRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
+
+  // Voice clipboard: scene number whose voice the user wants to copy to others
+  const [copiedVoiceSceneNumber, setCopiedVoiceSceneNumber] = useState<number | null>(null);
 
   // Product analysis state
   const [productAnalysisOpen, setProductAnalysisOpen] = useState(false);
@@ -692,6 +699,67 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
                             >
                               ♂ Male voice
                             </Button>
+                          </div>
+                        )}
+                        {onCopyVoiceFromScene && scenes.length > 1 && (
+                          <div className="flex items-center gap-1">
+                            {copiedVoiceSceneNumber === null ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 flex-1 text-[10px]"
+                                onClick={() => setCopiedVoiceSceneNumber(scene.sceneNumber)}
+                                disabled={disabled}
+                                title="Copy this voice to use on another scene"
+                              >
+                                <Copy className="w-3 h-3 mr-1" />
+                                Copy voice
+                              </Button>
+                            ) : copiedVoiceSceneNumber === scene.sceneNumber ? (
+                              <>
+                                <Badge variant="outline" className="h-6 px-2 text-[10px] bg-primary/10 text-primary border-primary/30 flex items-center">
+                                  <Check className="w-3 h-3 mr-1" /> Copied
+                                </Badge>
+                                {onApplyVoiceToAllScenes && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-6 flex-1 text-[10px]"
+                                    onClick={() => {
+                                      onApplyVoiceToAllScenes(scene.sceneNumber);
+                                      setCopiedVoiceSceneNumber(null);
+                                    }}
+                                    disabled={disabled}
+                                    title="Apply this voice to every other scene"
+                                  >
+                                    Apply to all
+                                  </Button>
+                                )}
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 px-2 text-[10px]"
+                                  onClick={() => setCopiedVoiceSceneNumber(null)}
+                                >
+                                  Cancel
+                                </Button>
+                              </>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 flex-1 text-[10px] border-primary/40 text-primary hover:bg-primary/10"
+                                onClick={() => {
+                                  onCopyVoiceFromScene(scene.sceneNumber, copiedVoiceSceneNumber);
+                                  setCopiedVoiceSceneNumber(null);
+                                }}
+                                disabled={scene.isRegenerating || disabled}
+                                title={`Paste voice from scene ${copiedVoiceSceneNumber}`}
+                              >
+                                <ClipboardPaste className="w-3 h-3 mr-1" />
+                                Paste voice from #{copiedVoiceSceneNumber}
+                              </Button>
+                            )}
                           </div>
                         )}
                         {onGenerateVoiceSample && availableVoices.length > 0 && scene.narration?.trim() && (
