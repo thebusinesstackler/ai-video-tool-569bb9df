@@ -6762,7 +6762,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           selectedTwin?.voice_cloning_key || undefined,
                           voiceConfig.voiceEngine,
                           undefined,
-                          user?.id
+                          user?.id,
+                          selectedTwin?.gender || undefined,
+                          selectedTwin?.id || `${selectedTwin?.gender || 'narrator'}-${selectedTwin?.name || 'default'}`
                         );
                       }
                     });
