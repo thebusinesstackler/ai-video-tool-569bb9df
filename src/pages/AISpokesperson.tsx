@@ -91,6 +91,7 @@ const AISpokesperson = () => {
   const [selectedDuration, setSelectedDuration] = useState('60');
   const [settingsExpanded, setSettingsExpanded] = useState(false);
   const [twinPickerOpen, setTwinPickerOpen] = useState(false);
+  const [inputMode, setInputMode] = useState<'script' | 'audio'>('script');
   
   // Video generation
   const [isGenerating, setIsGenerating] = useState(false);
