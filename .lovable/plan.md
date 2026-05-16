@@ -1,60 +1,89 @@
 ## Goal
 
-Add **Multi-Speaker Conversation Mode** to Reels and Lifestyle Stories. User describes a conversation topic, AI writes a 2–4 person back-and-forth dialogue, and the video cuts between each speaker's AI Twin (Movie Scene Creator style).
+Add a new **Reels & Stories Pro** page where a Claude agent (via Lovable AI Gateway) plans the script, picks the AI Twin, generates voice, drives InfiniteTalk HD lip-sync, and stitches the final reel — all through a chat interface. Optimized for talking-head long-form (no 20s Sora cap).
 
-## What's already in place (reuse, don't rebuild)
+## Why InfiniteTalk HD only
 
-1. **`generate-conversation-dialogue` edge fn** — already writes labeled `[{character, line, emotion}]` JSON for 2 speakers via Claude. Will extend to accept 2–4 speakers.
-2. **`multi-voice-tts` edge fn** — already takes a `dialogue[]` + `voiceAssignments[]` and returns stitched audio (Speechify clone → Google clone → Gemini multi-speaker fallback).
-3. **`buildVoiceAssignments()` helper** in `src/lib/voiceUtils.ts` — already exists for this exact payload shape.
-4. **`generate-reel-video`** — already routes through `text-to-speech`; needs a new branch for multi-speaker mode that generates **one clip per dialogue line** (each line lip-synced to its own twin) and stitches them in order.
+- No 20s segment limit (Sora's biggest pain point in current Reels)
+- One twin → one continuous performance, perfect lip-sync
+- Reuses the working `gpt-4o-mini-tts` + `wavespeed-ai/infinitetalk-hd` pipeline already in `generate-reel-video` and `generate-talking-head-from-audio`
 
-## Changes
+## New page: `src/pages/ReelsPro.tsx`
 
-### 1. `supabase/functions/generate-conversation-dialogue/index.ts`
-- Accept `characterNames: string[]` of length 2–4 (currently hard-coded to first two).
-- Update Claude prompt to handle N speakers and rotate lines naturally.
-- Keep the same output shape: `{ conversation: [{character, line, emotion}] }`.
+Chat-first layout (AI Elements-compliant), single conversation per session, no thread sidebar:
 
-### 2. New mode in Reels (`src/pages/Reels.tsx`)
-Add a **"Conversation"** mode toggle next to existing mode selector (alongside cinematic / talking-head). When active:
-- **Speaker picker:** select 2–4 AI Twins (must have `voice_cloning_key`).
-- **Topic textarea:** "Describe what they're talking about" (free-form).
-- **Tone selector:** reuse existing tone options.
-- **Generate Dialogue** button → calls `generate-conversation-dialogue` with the selected speaker names; renders the resulting labeled lines in an editable list (per-line text + speaker dropdown).
-- **Generate Video** → posts the dialogue + selected twins to `generate-reel-video` with new `mode: "conversation"` flag.
+```text
+┌──────────────────────────────┬─────────────────────┐
+│  Marco Pro Chat              │  Live Plan Panel    │
+│  (AI Elements)               │  - Topic            │
+│  - tool calls render inline  │  - Selected Twin    │
+│  - shows script drafts,      │  - Script (editable)│
+│    voice previews, video     │  - Voice preview    │
+│    progress                  │  - Final video      │
+└──────────────────────────────┴─────────────────────┘
+```
 
-### 3. New mode in Lifestyle Stories (`src/pages/LifestyleStories.tsx`)
-Same UI block + same payload shape — reuse a shared component `src/components/ConversationBuilder.tsx`.
+Route added in `src/App.tsx`; nav entry in `src/components/Navigation.tsx` under "Reels Pro".
 
-### 4. Shared component `src/components/ConversationBuilder.tsx` (new)
-Self-contained:
-- Speaker count slider (2–4)
-- N twin pickers (filtered to those with cloned voices)
-- Topic + tone inputs
-- Dialogue editor (add/remove/reorder lines, edit speaker per line)
-- `onGenerate(dialogue, twins)` callback
-Used by both pages → ~250 lines, isolated from the giant page files.
+## Backend: new edge function `reels-pro-agent`
 
-### 5. `supabase/functions/generate-reel-video/index.ts` — conversation branch
-New top-level branch when `mode === 'conversation'`:
-- For each dialogue line:
-  - TTS that line via `text-to-speech` using the corresponding twin's voice clone (reusing existing `tryCreateTTSUrl` with `twin` param).
-  - Lip-sync that twin's reference image to the audio via `wavespeed-ai/infinitetalk-hd` (same model already used elsewhere).
-- Concatenate the per-line video clips via Creatomate (already wired) or canvas fallback to produce the final video.
-- Persist segment URLs so partial regeneration still works.
+Streaming AI SDK route using `streamText` against `google/gemini-3-flash-preview` for cheap orchestration, **with Claude (`anthropic/claude-3.5-sonnet` via gateway) as the planning model** when the user explicitly requests "high quality" (toggle in UI). Default = Gemini Flash for cost.
 
-### 6. Memory update
-Update `mem://technical/audio/voice-engine-modernization` to note: Reels/Stories now support **conversation mode** with 2–4 speakers via `multi-voice-tts` + `infinitetalk-hd` lip-sync per line.
+Tools exposed to the agent (all `tool()` with Zod schemas, `stopWhen: stepCountIs(50)`):
+
+| Tool | Wraps | Purpose |
+|---|---|---|
+| `list_twins` | RPC `get_twins_summary` | Show available AI Twins for talking head |
+| `draft_script` | calls existing `generate-reel-script` | Produce hook + body + CTA, pacing-aware (~2.5 wps, max 300s) |
+| `refine_script` | inline Claude/Gemini | Edit a specific line based on user feedback |
+| `synthesize_voice` | `text-to-speech` (twin clone → gpt-4o-mini-tts fallback) | Returns audio URL for preview |
+| `generate_talking_head` | `generate-talking-head-from-audio` (InfiniteTalk HD) | Returns wavespeed taskId |
+| `poll_video_task` | `wavespeed-video` | Returns video URL when ready |
+| `add_captions` | `creatomate-stitch` with caption template | Optional karaoke captions |
+| `save_to_library` | inserts into existing reels table | Persist the final reel |
+
+Tool deferral not needed (only ~8 tools), register eagerly.
+
+### Agent system prompt (key points)
+- Always confirm topic + select twin + show script before generating video
+- Enforce hook rules (6+ seconds, 15–25 words, psychological trigger) from existing memory
+- Cap total duration at 300s (InfiniteTalk HD long-form ceiling)
+- Never invent a voice — must pick from `list_twins` or default to twin's `voice_cloning_key`
+- Show streamed progress (tool parts open by default during generation, collapse after)
+
+## Frontend wiring
+
+- `useChat` from `ai-sdk/react` against `/functions/v1/reels-pro-agent`
+- Install AI Elements: `bun x ai-elements@latest add conversation message prompt-input tool shimmer`
+- Custom tool renderers:
+  - `generate_talking_head` → progress bar + live preview thumbnail
+  - `draft_script` → editable script card with "Approve" / "Refine" buttons that send canned follow-up messages
+  - `save_to_library` → success card with link to Reels library
+- Reuse `BackgroundVideoContext` so generations persist if the user navigates away
+
+## Files
+
+**New**
+- `src/pages/ReelsPro.tsx`
+- `src/components/reels-pro/PlanPanel.tsx`
+- `src/components/reels-pro/tool-renderers/` (script, voice, video, save)
+- `supabase/functions/reels-pro-agent/index.ts`
+- `supabase/functions/_shared/ai-gateway.ts` (Lovable AI Gateway provider helper, if not already present)
+
+**Edited**
+- `src/App.tsx` — add `/reels-pro` route
+- `src/components/Navigation.tsx` — nav entry
+- `package.json` — add `ai`, `@ai-sdk/react`, `@ai-sdk/openai-compatible`, `zod` (if missing)
 
 ## Out of scope
-- Side-by-side / split-screen layouts (user picked Movie-style cuts only).
-- More than 4 speakers.
-- Importing existing single-speaker scripts (not requested).
-- B-roll cutaways during dialogue (can be a follow-up).
+- Cinematic Sora/Wan models (this Pro mode is talking-head only by user choice)
+- Multi-speaker conversation (already in standard Reels via ConversationBuilder)
+- B-roll cutaways during the talking head (could be a v2)
+- Threaded chat history (single conversation per session, optional localStorage)
 
 ## Verification
-1. Pick 3 twins → describe a conversation → AI writes labeled dialogue → edit one line → generate.
-2. Final video cuts between speakers, each lip-syncs to their own voice clone.
-3. Works in both Reels and Lifestyle Stories from the same shared component.
-4. Falls back gracefully when only 2 twins are picked.
+1. Open `/reels-pro` → chat appears with empty state
+2. "Make a 60s reel about magnesium for sleep using my female twin" → agent calls `list_twins` → `draft_script` → renders editable script
+3. User approves → `synthesize_voice` plays preview → `generate_talking_head` shows progress → final video appears in plan panel
+4. "Save it" → `save_to_library` confirms; reel appears in main Reels library
+5. Refresh page mid-generation → background task continues, video shows up when ready
