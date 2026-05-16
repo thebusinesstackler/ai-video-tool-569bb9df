@@ -48,7 +48,15 @@ export default function ReelsPro() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [plan, setPlan] = useState<PlanState>({});
+  const [quality, setQuality] = useState<"480p" | "720p">(() => {
+    const saved = typeof window !== "undefined" ? localStorage.getItem("reelsPro.quality") : null;
+    return saved === "720p" ? "720p" : "480p";
+  });
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try { localStorage.setItem("reelsPro.quality", quality); } catch {}
+  }, [quality]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
