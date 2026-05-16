@@ -701,6 +701,67 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
                             </Button>
                           </div>
                         )}
+                        {onCopyVoiceFromScene && scenes.length > 1 && (
+                          <div className="flex items-center gap-1">
+                            {copiedVoiceSceneNumber === null ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 flex-1 text-[10px]"
+                                onClick={() => setCopiedVoiceSceneNumber(scene.sceneNumber)}
+                                disabled={disabled}
+                                title="Copy this voice to use on another scene"
+                              >
+                                <Copy className="w-3 h-3 mr-1" />
+                                Copy voice
+                              </Button>
+                            ) : copiedVoiceSceneNumber === scene.sceneNumber ? (
+                              <>
+                                <Badge variant="outline" className="h-6 px-2 text-[10px] bg-primary/10 text-primary border-primary/30 flex items-center">
+                                  <Check className="w-3 h-3 mr-1" /> Copied
+                                </Badge>
+                                {onApplyVoiceToAllScenes && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-6 flex-1 text-[10px]"
+                                    onClick={() => {
+                                      onApplyVoiceToAllScenes(scene.sceneNumber);
+                                      setCopiedVoiceSceneNumber(null);
+                                    }}
+                                    disabled={disabled}
+                                    title="Apply this voice to every other scene"
+                                  >
+                                    Apply to all
+                                  </Button>
+                                )}
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 px-2 text-[10px]"
+                                  onClick={() => setCopiedVoiceSceneNumber(null)}
+                                >
+                                  Cancel
+                                </Button>
+                              </>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 flex-1 text-[10px] border-primary/40 text-primary hover:bg-primary/10"
+                                onClick={() => {
+                                  onCopyVoiceFromScene(scene.sceneNumber, copiedVoiceSceneNumber);
+                                  setCopiedVoiceSceneNumber(null);
+                                }}
+                                disabled={scene.isRegenerating || disabled}
+                                title={`Paste voice from scene ${copiedVoiceSceneNumber}`}
+                              >
+                                <ClipboardPaste className="w-3 h-3 mr-1" />
+                                Paste voice from #{copiedVoiceSceneNumber}
+                              </Button>
+                            )}
+                          </div>
+                        )}
                         {onGenerateVoiceSample && availableVoices.length > 0 && scene.narration?.trim() && (
                           <Button
                             variant="ghost"
