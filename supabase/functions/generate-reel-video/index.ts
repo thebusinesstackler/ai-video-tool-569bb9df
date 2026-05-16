@@ -937,9 +937,9 @@ Atmospheric ambient audio. No speech. No text, no captions, no subtitles, no wat
           if (!supabase) throw new Error('Supabase client required for TTS upload');
           
           // PREFER the preview audio the user already approved — only regenerate if missing
-          const gender = detectGender(characterDescription, aiTwin);
+          const gender = (scene as any).voiceMeta?.gender || detectGender(characterDescription, aiTwin);
           const ttsUrl = audioUrl
-            || await tryCreateTTSUrl(supabase, scene.narration, scene.sceneNumber, OPENAI_API_KEY!, gender, aiTwin, authHeader);
+            || await tryCreateTTSUrl(supabase, scene.narration, scene.sceneNumber, OPENAI_API_KEY!, gender, aiTwin, authHeader, (scene as any).voiceMeta);
           if (audioUrl) console.log(`Scene ${scene.sceneNumber}: reusing preview voiceover (${audioUrl})`);
 
           if (ttsUrl) {
