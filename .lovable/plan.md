@@ -1,77 +1,69 @@
-# Audio-Driven Talking Video — Upload MP3 → Lip-Synced Video
 
-Lets users upload their own narration (MP3/WAV) and generate a talking-head video whose length **exactly matches** the audio. Output uses a portrait — either an existing AI Twin or a one-off uploaded photo.
+## Goal
+Replace the `gpt-4o-mini-tts` narration path in **Reels** and **Lifestyle Stories** with the same voice stack the Movie Scene Creator uses:
 
-## Where it lives
+1. **Speechify** cloned voice when an AI Twin with a Speechify `voice_cloning_key` is selected
+2. **Gemini 2.5 Pro multi-speaker** when the script has 2+ characters
+3. Google cloned voice as a silent fallback (already inside the existing function)
 
-Add the same "Upload Audio" flow in two places:
+No new edge function is needed — both `text-to-speech` and `multi-voice-tts` already do all the heavy lifting. The work is mainly **routing** + **passing twin metadata** through the Reels/Stories pipeline.
 
-1. **Podcast page** — new "Upload Audio" tab/toggle next to the existing script-driven flow.
-2. **AI Spokesperson page** — new "Use my own voice recording" option that bypasses script generation and TTS.
+---
 
-Both surfaces share the same component + edge-function path.
+## Changes
 
-## Source of the visual
+### 1. `supabase/functions/generate-reel-video/index.ts`
+Currently `tryCreateTTSUrl(...)` calls OpenAI's `gpt-4o-mini-tts` directly. Refactor it to:
 
-Inside each page, user picks:
-- **AI Twin** — pulled from existing `ai_twins` (uses `get_twins_summary` RPC, same as today).
-- **Upload portrait** — drag-and-drop a single photo (jpg/png, square or 9:16 portrait).
+- Accept an optional `twin` object (`{ id, voice_cloning_key, voice_engine, google_voice_id, gender }`) and an optional `dialogue` array (for multi-character scenes).
+- Routing:
+  - **If `dialogue.length >= 2` with 2+ unique speakers** → `supabase.functions.invoke('multi-voice-tts', { dialogue, voiceAssignments })`. Decode the returned base64, upload to the `reels` storage bucket, return the URL.
+  - **Else if `twin.voice_cloning_key` is a UUID (Speechify)** → `supabase.functions.invoke('text-to-speech', { text, voice: 'cloned', speechifyVoiceId: twin.voice_cloning_key })`. Upload returned audio to storage.
+  - **Else if `twin.voice_cloning_key` exists (Google clone)** → same function with `voiceCloningKey: twin.voice_cloning_key`.
+  - **Else** → fall back to current OpenAI path (kept only as last resort so existing flows without a twin still work).
+- Remove `gpt-4o-mini-tts` as the primary path.
 
-Validation: must be 1 clearly-visible face, ≤ 8MB. Uploaded to the existing `reels` bucket under `{user_id}/podcast-uploads/`.
+Pass the selected twin into the per-scene loop from the existing request payload (Reels already sends `aiTwin` / `characterId` — surface it into `tryCreateTTSUrl`).
 
-## Audio upload
+### 2. `src/pages/LifestyleStories.tsx`
+Two TTS callsites (lines 301 and 487) currently invoke `text-to-speech` with the default OpenAI voice. Update both:
 
-- Accepts MP3, WAV, M4A. Max 25MB / 300s.
-- Client uses an `<audio>` element to read `duration` before submitting.
-- Uploaded to `reels` bucket under `{user_id}/podcast-audio/`.
-- If duration > 300s, show toast: "Audio too long — max 5 minutes per clip."
+- Read the currently selected Twin from existing state (the page already supports a Twin selector via `useAITwins`; if none is selected, prompt the user once via toast rather than silently falling back).
+- Build the same body the Movie page uses:
+  ```ts
+  { text, voice: 'cloned',
+    speechifyVoiceId: isSpeechifyVoiceId(twin.voice_cloning_key) ? twin.voice_cloning_key : undefined,
+    voiceCloningKey: !isSpeechifyVoiceId(twin.voice_cloning_key) ? twin.voice_cloning_key : undefined }
+  ```
+- Extract `isSpeechifyVoiceId` from `MovieSceneCreator.tsx` into a small shared helper at `src/lib/voiceUtils.ts` and import it from all three pages.
 
-## Model routing (automatic by duration)
+### 3. Shared helper: `src/lib/voiceUtils.ts` (new)
+- `isSpeechifyVoiceId(key)` — UUID regex test
+- `buildVoicePayload(twin, text)` — returns the `text-to-speech` body
+- `buildVoiceAssignments(twins)` — returns the `voiceAssignments` array shape `multi-voice-tts` expects
 
-| Audio length | Model | Reason |
-|---|---|---|
-| **0 – 120s** | `wavespeed-ai/infinitetalk-hd` | Highest fidelity, ideal for short hooks/ads |
-| **120 – 300s** | `wavespeed-ai/infinitetalk` (standard) | ~40-50% cheaper, acceptable quality for long episodes |
+This keeps Movies, Reels, and Stories on identical routing logic.
 
-Router lives server-side so we can tune thresholds without redeploying the UI. A small "Quality used: HD/Standard" badge appears on the result card so users understand what they got. No user-facing toggle for v1.
+### 4. UI surface
+- **Reels** (`src/pages/Reels.tsx` / the active script panel): the AI Twin selector already exists; add a small "Voice: <TwinName> (Speechify clone)" indicator under the narration step so users see which voice will be used. No new picker.
+- **Lifestyle Stories** (`src/pages/LifestyleStories.tsx`): add the same Twin selector dropdown if it isn't already present, defaulting to the user's first Twin with a `voice_cloning_key`.
 
-## Frontend changes
+### 5. Memory update
+Update `mem://technical/audio/voice-engine-modernization` to reflect that Reels & Stories now use **Speechify cloned voice + Gemini 2.5 Pro multi-speaker**, with `gpt-4o-mini-tts` retained only as a no-twin fallback. Lip-sync model (`infinitetalk-hd`) is unchanged.
 
-- **New shared component**: `src/components/podcast/AudioUploadTalkingHead.tsx`
-  - Audio dropzone + portrait picker (Twin selector OR photo dropzone)
-  - Duration meter + cost-tier preview ("HD" or "Standard")
-  - Submit button → calls `generate-talking-head-from-audio` edge function
-  - Progress polling identical to current Podcast flow
-- **`src/pages/Podcast.tsx`**: add a tabs control at the top — "From Script" (current) | "From Audio Upload" (new).
-- **`src/pages/AISpokesperson.tsx`**: add a "Use my recorded audio" option in the script step that swaps the script editor for the new component.
+---
 
-## Backend changes
+## Out of scope
+- No changes to lip-sync / video models.
+- No new edge function.
+- No changes to Movie Scene Creator (it already works).
+- No new secrets needed — `SPEECHIFY_API_KEY`, `WAVESPEED_API_KEY`, `GOOGLE_CLOUD_TTS_API_KEY` already configured.
 
-- **New edge function**: `supabase/functions/generate-talking-head-from-audio/index.ts`
-  - Auth: standard JWT-claims fast path (same pattern as `generate-podcast-from-content`).
-  - Input: `{ audioUrl, portraitUrl, durationSec, source: 'podcast' | 'spokesperson' }` validated with Zod.
-  - Routes to `infinitetalk-hd` or `infinitetalk` based on `durationSec`.
-  - Creates WaveSpeed task via existing `wavespeed-video` flow (model already supported in `src/lib/wavespeed.ts` union).
-  - Returns `{ taskId, model }`. Frontend polls existing `wavespeed-video` `status` action — no new polling endpoint needed.
-- **Background task persistence**: register the job through the existing `BackgroundVideoContext` so users can navigate away and come back, matching the current Reels/Podcast pattern.
+---
 
-## Out of scope (v1)
-
-- No TTS, no script generation — audio is taken as-is.
-- No multi-speaker / dual-portrait mode (single talking head only).
-- No captions/burn-in — handled by the existing captioning suite afterward if user wants.
-- No `avatar-omni-human-1.5` (forbidden per project memory).
-
-## Technical notes
-
-- Storage uses existing public `reels` bucket; no new bucket or migration needed.
-- WaveSpeed `infinitetalk` (non-HD) is already in the `model` union of `src/lib/wavespeed.ts` — no SDK change.
-- Reuse `BackgroundVideoContext` for monitoring; result video flows into the regular `videos` table via the existing wavespeed-video completion handler.
-- Threshold constant `HD_MAX_SECONDS = 120` lives in the edge function and is logged on every run for observability.
-
-## Files to add / edit
-
-- **add** `supabase/functions/generate-talking-head-from-audio/index.ts`
-- **add** `src/components/podcast/AudioUploadTalkingHead.tsx`
-- **edit** `src/pages/Podcast.tsx` — add "From Audio Upload" tab
-- **edit** `src/pages/AISpokesperson.tsx` — add "Use my recorded audio" mode toggle
+## Verification
+1. Generate a Reel with a Twin that has a Speechify clone → audio plays in that voice.
+2. Generate a Reel with a Twin that has a Google clone (non-UUID key) → still works.
+3. Generate a Lifestyle Story with a Twin selected → narration uses cloned voice.
+4. Generate a multi-character script in Reels (if/when introduced) → routes to `multi-voice-tts`.
+5. Generate with no Twin → falls back to existing OpenAI path; toast informs user.
