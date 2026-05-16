@@ -254,19 +254,24 @@ serve(async (req) => {
       }
     }
     
-    // Priority 3: Google Chirp3-HD fallback (covers OpenAI quota errors)
-    const chirp3Key = Deno.env.get('CHIRP3_API_KEY');
+    // Priority 3: Google Chirp3-HD fallback via OAuth service account
     const tryChirp3 = async () => {
-      if (!chirp3Key) return null;
+      const accessToken = await getGoogleAccessToken();
+      if (!accessToken) return null;
       const genderLower = (gender || '').toLowerCase();
       const isFemale = genderLower === 'female' || genderLower === 'woman';
       const voiceName = isFemale ? 'en-US-Chirp3-HD-Aoede' : 'en-US-Chirp3-HD-Charon';
       try {
+        const sa = JSON.parse(Deno.env.get('GOOGLE_CLOUD_SERVICE_ACCOUNT') || '{}');
         const resp = await fetch(
-          `https://texttospeech.googleapis.com/v1beta1/text:synthesize?key=${chirp3Key}`,
+          'https://texttospeech.googleapis.com/v1beta1/text:synthesize',
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+              ...(sa.project_id ? { 'x-goog-user-project': sa.project_id } : {}),
+            },
             body: JSON.stringify({
               input: { text: text.length > 5000 ? text.substring(0, 5000) : text },
               voice: { languageCode: 'en-US', name: voiceName },
