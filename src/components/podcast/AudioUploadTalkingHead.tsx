@@ -9,7 +9,6 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { useAITwins } from '@/hooks/useAITwins';
-import { VideoPlayer } from '@/components/VideoPlayer';
 import { PodcastAspectRatioPicker, type PodcastAspectRatio } from '@/components/PodcastAspectRatioPicker';
 import { Upload, Mic, Loader2, User, Image as ImageIcon, X, Sparkles, Zap, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -379,7 +378,7 @@ export const AudioUploadTalkingHead: React.FC<Props> = ({ source }) => {
                 <Button size="sm" variant="outline"><Download className="w-4 h-4 mr-1" /> Download</Button>
               </a>
             </div>
-            <VideoPlayer src={videoUrl} className="rounded-lg" />
+            <video src={videoUrl} controls className="w-full rounded-lg bg-black" />
           </CardContent>
         </Card>
       )}
