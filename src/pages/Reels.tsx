@@ -7908,6 +7908,12 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
             )}
           </TabsContent>
 
+          <TabsContent value="conversation" className="space-y-6">
+            <div className="max-w-3xl mx-auto">
+              <ConversationBuilder aspectRatio="9:16" source="reels" />
+            </div>
+          </TabsContent>
+
           <TabsContent value="history" className="space-y-6">
             {loadingReels ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
