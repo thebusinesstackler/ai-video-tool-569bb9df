@@ -292,17 +292,16 @@ serve(async (req) => {
         return new Response(JSON.stringify({ ...result, isClonedVoice: false, provider: 'openai' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
-      console.log('OpenAI TTS failed, trying Speechify shared voice fallback');
+      console.log('OpenAI TTS failed, trying Chirp3-HD fallback');
     }
 
-    // Speechify shared-voice fallback (covers OpenAI quota errors + Google billing-disabled)
-    const speechifyResult = await trySpeechifyShared();
-    if (speechifyResult) {
-      return new Response(JSON.stringify({ ...speechifyResult, isClonedVoice: false, provider: 'speechify-shared' }),
+    // Chirp3-HD fallback (covers OpenAI quota errors)
+    const chirp3Result = await tryChirp3();
+    if (chirp3Result) {
+      return new Response(JSON.stringify({ ...chirp3Result, isClonedVoice: false, provider: 'chirp3' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-    console.log('Speechify fallback failed, trying Google Cloud TTS fallback');
-    }
+    console.log('Chirp3 fallback failed, trying Google Cloud TTS fallback');
 
     // Priority 4: Google Cloud standard TTS fallback
     const googleFallbackKey = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
