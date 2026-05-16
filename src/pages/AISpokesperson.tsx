@@ -737,6 +737,18 @@ QUALITY: Ultra photorealistic, natural skin, no retouching. NO text, NO watermar
           <CreatorModeToggle mode={mode} onModeChange={setMode} />
         </div>
 
+        <Tabs value={inputMode} onValueChange={(v) => setInputMode(v as 'script' | 'audio')}>
+          <TabsList className="grid grid-cols-2 w-full max-w-md">
+            <TabsTrigger value="script"><Wand2 className="w-3.5 h-3.5 mr-1" /> From script</TabsTrigger>
+            <TabsTrigger value="audio"><Upload className="w-3.5 h-3.5 mr-1" /> Upload audio</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {inputMode === 'audio' ? (
+          <AudioUploadTalkingHead source="spokesperson" />
+        ) : (
+        <>
+
         {/* Progress Panel */}
         {(isGenerating || isGeneratingScript) && (
           <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent overflow-hidden">
