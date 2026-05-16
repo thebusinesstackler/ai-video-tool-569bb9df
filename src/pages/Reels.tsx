@@ -70,7 +70,7 @@ import {
   ArrowDown,
   Film,
   Plus,
-  Package
+  Package,
   Scissors,
 } from 'lucide-react';
 import { ScenePreview } from '@/components/ScenePreview';
