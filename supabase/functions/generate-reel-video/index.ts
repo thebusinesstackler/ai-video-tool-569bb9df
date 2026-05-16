@@ -410,6 +410,7 @@ serve(async (req) => {
   }
 
   try {
+    const authHeader = req.headers.get('Authorization');
     const { 
       scenes, 
       topic, 
