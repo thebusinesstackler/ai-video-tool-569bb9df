@@ -1070,6 +1070,43 @@ const ChatcutAI = () => {
           setShowDraftPicker(false);
           setDraftName(payload.clipTitle || payload.title || 'Vizard Clip');
 
+          // ---- Multi-clip handoff (Reels → ChatCut) ----
+          if (Array.isArray(payload.timelineVideos) && payload.timelineVideos.length > 0) {
+            const videos = payload.timelineVideos as Array<{ url: string; name?: string; duration?: number }>;
+            (async () => {
+              const probe = (url: string, hinted?: number) => new Promise<number>(resolve => {
+                if (hinted && hinted > 0) return resolve(hinted);
+                const v = document.createElement('video');
+                v.preload = 'metadata';
+                v.src = url;
+                const done = (d: number) => resolve(Math.max(0.1, d || 3));
+                v.onloadedmetadata = () => done(v.duration);
+                v.onerror = () => done(3);
+                setTimeout(() => done(v.duration || 3), 8000);
+              });
+              const durations = await Promise.all(videos.map(v => probe(v.url, v.duration)));
+              let cursor = 0;
+              const clipsForTimeline = videos.map((v, i) => {
+                const clip = {
+                  id: crypto.randomUUID(),
+                  name: v.name || `Clip ${i + 1}`,
+                  url: v.url,
+                  duration: durations[i],
+                  startAt: cursor,
+                };
+                cursor += durations[i];
+                return clip;
+              });
+              setVideoUrl(videos[0].url);
+              setTimelineClips(clipsForTimeline);
+              setCuts([]);
+              setDuration(cursor);
+              toast({ title: `Loaded ${videos.length} clip${videos.length === 1 ? '' : 's'} onto the timeline` });
+            })();
+            return;
+          }
+
+
           if (payload.transcript) {
             setTranscript(payload.transcript);
           }
