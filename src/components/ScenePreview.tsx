@@ -38,7 +38,7 @@ interface VoiceSampleRequest {
 interface ScenePreviewProps {
   scenes: PreviewScene[];
   onRegenerateImage: (sceneNumber: number, customPrompt?: string, referenceUrl?: string) => void;
-  onRegenerateVoice?: (sceneNumber: number) => void;
+  onRegenerateVoice?: (sceneNumber: number, genderOverride?: 'male' | 'female') => void;
   onGenerateVoiceSample?: (req: VoiceSampleRequest) => Promise<{ audioUrl: string } | null>;
   onApplyVoiceSample?: (sceneNumber: number, audioUrl: string) => void;
   onApplyVoiceToAll?: (voiceId: string) => void;
