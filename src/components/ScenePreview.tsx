@@ -22,6 +22,8 @@ interface PreviewScene {
   audioUrl: string | null;
   audioDuration: number;
   isGenerating: boolean;
+  isGeneratingImage?: boolean;
+  isGeneratingVoice?: boolean;
   isRegenerating?: boolean;
   isReference?: boolean;
 }
@@ -512,11 +514,11 @@ export const ScenePreview: React.FC<ScenePreviewProps> = ({
                     <div className={`aspect-[9/16] bg-muted rounded-lg overflow-hidden relative ${
                       scene.isReference ? 'ring-2 ring-amber-500 ring-offset-2 ring-offset-background' : ''
                     }`}>
-                      {scene.isGenerating || scene.isRegenerating ? (
+                      {(scene.isGeneratingImage ?? scene.isGenerating) || scene.isRegenerating ? (
                         <div className="w-full h-full flex flex-col items-center justify-center gap-2">
                           <Loader2 className="w-8 h-8 animate-spin text-primary" />
                           <span className="text-xs text-muted-foreground">
-                            {scene.isRegenerating ? 'Regenerating...' : 'Generating...'}
+                            {scene.isRegenerating ? 'Regenerating image…' : 'Generating image…'}
                           </span>
                         </div>
                       ) : scene.imageUrl ? (
