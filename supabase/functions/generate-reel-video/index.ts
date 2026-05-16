@@ -334,11 +334,14 @@ async function tryCreateTTSUrl(
   }
 }
 
-// Detect gender from character description
-function detectGender(desc?: string): string {
+// Detect gender — prefer explicit twin gender, fall back to description heuristics
+function detectGender(desc?: string, twin?: any): string {
+  const twinGender = twin?.gender?.toString().toLowerCase().trim();
+  if (twinGender === 'female' || twinGender === 'woman' || twinGender === 'f') return 'female';
+  if (twinGender === 'male' || twinGender === 'man' || twinGender === 'm') return 'male';
   if (!desc) return 'male';
   const lower = desc.toLowerCase();
-  if (lower.includes('woman') || lower.includes('female') || lower.includes('girl') || lower.includes('lady') || lower.includes('she ')) return 'female';
+  if (lower.includes('woman') || lower.includes('female') || lower.includes('girl') || lower.includes('lady') || lower.includes('she ') || lower.includes(' her ')) return 'female';
   return 'male';
 }
 
