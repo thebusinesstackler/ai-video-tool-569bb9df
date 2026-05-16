@@ -4406,6 +4406,16 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         Download
                       </Button>
                     )}
+                    {project.videoBlobUrl && (
+                      <RegenerateVideoDialog
+                        videoUrl={project.videoBlobUrl}
+                        defaultScript={project.scenes.map(s => s.narration).filter(Boolean).join(' ')}
+                        aspectRatio={(selectedVideoSize === '16:9' || selectedVideoSize === '1:1') ? selectedVideoSize : '9:16'}
+                        defaultTwinId={selectedTwinId}
+                        source="reels"
+                        onComplete={(newUrl) => setProject(prev => ({ ...prev, videoBlobUrl: newUrl }))}
+                      />
+                    )}
                     {project.videoBlobUrl && project.generatedScenes.length > 0 && (
                       <Button
                         variant="outline"
@@ -8100,6 +8110,18 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                               <Film className="w-4 h-4 mr-2" />
                               Continue
                             </Button>
+                          )}
+                          {reel.video_url && (
+                            <RegenerateVideoDialog
+                              videoUrl={reel.video_url}
+                              defaultScript={(reel.scenes || []).map((s: any) => s.text || s.narration).filter(Boolean).join(' ')}
+                              aspectRatio="9:16"
+                              source="reels-history"
+                              onComplete={async (newUrl) => {
+                                await supabase.from('reels').update({ video_url: newUrl }).eq('id', reel.id);
+                                setSavedReels(prev => prev.map(r => r.id === reel.id ? { ...r, video_url: newUrl } : r));
+                              }}
+                            />
                           )}
                           <Button
                             variant="destructive"
