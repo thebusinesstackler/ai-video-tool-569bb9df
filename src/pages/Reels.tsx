@@ -6545,7 +6545,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           undefined,
                           videoModel,
                           selectedProductImageUrl || undefined,
-                          selectedProductName || undefined
+                          selectedProductName || undefined,
+                          selectedTwin?.gender || undefined,
+                          selectedTwin?.id || `${selectedTwin?.gender || 'narrator'}-${selectedTwin?.name || 'default'}`
                         );
                       }}
                       disabled={isGenerating || isGeneratingPreview}
