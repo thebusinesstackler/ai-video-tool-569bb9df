@@ -234,7 +234,9 @@ export function useScenePreview(): UseScenePreviewResult {
                 voice: speechifyVoiceId ? undefined : voice,
                 speechifyVoiceId: speechifyVoiceId || undefined,
                 voiceEngine: voiceEngine || undefined,
-                googleVoiceId: googleVoiceId || undefined
+                googleVoiceId: googleVoiceId || undefined,
+                gender: gender || undefined,
+                voiceSeed: voiceSeed || speechifyVoiceId || googleVoiceId || `${gender || 'narrator'}-default`,
               }
             });
 
