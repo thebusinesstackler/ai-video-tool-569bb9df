@@ -5,6 +5,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { RegenerateVideoDialog } from '@/components/RegenerateVideoDialog';
+import { SendToChatcutDialog, type ChatcutHandoffClip } from '@/components/SendToChatcutDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -69,7 +70,8 @@ import {
   ArrowDown,
   Film,
   Plus,
-  Package
+  Package,
+  Scissors,
 } from 'lucide-react';
 import { ScenePreview } from '@/components/ScenePreview';
 import { TimelineEditor } from '@/components/TimelineEditor';
@@ -329,6 +331,43 @@ const Reels = () => {
   
   // Stitching state
   const [isManualStitching, setIsManualStitching] = useState(false);
+  const [chatcutDialogOpen, setChatcutDialogOpen] = useState(false);
+  const [chatcutClips, setChatcutClips] = useState<ChatcutHandoffClip[]>([]);
+  const [chatcutTitle, setChatcutTitle] = useState<string>('');
+
+  const openChatcutForCurrent = () => {
+    const clips: ChatcutHandoffClip[] = project.videoClips
+      .filter(v => v.videoUrl)
+      .sort((a, b) => a.sceneNumber - b.sceneNumber)
+      .map(v => {
+        const scene = project.generatedScenes.find(s => s.sceneNumber === v.sceneNumber);
+        return {
+          url: v.videoUrl,
+          name: scene?.text?.slice(0, 60) || `Scene ${v.sceneNumber}`,
+          thumbnail: scene?.imageUrl || undefined,
+        };
+      });
+    setChatcutClips(clips);
+    setChatcutTitle(project.topic || 'Reel Project');
+    setChatcutDialogOpen(true);
+  };
+
+  const openChatcutForReel = (reel: SavedReel) => {
+    const clips: ChatcutHandoffClip[] = (reel.scenes || [])
+      .filter(s => s.videoUrl)
+      .map((s, idx) => ({
+        url: s.videoUrl!,
+        name: s.text?.slice(0, 60) || `Scene ${idx + 1}`,
+        thumbnail: s.imageUrl || undefined,
+      }));
+    if (clips.length === 0 && reel.video_url) {
+      clips.push({ url: reel.video_url, name: reel.topic, thumbnail: reel.thumbnail_url || undefined });
+    }
+    setChatcutClips(clips);
+    setChatcutTitle(reel.topic);
+    setChatcutDialogOpen(true);
+  };
+
   const [editingSceneNumber, setEditingSceneNumber] = useState<number | null>(null);
   const [editSceneText, setEditSceneText] = useState('');
 
@@ -4278,6 +4317,12 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         Stitch All Clips
                       </Button>
                     )}
+                    {project.videoClips.length > 0 && (
+                      <Button onClick={openChatcutForCurrent} variant="outline" className="border-primary/50 text-primary hover:bg-primary/10">
+                        <Scissors className="w-4 h-4 mr-2" />
+                        Send to ChatCut AI
+                      </Button>
+                    )}
                     {!project.videoBlobUrl && project.videoClips.length === 0 && project.scenes.length > 0 && (
                       <Button 
                         onClick={() => generateVideo({ forceEnableLipSync: enableLipSync, forceLipSyncModel: 'infinitetalk', scenesOverride: project.scenes })}
@@ -7981,6 +8026,17 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                               Download
                             </Button>
                           )}
+                          {(reel.scenes?.some(s => s.videoUrl) || reel.video_url) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openChatcutForReel(reel)}
+                              title="Send clips to ChatCut AI"
+                            >
+                              <Scissors className="w-4 h-4 mr-2" />
+                              ChatCut
+                            </Button>
+                          )}
                           {reel.video_url && (
                             <Button
                               variant="outline"
@@ -8154,6 +8210,12 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
           }}
         />
       )}
+      <SendToChatcutDialog
+        open={chatcutDialogOpen}
+        onOpenChange={setChatcutDialogOpen}
+        clips={chatcutClips}
+        title={chatcutTitle}
+      />
     </Layout>
   );
 };
