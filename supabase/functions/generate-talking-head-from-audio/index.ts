@@ -87,6 +87,7 @@ serve(async (req) => {
         userId,
         source,
         sourceId,
+        metadata: { ...metadata, audioUrl },
       }),
     });
 
