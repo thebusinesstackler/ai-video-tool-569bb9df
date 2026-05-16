@@ -6703,21 +6703,26 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                       regenerateSceneImage(sceneNumber, promptToUse);
                     }
                   }}
-                  onRegenerateVoice={(sceneNumber) => {
+                  onRegenerateVoice={(sceneNumber, genderOverride) => {
                     const scene = previewScenes.find(s => s.sceneNumber === sceneNumber);
                     if (!scene?.narration?.trim()) return;
                     const voiceConfig = resolveVoiceForGeneration();
                     const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
+                    const effectiveGender = genderOverride || selectedTwin?.gender || undefined;
+                    // When user explicitly overrides gender, use a gender-scoped seed so a new voice is picked
+                    const effectiveSeed = genderOverride
+                      ? `override-${genderOverride}-${selectedTwin?.id || 'narrator'}-${sceneNumber}`
+                      : (selectedTwin?.id || `${effectiveGender || 'narrator'}-${selectedTwin?.name || 'default'}`);
                     regenerateSceneVoice(
                       sceneNumber,
                       scene.narration,
                       voiceConfig.voice,
-                      selectedTwin?.voice_cloning_key || undefined,
-                      voiceConfig.voiceEngine,
+                      genderOverride ? undefined : (selectedTwin?.voice_cloning_key || undefined),
+                      genderOverride ? 'wavespeed' : voiceConfig.voiceEngine,
                       undefined,
                       user?.id,
-                      selectedTwin?.gender || undefined,
-                      selectedTwin?.id || `${selectedTwin?.gender || 'narrator'}-${selectedTwin?.name || 'default'}`
+                      effectiveGender,
+                      effectiveSeed
                     );
                   }}
                   onGenerateVoiceSample={async (req) => {
