@@ -693,6 +693,16 @@ export function useScenePreview(): UseScenePreviewResult {
     setVoiceovers(vos);
   };
 
+  const setSceneVoiceMeta = (sceneNumber: number, voiceMeta: SceneVoiceMeta | undefined) => {
+    setPreviewScenes(prev => prev.map(ps =>
+      ps.sceneNumber === sceneNumber ? { ...ps, voiceMeta } : ps
+    ));
+  };
+
+  const setAllScenesVoiceMeta = (voiceMeta: SceneVoiceMeta | undefined) => {
+    setPreviewScenes(prev => prev.map(ps => ({ ...ps, voiceMeta })));
+  };
+
   const resetPreview = () => {
     setPreviewScenes([]);
     setVoiceovers([]);
