@@ -2205,81 +2205,17 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       const autoMatchedSpeechifyVoiceId: string | undefined = undefined;
 
       if (videoModel === 'sora-2') {
-        // Sora-2 hybrid: narrator scenes need TTS for InfiniteTalk lip-sync,
-        // intro/outro/silent scenes use Sora-2 native audio (no TTS needed)
-        console.log(`${videoModel} selected — generating TTS for narrator scenes (InfiniteTalk lip-sync), Sora-2 for intro/outro/B-roll`);
-        setProgressStatus('Generating voiceovers for lip-sync scenes...');
-        
+        // Sora-2 hybrid: the backend now creates TTS when available and falls back
+        // to silent Sora-2 clips when paid TTS providers are unavailable.
+        console.log(`${videoModel} selected — backend will handle TTS or silent fallback per scene`);
+        setProgressStatus('Preparing Sora-2 scenes...');
+
         for (const scene of activeScenes) {
-          const isNarrator = !(scene as any).isIntro && !(scene as any).isOutro && !(scene as any).isSilentCTA && scene.narration?.trim();
-          
-          if (!isNarrator) {
-            // Non-narrator scenes: Sora-2 handles audio natively
             voiceovers.push({
               sceneNumber: scene.sceneNumber,
               audioUrl: '',
               duration: scene.duration || 8
             });
-            continue;
-          }
-          
-          // Narrator scenes: generate TTS so InfiniteTalk can lip-sync
-          try {
-            const voiceConfig = resolveVoiceForGeneration();
-            const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-              body: {
-                text: scene.narration,
-                voice: voiceConfig.voice,
-                voiceEngine: voiceConfig.voiceEngine,
-                speechifyVoiceId: autoMatchedSpeechifyVoiceId,
-                gender: selectedTwinGender,
-                pitch: voicePitch,
-              }
-            });
-
-            if (ttsError || !ttsData?.audioContent) {
-              console.error('TTS error for narrator scene', scene.sceneNumber, ':', ttsError);
-              voiceovers.push({ sceneNumber: scene.sceneNumber, audioUrl: '', duration: scene.duration || 8 });
-              continue;
-            }
-
-            const audioUrl = `data:audio/mp3;base64,${ttsData.audioContent}`;
-            const actualDuration = await getAudioDuration(audioUrl);
-            console.log(`Scene ${scene.sceneNumber} narrator voiceover: ${actualDuration}s`);
-
-            let storageUrl: string | undefined;
-            if (user) {
-              try {
-                const base64Data = ttsData.audioContent;
-                const binaryString = atob(base64Data);
-                const bytes = new Uint8Array(binaryString.length);
-                for (let i = 0; i < binaryString.length; i++) {
-                  bytes[i] = binaryString.charCodeAt(i);
-                }
-                const fileName = `${user.id}/voiceovers/${Date.now()}-scene-${scene.sceneNumber}.mp3`;
-                const { data: uploadData, error: uploadError } = await supabase.storage
-                  .from('reels')
-                  .upload(fileName, bytes, { contentType: 'audio/mp3' });
-                if (!uploadError && uploadData) {
-                  const { data: publicUrl } = supabase.storage.from('reels').getPublicUrl(fileName);
-                  storageUrl = publicUrl.publicUrl;
-                  console.log('Uploaded voiceover to storage:', storageUrl);
-                }
-              } catch (uploadErr) {
-                console.warn('Voiceover upload failed:', uploadErr);
-              }
-            }
-
-            voiceovers.push({
-              sceneNumber: scene.sceneNumber,
-              audioUrl,
-              storageUrl,
-              duration: actualDuration
-            });
-          } catch (ttsErr) {
-            console.error('TTS generation failed for narrator scene', scene.sceneNumber, ':', ttsErr);
-            voiceovers.push({ sceneNumber: scene.sceneNumber, audioUrl: '', duration: scene.duration || 8 });
-          }
         }
       } else if (!hasPreviewVoiceovers) {
         setProgressStatus('Generating voiceovers...');
