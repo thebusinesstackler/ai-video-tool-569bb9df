@@ -221,20 +221,86 @@ async function uploadTTSAudio(
   return urlData.publicUrl;
 }
 
+// UUID = Speechify voice clone id
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Invoke the shared `text-to-speech` edge function so that Reels uses the
+// same routing as MovieSceneCreator: Speechify clone → Google clone → fallback.
+async function generateClonedTTSViaEdge(
+  text: string,
+  twin: any,
+  gender: string,
+  authHeader: string | null,
+): Promise<Uint8Array | null> {
+  try {
+    const url = Deno.env.get('SUPABASE_URL');
+    const anon = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_PUBLISHABLE_KEY');
+    if (!url) return null;
+    const key = twin?.voice_cloning_key || null;
+    const speechifyVoiceId = key && UUID_RE.test(key) ? key : undefined;
+    const voiceCloningKey = key && !speechifyVoiceId ? key : undefined;
+
+    const resp = await fetch(`${url}/functions/v1/text-to-speech`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authHeader ? { Authorization: authHeader } : {}),
+        ...(anon ? { apikey: anon } : {}),
+      },
+      body: JSON.stringify({
+        text,
+        voice: speechifyVoiceId || voiceCloningKey ? 'cloned' : 'ai-auto',
+        speechifyVoiceId,
+        voiceCloningKey,
+        gender,
+      }),
+    });
+    if (!resp.ok) {
+      console.warn(`text-to-speech edge fn returned ${resp.status}`);
+      return null;
+    }
+    const data = await resp.json();
+    const b64 = data?.audioContent;
+    if (!b64) return null;
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    console.log(`Cloned TTS via edge fn (provider=${data.provider || 'unknown'}) — ${bytes.length} bytes`);
+    return bytes;
+  } catch (e) {
+    console.warn('generateClonedTTSViaEdge failed:', e);
+    return null;
+  }
+}
+
 async function tryCreateTTSUrl(
   supabase: any,
   text: string,
   sceneNumber: number,
   openAiKey: string,
-  gender: string
+  gender: string,
+  twin?: any,
+  authHeader?: string | null,
 ): Promise<string | null> {
   try {
-    const ttsBytes = await generateOpenAITTS(
-      text,
-      openAiKey,
-      gender,
-      'Speak with confident energy, like a professional YouTube creator. Natural pace, engaging delivery.'
-    );
+    let ttsBytes: Uint8Array | null = null;
+
+    // PRIMARY: route through the shared TTS edge fn whenever a twin is supplied
+    // (gives us Speechify/Google cloned voice — same as MovieSceneCreator)
+    if (twin?.voice_cloning_key) {
+      ttsBytes = await generateClonedTTSViaEdge(text, twin, gender, authHeader || null);
+    }
+
+    // FALLBACK: legacy OpenAI gpt-4o-mini-tts narrator (used when no twin clone)
+    if (!ttsBytes) {
+      ttsBytes = await generateOpenAITTS(
+        text,
+        openAiKey,
+        gender,
+        'Speak with confident energy, like a professional YouTube creator. Natural pace, engaging delivery.'
+      );
+    }
+
     const ttsUrl = await uploadTTSAudio(supabase, ttsBytes, sceneNumber);
     console.log(`Scene ${sceneNumber}: TTS audio uploaded: ${ttsUrl}`);
     return ttsUrl;
@@ -344,6 +410,7 @@ serve(async (req) => {
   }
 
   try {
+    const authHeader = req.headers.get('Authorization');
     const { 
       scenes, 
       topic, 
@@ -361,7 +428,8 @@ serve(async (req) => {
       videoModel = 'wan-2.1-i2v-480p',
       sceneDuration = undefined,
       productImageUrl = null,
-      productName = null
+      productName = null,
+      aiTwin = null
     } = await req.json();
 
     if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
@@ -708,7 +776,7 @@ Absolutely no text, no captions, no subtitles, no watermarks.`;
           if (!supabase) throw new Error('Supabase client required for TTS upload');
           
           const gender = detectGender(characterDescription);
-          const ttsUrl = await tryCreateTTSUrl(supabase, scene.narration, scene.sceneNumber, OPENAI_API_KEY!, gender);
+          const ttsUrl = await tryCreateTTSUrl(supabase, scene.narration, scene.sceneNumber, OPENAI_API_KEY!, gender, aiTwin, authHeader);
 
           if (ttsUrl) {
             apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';
@@ -785,7 +853,7 @@ Atmospheric ambient audio. No speech. No text, no captions, no subtitles, no wat
           if (!supabase) throw new Error('Supabase client required for TTS upload');
           
           const gender = detectGender(characterDescription);
-          const ttsUrl = await tryCreateTTSUrl(supabase, scene.narration, scene.sceneNumber, OPENAI_API_KEY!, gender);
+          const ttsUrl = await tryCreateTTSUrl(supabase, scene.narration, scene.sceneNumber, OPENAI_API_KEY!, gender, aiTwin, authHeader);
 
           if (ttsUrl) {
             apiEndpoint = 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk';

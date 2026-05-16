@@ -15,6 +15,9 @@ import {
   ArrowRight, RefreshCw, ChevronRight, Wand2, AlertCircle, Video, FileText, Trash2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAITwins } from '@/hooks/useAITwins';
+import { isSpeechifyVoiceId } from '@/lib/voiceUtils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatDistanceToNow } from 'date-fns';
 
 interface BrandAnalysis {
@@ -85,6 +88,16 @@ const LifestyleStories = () => {
   const [storyId, setStoryId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<any[]>([]);
   const [loadingDrafts, setLoadingDrafts] = useState(false);
+  const { twins } = useAITwins();
+  const [selectedTwinId, setSelectedTwinId] = useState<string | null>(null);
+  const selectedTwin = selectedTwinId ? twins.find(t => t.id === selectedTwinId) || null : null;
+
+  // Auto-select the first twin that has a cloned voice
+  useEffect(() => {
+    if (selectedTwinId || !twins.length) return;
+    const withVoice = twins.find(t => !!t.voice_cloning_key);
+    if (withVoice) setSelectedTwinId(withVoice.id);
+  }, [twins, selectedTwinId]);
 
   // Load existing drafts on mount
   useEffect(() => {
@@ -280,29 +293,40 @@ const LifestyleStories = () => {
       setProductionStatus(prev => ({ ...prev, voiceover: 'in_progress' }));
       let voiceoverUrl: string | null = null;
       try {
-        // Auto-match a Speechify voice to the brand tone and audience
-        let speechifyVoiceId: string | undefined;
-        try {
-          const { data: matchData } = await supabase.functions.invoke('match-speechify-voice', {
-            body: {
-              characterDescription: `Brand: ${brandAnalysis?.brand_name || ''}. Audience: ${brandAnalysis?.target_audience || ''}. Visual style: ${brandAnalysis?.visual_style || ''}. Concept: ${concept.type} — ${concept.hook}`,
-              tone: brandAnalysis?.brand_tone || concept.music_mood,
-              scriptSample: concept.voiceover_script,
-            },
-          });
-          speechifyVoiceId = matchData?.voiceId;
-          if (speechifyVoiceId) {
-            console.log(`🎙️ Lifestyle voice matched: ${matchData.displayName} — ${matchData.reasoning}`);
+        // Prefer the selected AI Twin's cloned voice (same routing as MovieSceneCreator).
+        // Fall back to auto-matched Speechify voice when no twin clone is available.
+        const twinKey = selectedTwin?.voice_cloning_key || null;
+        const twinIsSpeechify = isSpeechifyVoiceId(twinKey);
+        let speechifyVoiceId: string | undefined = twinIsSpeechify ? twinKey! : undefined;
+        const voiceCloningKey: string | undefined = twinKey && !twinIsSpeechify ? twinKey : undefined;
+
+        if (!speechifyVoiceId && !voiceCloningKey) {
+          try {
+            const { data: matchData } = await supabase.functions.invoke('match-speechify-voice', {
+              body: {
+                characterDescription: `Brand: ${brandAnalysis?.brand_name || ''}. Audience: ${brandAnalysis?.target_audience || ''}. Visual style: ${brandAnalysis?.visual_style || ''}. Concept: ${concept.type} — ${concept.hook}`,
+                tone: brandAnalysis?.brand_tone || concept.music_mood,
+                scriptSample: concept.voiceover_script,
+              },
+            });
+            speechifyVoiceId = matchData?.voiceId;
+            if (speechifyVoiceId) {
+              console.log(`🎙️ Lifestyle voice matched: ${matchData.displayName} — ${matchData.reasoning}`);
+            }
+          } catch (e) {
+            console.warn('Speechify voice match failed, using default:', e);
           }
-        } catch (e) {
-          console.warn('Speechify voice match failed, using default:', e);
+        } else {
+          console.log(`🎙️ Using AI Twin cloned voice (${twinIsSpeechify ? 'Speechify' : 'Google'}): ${selectedTwin?.name}`);
         }
 
         const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
           body: {
             text: concept.voiceover_script,
-            voice: 'alloy',
+            voice: speechifyVoiceId || voiceCloningKey ? 'cloned' : 'alloy',
             speechifyVoiceId,
+            voiceCloningKey,
+            gender: selectedTwin?.gender || undefined,
           },
         });
         if (ttsError) throw ttsError;
@@ -470,22 +494,34 @@ const LifestyleStories = () => {
       setProductionStatus(prev => ({ ...prev, voiceover: 'in_progress' }));
       setProductionErrors(prev => { const n = { ...prev }; delete n.voiceover; return n; });
       try {
-        let speechifyVoiceId: string | undefined;
-        try {
-          const { data: matchData } = await supabase.functions.invoke('match-speechify-voice', {
-            body: {
-              characterDescription: `Brand: ${brandAnalysis?.brand_name || ''}. Audience: ${brandAnalysis?.target_audience || ''}. Visual style: ${brandAnalysis?.visual_style || ''}. Concept: ${concept.type} — ${concept.hook}`,
-              tone: brandAnalysis?.brand_tone || concept.music_mood,
-              scriptSample: concept.voiceover_script,
-            },
-          });
-          speechifyVoiceId = matchData?.voiceId;
-        } catch (e) {
-          console.warn('Speechify voice match failed:', e);
+        const twinKey = selectedTwin?.voice_cloning_key || null;
+        const twinIsSpeechify = isSpeechifyVoiceId(twinKey);
+        let speechifyVoiceId: string | undefined = twinIsSpeechify ? twinKey! : undefined;
+        const voiceCloningKey: string | undefined = twinKey && !twinIsSpeechify ? twinKey : undefined;
+
+        if (!speechifyVoiceId && !voiceCloningKey) {
+          try {
+            const { data: matchData } = await supabase.functions.invoke('match-speechify-voice', {
+              body: {
+                characterDescription: `Brand: ${brandAnalysis?.brand_name || ''}. Audience: ${brandAnalysis?.target_audience || ''}. Visual style: ${brandAnalysis?.visual_style || ''}. Concept: ${concept.type} — ${concept.hook}`,
+                tone: brandAnalysis?.brand_tone || concept.music_mood,
+                scriptSample: concept.voiceover_script,
+              },
+            });
+            speechifyVoiceId = matchData?.voiceId;
+          } catch (e) {
+            console.warn('Speechify voice match failed:', e);
+          }
         }
 
         const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
-          body: { text: concept.voiceover_script, voice: 'alloy', speechifyVoiceId },
+          body: {
+            text: concept.voiceover_script,
+            voice: speechifyVoiceId || voiceCloningKey ? 'cloned' : 'alloy',
+            speechifyVoiceId,
+            voiceCloningKey,
+            gender: selectedTwin?.gender || undefined,
+          },
         });
         if (ttsError) throw ttsError;
         const voiceoverUrl = ttsData?.audioUrl || null;
@@ -882,11 +918,31 @@ const LifestyleStories = () => {
         {/* Step 3: Video Concepts */}
         {step === 'concepts' && concepts.length > 0 && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
               <h2 className="text-xl font-semibold">Video Concepts</h2>
-              <Button variant="outline" size="sm" onClick={() => setStep('analysis')}>
-                <RefreshCw className="w-4 h-4 mr-2" /> Regenerate
-              </Button>
+              <div className="flex items-center gap-2">
+                {twins.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Mic className="w-4 h-4 text-muted-foreground" />
+                    <Select value={selectedTwinId ?? 'none'} onValueChange={(v) => setSelectedTwinId(v === 'none' ? null : v)}>
+                      <SelectTrigger className="w-[220px] h-9">
+                        <SelectValue placeholder="Voice: Auto" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Auto-matched voice</SelectItem>
+                        {twins.map(t => (
+                          <SelectItem key={t.id} value={t.id} disabled={!t.voice_cloning_key}>
+                            {t.name}{t.voice_cloning_key ? ` (${isSpeechifyVoiceId(t.voice_cloning_key) ? 'Speechify' : 'Google'} clone)` : ' (no voice)'}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <Button variant="outline" size="sm" onClick={() => setStep('analysis')}>
+                  <RefreshCw className="w-4 h-4 mr-2" /> Regenerate
+                </Button>
+              </div>
             </div>
 
             <Tabs defaultValue="0">

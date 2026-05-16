@@ -2349,7 +2349,15 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
           videoModel: videoModel,
           sceneDuration: undefined,
           productImageUrl: selectedProductImageUrl || undefined,
-          productName: selectedProductName || undefined
+          productName: selectedProductName || undefined,
+          aiTwin: selectedTwin ? {
+            id: selectedTwin.id,
+            name: selectedTwin.name,
+            voice_cloning_key: selectedTwin.voice_cloning_key,
+            voice_engine: selectedTwin.voice_engine,
+            google_voice_id: selectedTwin.google_voice_id,
+            gender: selectedTwin.gender,
+          } : null
         }
       });
 
