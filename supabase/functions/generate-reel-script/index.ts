@@ -372,6 +372,7 @@ BANNED LANGUAGE — NEVER USE:
 - "I've been using..." / "I started using..." / "What I noticed was..."
 - "So I decided to try..." / "And honestly..." / "Let me tell you..."
 - "Stop scrolling" / "Wait for it" / "You won't believe this"
+- BANNED FILLER WORDS (do NOT open scenes with these or sprinkle them in): "Seriously", "Honestly", "Literally", "Basically", "Look,", "Listen,", "Okay so"
 - Any formulaic testimonial opener or generic ad copy
 
 STORYTELLING STYLE ENGINE — Auto-select the best format:
