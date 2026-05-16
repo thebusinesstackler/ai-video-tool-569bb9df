@@ -570,6 +570,12 @@ serve(async (req) => {
         }
       }
 
+      // Attach WaveSpeed webhook so completed videos auto-land in Reels + ChatCut
+      try {
+        const webhookEndpoint = `${supabaseUrl}/functions/v1/wavespeed-webhook`;
+        requestBody.webhook = { endpoint: webhookEndpoint };
+      } catch (_) { /* non-fatal */ }
+
       console.log('Sending request to WaveSpeed API:', apiEndpoint);
       console.log('Request body:', requestBody);
 
@@ -724,7 +730,9 @@ serve(async (req) => {
             source: body.source || null,
             source_id: body.sourceId || null,
             scene_number: body.sceneNumber ?? null,
-            prompt: params.prompt?.substring(0, 500) || null
+            prompt: params.prompt?.substring(0, 500) || null,
+            audio_url: params.audioUrl || null,
+            metadata: body.metadata || {},
           });
           console.log('[video_tasks] Logged new task:', taskId);
         } catch (logErr) {
@@ -733,7 +741,7 @@ serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({ taskId }), 
+        JSON.stringify({ taskId }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }

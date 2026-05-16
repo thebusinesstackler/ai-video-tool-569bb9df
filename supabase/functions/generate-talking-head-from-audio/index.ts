@@ -42,6 +42,7 @@ serve(async (req) => {
     const source: string = body.source || 'podcast';
     const sourceId: string | null = body.sourceId || null;
     const quality: string = (body.quality === '720p' || body.quality === 'hd') ? '720p' : (body.quality === '480p' ? '480p' : 'auto');
+    const metadata: Record<string, unknown> = body.metadata && typeof body.metadata === 'object' ? body.metadata : {};
 
     if (!audioUrl || typeof audioUrl !== 'string') {
       return new Response(JSON.stringify({ error: 'audioUrl required' }), {
@@ -86,6 +87,7 @@ serve(async (req) => {
         userId,
         source,
         sourceId,
+        metadata: { ...metadata, audioUrl },
       }),
     });
 

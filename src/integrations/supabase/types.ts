@@ -1275,8 +1275,10 @@ export type Database = {
       }
       video_tasks: {
         Row: {
+          audio_url: string | null
           created_at: string
           id: string
+          metadata: Json
           model: string | null
           prompt: string | null
           scene_number: number | null
@@ -1289,8 +1291,10 @@ export type Database = {
           video_url: string | null
         }
         Insert: {
+          audio_url?: string | null
           created_at?: string
           id?: string
+          metadata?: Json
           model?: string | null
           prompt?: string | null
           scene_number?: number | null
@@ -1303,8 +1307,10 @@ export type Database = {
           video_url?: string | null
         }
         Update: {
+          audio_url?: string | null
           created_at?: string
           id?: string
+          metadata?: Json
           model?: string | null
           prompt?: string | null
           scene_number?: number | null
