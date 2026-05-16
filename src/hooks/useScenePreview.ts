@@ -357,7 +357,7 @@ export function useScenePreview(): UseScenePreviewResult {
             console.error('Image generation error for scene', scene.sceneNumber, ':', imageError);
             setPreviewScenes(prev => prev.map(ps =>
               ps.sceneNumber === scene.sceneNumber
-                ? { ...ps, isGenerating: false }
+                ? { ...ps, isGenerating: false, isGeneratingImage: false }
                 : ps
             ));
             continue;
@@ -366,7 +366,7 @@ export function useScenePreview(): UseScenePreviewResult {
           if (imageData?.imageUrl) {
             setPreviewScenes(prev => prev.map(ps =>
               ps.sceneNumber === scene.sceneNumber
-                ? { ...ps, imageUrl: imageData.imageUrl, isGenerating: false }
+                ? { ...ps, imageUrl: imageData.imageUrl, isGenerating: false, isGeneratingImage: false }
                 : ps
             ));
             
@@ -383,7 +383,7 @@ export function useScenePreview(): UseScenePreviewResult {
           } else {
             setPreviewScenes(prev => prev.map(ps =>
               ps.sceneNumber === scene.sceneNumber
-                ? { ...ps, isGenerating: false }
+                ? { ...ps, isGenerating: false, isGeneratingImage: false }
                 : ps
             ));
           }
@@ -391,7 +391,7 @@ export function useScenePreview(): UseScenePreviewResult {
           console.error('Image generation failed for scene', scene.sceneNumber, ':', imgErr);
           setPreviewScenes(prev => prev.map(ps =>
             ps.sceneNumber === scene.sceneNumber
-              ? { ...ps, isGenerating: false }
+              ? { ...ps, isGenerating: false, isGeneratingImage: false }
               : ps
           ));
         }
@@ -730,7 +730,7 @@ export function useScenePreview(): UseScenePreviewResult {
       toast({ title: `✨ ${type === 'broll' ? 'B-Roll' : type === 'intro' ? 'Intro' : 'Outro'} Added` });
     } catch (err: any) {
       setPreviewScenes(prev => prev.map(ps =>
-        ps.sceneNumber === insertIndex + 1 ? { ...ps, isGenerating: false } : ps
+        ps.sceneNumber === insertIndex + 1 ? { ...ps, isGenerating: false, isGeneratingImage: false } : ps
       ));
       toast({ title: 'Generation Failed', description: err.message, variant: 'destructive' });
     }
