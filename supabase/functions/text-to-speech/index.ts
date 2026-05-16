@@ -171,6 +171,92 @@ async function generateClonedVoiceTTS(
   voiceCloningKey: string,
   speed: number = 1.0
 ): Promise<{ audioContent: string; audioUrl: string } | null> {
+  // (unchanged below — see original implementation)
+  return _origGoogleClonedVoiceTTS(text, apiKey, voiceCloningKey, speed);
+}
+
+// ── WaveSpeed Gemini 2.5 Pro TTS (single-speaker) ───────────────────────────
+// Same provider used by Movie Scene Creator. Plenty of credits, no per-user billing.
+const MALE_GEMINI_VOICES = ['Charon', 'Fenrir', 'Puck', 'Orus', 'Enceladus', 'Iapetus'];
+const FEMALE_GEMINI_VOICES = ['Kore', 'Aoede', 'Zephyr', 'Leda', 'Despina', 'Callirrhoe'];
+
+async function pollWaveSpeedResult(taskId: string, apiKey: string): Promise<string | null> {
+  const start = Date.now();
+  for (let i = 0; i < 90; i++) {
+    if (Date.now() - start > 90_000) return null;
+    try {
+      const res = await fetch(`https://api.wavespeed.ai/api/v3/predictions/${taskId}/result`, {
+        headers: { 'Authorization': `Bearer ${apiKey}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.code === 200 && data.data) {
+          if (data.data.status === 'completed' || data.data.status === 'succeeded') {
+            return data.data.outputs?.[0] || null;
+          }
+          if (data.data.status === 'failed') return null;
+        }
+      }
+    } catch { /* keep polling */ }
+    await new Promise(r => setTimeout(r, 1000));
+  }
+  return null;
+}
+
+async function generateWavespeedGeminiTTS(
+  text: string,
+  apiKey: string,
+  gender?: string,
+): Promise<{ audioContent: string; audioUrl: string } | null> {
+  try {
+    const genderLower = (gender || '').toLowerCase();
+    const isFemale = genderLower === 'female' || genderLower === 'woman';
+    const pool = isFemale ? FEMALE_GEMINI_VOICES : MALE_GEMINI_VOICES;
+    const voiceName = pool[Math.floor(Math.random() * pool.length)];
+    const scriptText = `Narrator: ${text}`;
+    console.log(`WaveSpeed Gemini TTS → voice ${voiceName}`);
+
+    const res = await fetch('https://api.wavespeed.ai/api/v3/google/gemini-2.5-pro/text-to-speech', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: scriptText,
+        language: 'English (United States)',
+        speakers: [{ speaker: 'Narrator', voice: voiceName }],
+      }),
+    });
+    if (!res.ok) {
+      console.error(`WaveSpeed Gemini TTS error ${res.status}: ${(await res.text()).substring(0, 300)}`);
+      return null;
+    }
+    const data = await res.json();
+    if (data.code !== 200 || !data.data?.id) return null;
+
+    const audioUrl = await pollWaveSpeedResult(data.data.id, apiKey);
+    if (!audioUrl) return null;
+
+    const audioResp = await fetch(audioUrl);
+    if (!audioResp.ok) return null;
+    const buf = new Uint8Array(await audioResp.arrayBuffer());
+    let binary = '';
+    const CHUNK = 32768;
+    for (let i = 0; i < buf.length; i += CHUNK) {
+      binary += String.fromCharCode.apply(null, Array.from(buf.subarray(i, i + CHUNK)));
+    }
+    const base64Audio = btoa(binary);
+    return { audioContent: base64Audio, audioUrl: `data:audio/mp3;base64,${base64Audio}` };
+  } catch (e) {
+    console.error('WaveSpeed Gemini TTS exception:', e);
+    return null;
+  }
+}
+
+async function _origGoogleClonedVoiceTTS(
+  text: string,
+  apiKey: string,
+  voiceCloningKey: string,
+  speed: number = 1.0
+): Promise<{ audioContent: string; audioUrl: string } | null> {
   try {
     const response = await fetch(
       `https://texttospeech.googleapis.com/v1beta1/text:synthesize?key=${apiKey}`,
@@ -236,6 +322,7 @@ serve(async (req) => {
     console.log(`TTS request - Voice: ${voice}, Pitch: ${validatedPitch}, Text length: ${text.length}`);
 
     const speechifyApiKey = Deno.env.get('SPEECHIFY_API_KEY');
+    const wavespeedApiKey = Deno.env.get('WAVESPEED_API_KEY');
 
     // Priority 1: Speechify cloned voice
     if (speechifyVoiceId && speechifyApiKey) {
@@ -245,8 +332,8 @@ serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
     }
-    
-    // Priority 2: Google Cloud cloned voice (cloning only, not standard voices)
+
+    // Priority 2: Google Cloud cloned voice
     if (voiceCloningKey) {
       const googleApiKey = Deno.env.get('GOOGLE_CLOUD_TTS_API_KEY');
       if (googleApiKey) {
@@ -257,7 +344,17 @@ serve(async (req) => {
         }
       }
     }
-    
+
+    // Priority 3: WaveSpeed Gemini 2.5 Pro TTS — same provider as Movie Scene Creator
+    if (wavespeedApiKey) {
+      const result = await generateWavespeedGeminiTTS(text, wavespeedApiKey, gender);
+      if (result) {
+        return new Response(JSON.stringify({ ...result, isClonedVoice: false, provider: 'wavespeed-gemini' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      console.log('WaveSpeed Gemini TTS failed, falling through to other providers');
+    }
+
     // Priority 3: Google Chirp3-HD fallback via OAuth service account
     const tryChirp3 = async () => {
       const accessToken = await getGoogleAccessToken();
