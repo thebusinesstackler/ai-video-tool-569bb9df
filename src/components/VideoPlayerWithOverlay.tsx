@@ -113,7 +113,13 @@ export const VideoPlayerWithOverlay: React.FC<VideoPlayerWithOverlayProps> = ({
       // No separate voiceover → drive playback off the video itself
       if (!currentVoiceover) {
         if (theaterMode) {
-          transitionToNextClipRef.current?.();
+          if (currentClipIndex < videoClips.length - 1) {
+            setCurrentClipIndex(prev => prev + 1);
+            onClipChange?.(currentClipIndex + 1);
+            setCurrentTime(0);
+          } else {
+            setIsPlaying(false);
+          }
         } else {
           setIsPlaying(false);
           if (currentClipIndex < videoClips.length - 1) {
