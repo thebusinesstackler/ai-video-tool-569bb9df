@@ -4298,7 +4298,7 @@ const ChatcutAI = () => {
 
   return (
     <Layout>
-      <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden">
+      <div className="flex flex-col h-[calc(100vh-64px)] min-h-[600px] overflow-hidden">
         {/* Draft picker overlay */}
         {showDraftPicker && savedDrafts.length > 0 && (
           <div className="absolute inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setShowDraftPicker(false)}>
