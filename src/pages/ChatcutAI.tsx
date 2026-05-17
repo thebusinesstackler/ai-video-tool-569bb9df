@@ -1033,32 +1033,20 @@ const ChatcutAI = () => {
     }
   }, [timelineClips]);
 
-  // Auto-play when activeClipIndex changes after a clip ended
+  // Auto-play next clip after the previous one ended (only triggered by onEnded)
   const autoplayNextRef = useRef(false);
   useEffect(() => {
-    if (timelineClips.length <= 1) return;
+    if (!autoplayNextRef.current) return;
+    autoplayNextRef.current = false;
     const video = videoRef.current;
     if (!video) return;
-    const shouldPlay = autoplayNextRef.current;
-    autoplayNextRef.current = false;
     const onLoaded = () => {
       video.currentTime = 0;
-      if (shouldPlay) video.play().catch(() => {});
+      video.play().catch(() => {});
     };
     video.addEventListener('loadeddata', onLoaded, { once: true });
     return () => video.removeEventListener('loadeddata', onLoaded);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeClipIndex]);
-
-  // Keep activeClipIndex in sync when user seeks via the timeline ruler (currentTime jumps)
-  useEffect(() => {
-    if (timelineClips.length <= 1) return;
-    const idx = timelineClips.findIndex(c => currentTime >= c.startAt && currentTime < c.startAt + c.duration);
-    if (idx >= 0 && idx !== activeClipIndex) {
-      setActiveClipIndex(idx);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentTime, timelineClips.length]);
 
   // Listen for fullscreen exit
   useEffect(() => {
