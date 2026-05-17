@@ -4420,7 +4420,7 @@ const ChatcutAI = () => {
 
         {/* Main content: resizable 3-panel layout (vertical stack on mobile) */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          <ResizablePanelGroup direction="horizontal" className="flex-1 hidden md:flex">
+          <ResizablePanelGroup direction="horizontal" className="flex-1 hidden sm:flex">
             {/* Left Panel: AI Chat + Transcript */}
             {aiPanelVisible ? (
             <ResizablePanel defaultSize={24} minSize={18} maxSize={34}>
