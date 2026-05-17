@@ -1007,7 +1007,16 @@ const ChatcutAI = () => {
       video.removeEventListener('play', onPlay);
       video.removeEventListener('pause', onPause);
     };
-  }, [videoUrl, cuts]);
+  }, [videoUrl, cuts, timelineClips]);
+
+  // Whenever the timeline clip list changes, recompute total duration from clip layout
+  // so the ruler always reflects the full multi-clip arrangement.
+  useEffect(() => {
+    if (timelineClips.length > 1) {
+      const total = timelineClips.reduce((acc, c) => Math.max(acc, (c.startAt || 0) + (c.duration || 0)), 0);
+      if (total > 0) setDuration(total);
+    }
+  }, [timelineClips]);
 
   // Listen for fullscreen exit
   useEffect(() => {
