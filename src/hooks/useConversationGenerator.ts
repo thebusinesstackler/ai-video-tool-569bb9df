@@ -4,8 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 export interface DialogueLine { character: string; line: string; emotion?: string }
 export interface ConversationSpeaker {
   characterName: string;
-  twinId: string;
+  twinId?: string;
   voice_cloning_key?: string | null;
+  voice?: string | null; // built-in voice id (alloy, nova, onyx, etc.)
   gender?: string | null;
   portraitUrl: string;
 }

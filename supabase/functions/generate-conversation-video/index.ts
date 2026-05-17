@@ -19,8 +19,9 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 interface DialogueLine { character: string; line: string; emotion?: string }
 interface Speaker {
   characterName: string;
-  twinId: string;
+  twinId?: string;
   voice_cloning_key?: string | null;
+  voice?: string | null; // built-in voice name (alloy/nova/onyx/etc.) when no twin
   gender?: string | null;
   portraitUrl: string;
 }
@@ -29,16 +30,19 @@ async function ttsLine(supabaseUrl: string, anon: string, authHeader: string, te
   const key = speaker.voice_cloning_key || undefined;
   const speechifyVoiceId = key && UUID_RE.test(key) ? key : undefined;
   const voiceCloningKey = key && !speechifyVoiceId ? key : undefined;
+  const hasClonedVoice = !!(speechifyVoiceId || voiceCloningKey);
+  const builtInVoice = !hasClonedVoice ? (speaker.voice || 'ai-auto') : undefined;
 
   const resp = await fetch(`${supabaseUrl}/functions/v1/text-to-speech`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: authHeader, apikey: anon },
     body: JSON.stringify({
       text,
-      voice: (speechifyVoiceId || voiceCloningKey) ? 'cloned' : 'ai-auto',
+      voice: hasClonedVoice ? 'cloned' : builtInVoice,
       speechifyVoiceId,
       voiceCloningKey,
       gender: speaker.gender || undefined,
+      voiceSeed: speaker.characterName, // stable voice per character
     }),
   });
   if (!resp.ok) {
@@ -137,7 +141,7 @@ serve(async (req) => {
           index: i,
           character: entry.character,
           line: entry.line,
-          twinId: speaker.twinId,
+          twinId: speaker.twinId || '',
           audioUrl,
           taskId: wsData.taskId,
           estDuration,
@@ -149,7 +153,7 @@ serve(async (req) => {
           index: i,
           character: entry.character,
           line: entry.line,
-          twinId: speaker.twinId,
+          twinId: speaker.twinId || '',
           audioUrl: '',
           taskId: null,
           estDuration: estimateDuration(entry.line),
