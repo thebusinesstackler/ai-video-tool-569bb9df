@@ -352,6 +352,34 @@ const Reels = () => {
     setChatcutDialogOpen(true);
   };
 
+  // One-click hand-off: package every generated clip into a ChatCut draft and redirect.
+  const sendAllClipsToChatcut = () => {
+    const clips = project.videoClips
+      .filter(v => v.videoUrl)
+      .sort((a, b) => a.sceneNumber - b.sceneNumber)
+      .map(v => {
+        const scene = project.generatedScenes.find(s => s.sceneNumber === v.sceneNumber);
+        return {
+          url: v.videoUrl,
+          name: scene?.text?.slice(0, 60) || `Scene ${v.sceneNumber}`,
+          thumbnail: scene?.imageUrl || undefined,
+        };
+      });
+    if (clips.length === 0) {
+      toast({ title: 'No clips to send', variant: 'destructive' });
+      return;
+    }
+    const payload = {
+      title: project.topic || 'Reel Project',
+      timelineVideos: clips.map(c => ({ url: c.url, name: c.name })),
+      videoUrl: clips[0].url,
+    };
+    sessionStorage.setItem('chatcut-handoff', JSON.stringify(payload));
+    sessionStorage.setItem('vizard-to-chatcut', JSON.stringify(payload));
+    toast({ title: 'Sending to ChatCut AI', description: `${clips.length} clip(s) queued for Marco` });
+    navigate('/chatcut-ai');
+  };
+
   const openChatcutForReel = (reel: SavedReel) => {
     const clips: ChatcutHandoffClip[] = (reel.scenes || [])
       .filter(s => s.videoUrl)
