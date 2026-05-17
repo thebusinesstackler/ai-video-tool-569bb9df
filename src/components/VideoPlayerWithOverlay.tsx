@@ -97,23 +97,44 @@ export const VideoPlayerWithOverlay: React.FC<VideoPlayerWithOverlayProps> = ({
     }
   }, [nextClipData]);
 
-  // Sync video with audio - loop video if audio is longer
+  // Sync video with audio - loop video if audio is longer; advance to next clip when no voiceover
   useEffect(() => {
     const video = videoRef.current;
+    if (!video) return;
     const audio = audioRef.current;
-    if (!video || !audio) return;
 
     const handleVideoEnded = () => {
-      // If audio is still playing, loop the video
-      if (!audio.paused && audio.currentTime < audio.duration - 0.1) {
+      if (audio && !audio.paused && audio.currentTime < audio.duration - 0.1) {
+        // audio still playing → loop video
         video.currentTime = 0;
         video.play().catch(console.error);
+        return;
+      }
+      // No separate voiceover → drive playback off the video itself
+      if (!currentVoiceover) {
+        if (theaterMode) {
+          if (currentClipIndex < videoClips.length - 1) {
+            setCurrentClipIndex(prev => prev + 1);
+            onClipChange?.(currentClipIndex + 1);
+            setCurrentTime(0);
+          } else {
+            setIsPlaying(false);
+          }
+        } else {
+          setIsPlaying(false);
+          if (currentClipIndex < videoClips.length - 1) {
+            setTimeout(() => {
+              setCurrentClipIndex(prev => prev + 1);
+              onClipChange?.(currentClipIndex + 1);
+            }, 500);
+          }
+        }
       }
     };
 
     video.addEventListener('ended', handleVideoEnded);
     return () => video.removeEventListener('ended', handleVideoEnded);
-  }, [currentClipIndex]);
+  }, [currentClipIndex, currentVoiceover, theaterMode, videoClips.length, onClipChange]);
 
   // Play/pause both video and audio together
   const togglePlay = useCallback(() => {
@@ -131,13 +152,16 @@ export const VideoPlayerWithOverlay: React.FC<VideoPlayerWithOverlayProps> = ({
     setIsPlaying(!isPlaying);
   }, [isPlaying, isMuted]);
 
-  // Toggle mute for audio
+  // Toggle mute for audio (separate voiceover OR baked video audio)
   const toggleMute = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.muted = !isMuted;
     }
+    if (videoRef.current && !currentVoiceover) {
+      videoRef.current.muted = !isMuted;
+    }
     setIsMuted(!isMuted);
-  }, [isMuted]);
+  }, [isMuted, currentVoiceover]);
 
   // Seamless transition to next clip
   const transitionToNextClip = useCallback(() => {
@@ -293,14 +317,14 @@ export const VideoPlayerWithOverlay: React.FC<VideoPlayerWithOverlayProps> = ({
       <div className={`aspect-[9/16] max-w-sm mx-auto bg-black rounded-lg overflow-hidden shadow-xl relative group transition-opacity duration-300 ${
         isTransitioning ? 'opacity-70' : 'opacity-100'
       }`}>
-        {/* Video element - muted to prevent original audio, we use separate voiceover */}
+        {/* Video element - mute baked audio only when we have a separate voiceover track */}
         <video
           ref={videoRef}
           src={currentClip?.videoUrl}
           className="w-full h-full object-contain"
           playsInline
           loop={false}
-          muted
+          muted={!!currentVoiceover || isMuted}
           onClick={togglePlay}
         />
 

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { RegenerateVideoDialog } from '@/components/RegenerateVideoDialog';
@@ -290,6 +290,7 @@ const Reels = () => {
   const isMobile = useIsMobile();
   const { mode: creatorMode, setMode: setCreatorMode, isAdvanced, isBeginner, isQuick } = useCreatorMode();
   const [searchParams, setSearchParams] = useSearchParams();
+  const chatcutNavigate = useNavigate();
   const [topic, setTopic] = useState('');
   const [selectedSceneCount, setSelectedSceneCount] = useState('4');
   const [selectedSceneDuration, setSelectedSceneDuration] = useState('12');
@@ -350,6 +351,34 @@ const Reels = () => {
     setChatcutClips(clips);
     setChatcutTitle(project.topic || 'Reel Project');
     setChatcutDialogOpen(true);
+  };
+
+  // One-click hand-off: package every generated clip into a ChatCut draft and redirect.
+  const sendAllClipsToChatcut = () => {
+    const clips = project.videoClips
+      .filter(v => v.videoUrl)
+      .sort((a, b) => a.sceneNumber - b.sceneNumber)
+      .map(v => {
+        const scene = project.generatedScenes.find(s => s.sceneNumber === v.sceneNumber);
+        return {
+          url: v.videoUrl,
+          name: scene?.text?.slice(0, 60) || `Scene ${v.sceneNumber}`,
+          thumbnail: scene?.imageUrl || undefined,
+        };
+      });
+    if (clips.length === 0) {
+      toast({ title: 'No clips to send', variant: 'destructive' });
+      return;
+    }
+    const payload = {
+      title: project.topic || 'Reel Project',
+      timelineVideos: clips.map(c => ({ url: c.url, name: c.name })),
+      videoUrl: clips[0].url,
+    };
+    sessionStorage.setItem('chatcut-handoff', JSON.stringify(payload));
+    sessionStorage.setItem('vizard-to-chatcut', JSON.stringify(payload));
+    toast({ title: 'Sending to ChatCut AI', description: `${clips.length} clip(s) queued for Marco` });
+    chatcutNavigate('/chatcut-ai');
   };
 
   const openChatcutForReel = (reel: SavedReel) => {
@@ -7214,32 +7243,16 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                   )}
 
                   <div className="flex flex-wrap justify-center gap-3">
-                    {/* Stitch button - show when we have multiple clips */}
+                    {/* Send all clips to ChatCut AI - Marco assembles them on the timeline */}
                     {project.videoClips.length > 1 && (
-                      <div className="w-full space-y-3">
-                        <div className="flex justify-center">
-                          <Button 
-                            onClick={stitchVideos}
-                            disabled={isManualStitching}
-                            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90"
-                          >
-                            {isManualStitching ? (
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            ) : (
-                              <Layers className="w-4 h-4 mr-2" />
-                            )}
-                            Stitch All Clips Together
-                          </Button>
-                        </div>
-                        {isManualStitching && (
-                          <div className="space-y-2 px-4">
-                            <Progress value={progress} className="h-2" />
-                            <div className="flex justify-between text-xs text-muted-foreground">
-                              <span>{progressStatus}</span>
-                              <span>{Math.round(progress)}%</span>
-                            </div>
-                          </div>
-                        )}
+                      <div className="w-full flex justify-center">
+                        <Button
+                          onClick={sendAllClipsToChatcut}
+                          className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90"
+                        >
+                          <Scissors className="w-4 h-4 mr-2" />
+                          Send All Clips to ChatCut AI
+                        </Button>
                       </div>
                     )}
                     {project.videoBlobUrl && project.videoClips.length === 0 && (
