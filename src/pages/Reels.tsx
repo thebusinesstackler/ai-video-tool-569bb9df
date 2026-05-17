@@ -158,6 +158,8 @@ interface GeneratedScene {
   imageUrl: string | null;
   savedImageUrl?: string | null;
   videoUrl?: string | null;
+  audioUrl?: string | null;
+  audioDuration?: number | null;
   startTime: number;
   endTime: number;
   isIntro?: boolean;
