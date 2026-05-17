@@ -97,23 +97,38 @@ export const VideoPlayerWithOverlay: React.FC<VideoPlayerWithOverlayProps> = ({
     }
   }, [nextClipData]);
 
-  // Sync video with audio - loop video if audio is longer
+  // Sync video with audio - loop video if audio is longer; advance to next clip when no voiceover
   useEffect(() => {
     const video = videoRef.current;
+    if (!video) return;
     const audio = audioRef.current;
-    if (!video || !audio) return;
 
     const handleVideoEnded = () => {
-      // If audio is still playing, loop the video
-      if (!audio.paused && audio.currentTime < audio.duration - 0.1) {
+      if (audio && !audio.paused && audio.currentTime < audio.duration - 0.1) {
+        // audio still playing → loop video
         video.currentTime = 0;
         video.play().catch(console.error);
+        return;
+      }
+      // No separate voiceover → drive playback off the video itself
+      if (!currentVoiceover) {
+        if (theaterMode) {
+          transitionToNextClipRef.current?.();
+        } else {
+          setIsPlaying(false);
+          if (currentClipIndex < videoClips.length - 1) {
+            setTimeout(() => {
+              setCurrentClipIndex(prev => prev + 1);
+              onClipChange?.(currentClipIndex + 1);
+            }, 500);
+          }
+        }
       }
     };
 
     video.addEventListener('ended', handleVideoEnded);
     return () => video.removeEventListener('ended', handleVideoEnded);
-  }, [currentClipIndex]);
+  }, [currentClipIndex, currentVoiceover, theaterMode, videoClips.length, onClipChange]);
 
   // Play/pause both video and audio together
   const togglePlay = useCallback(() => {
