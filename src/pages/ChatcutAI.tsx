@@ -1003,9 +1003,8 @@ const ChatcutAI = () => {
     };
     const onEnded = () => {
       if (multi && activeClipIndex < timelineClips.length - 1) {
-        const nextIdx = activeClipIndex + 1;
-        setActiveClipIndex(nextIdx);
-        // Auto-play resumes once next src is loaded (handled by sync effect below)
+        autoplayNextRef.current = true;
+        setActiveClipIndex(activeClipIndex + 1);
       } else {
         setIsPlaying(false);
       }
