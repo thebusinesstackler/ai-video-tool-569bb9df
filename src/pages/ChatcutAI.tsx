@@ -970,21 +970,26 @@ const ChatcutAI = () => {
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
+    const multi = timelineClips.length > 1;
     const onTime = () => {
-      const t = video.currentTime;
-      // Skip over accepted cut regions during playback
-      if (!video.paused) {
-        const activeCut = cuts.find(c => c.accepted && t >= c.start && t < c.end);
+      const localT = video.currentTime;
+      // Skip over accepted cut regions during playback (single-clip mode only)
+      if (!multi && !video.paused) {
+        const activeCut = cuts.find(c => c.accepted && localT >= c.start && localT < c.end);
         if (activeCut) {
           video.currentTime = activeCut.end;
           return;
         }
       }
-      setCurrentTime(t);
+      if (multi) {
+        const clip = timelineClips[activeClipIndex];
+        const globalT = (clip?.startAt || 0) + localT;
+        setCurrentTime(globalT);
+      } else {
+        setCurrentTime(localT);
+      }
     };
     const onMeta = () => {
-      // If multiple clips are on the timeline, keep duration as the sum of all clips
-      // (don't shrink it to just the first clip's metadata duration).
       if (timelineClips.length > 1) {
         const total = timelineClips.reduce((acc, c) => Math.max(acc, (c.startAt || 0) + (c.duration || 0)), 0);
         if (total > 0) setDuration(total);
@@ -996,28 +1001,63 @@ const ChatcutAI = () => {
         setVideoAspect(video.videoWidth / video.videoHeight);
       }
     };
+    const onEnded = () => {
+      if (multi && activeClipIndex < timelineClips.length - 1) {
+        const nextIdx = activeClipIndex + 1;
+        setActiveClipIndex(nextIdx);
+        // Auto-play resumes once next src is loaded (handled by sync effect below)
+      } else {
+        setIsPlaying(false);
+      }
+    };
     const onPlay = () => setIsPlaying(true);
     const onPause = () => setIsPlaying(false);
     video.addEventListener('timeupdate', onTime);
     video.addEventListener('loadedmetadata', onMeta);
+    video.addEventListener('ended', onEnded);
     video.addEventListener('play', onPlay);
     video.addEventListener('pause', onPause);
     return () => {
       video.removeEventListener('timeupdate', onTime);
       video.removeEventListener('loadedmetadata', onMeta);
+      video.removeEventListener('ended', onEnded);
       video.removeEventListener('play', onPlay);
       video.removeEventListener('pause', onPause);
     };
-  }, [videoUrl, cuts, timelineClips]);
+  }, [videoUrl, cuts, timelineClips, activeClipIndex]);
 
-  // Whenever the timeline clip list changes, recompute total duration from clip layout
-  // so the ruler always reflects the full multi-clip arrangement.
+  // Recompute total duration from clip layout
   useEffect(() => {
     if (timelineClips.length > 1) {
       const total = timelineClips.reduce((acc, c) => Math.max(acc, (c.startAt || 0) + (c.duration || 0)), 0);
       if (total > 0) setDuration(total);
     }
   }, [timelineClips]);
+
+  // Auto-play when activeClipIndex changes and we were playing
+  useEffect(() => {
+    if (timelineClips.length <= 1) return;
+    const video = videoRef.current;
+    if (!video) return;
+    const wasPlaying = isPlaying;
+    const onLoaded = () => {
+      video.currentTime = 0;
+      if (wasPlaying) video.play().catch(() => {});
+    };
+    video.addEventListener('loadeddata', onLoaded, { once: true });
+    return () => video.removeEventListener('loadeddata', onLoaded);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeClipIndex]);
+
+  // Keep activeClipIndex in sync when user seeks via the timeline ruler (currentTime jumps)
+  useEffect(() => {
+    if (timelineClips.length <= 1) return;
+    const idx = timelineClips.findIndex(c => currentTime >= c.startAt && currentTime < c.startAt + c.duration);
+    if (idx >= 0 && idx !== activeClipIndex) {
+      setActiveClipIndex(idx);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTime, timelineClips.length]);
 
   // Listen for fullscreen exit
   useEffect(() => {
