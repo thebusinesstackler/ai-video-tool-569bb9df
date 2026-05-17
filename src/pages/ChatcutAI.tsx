@@ -982,7 +982,15 @@ const ChatcutAI = () => {
       setCurrentTime(t);
     };
     const onMeta = () => {
-      setDuration(video.duration);
+      // If multiple clips are on the timeline, keep duration as the sum of all clips
+      // (don't shrink it to just the first clip's metadata duration).
+      if (timelineClips.length > 1) {
+        const total = timelineClips.reduce((acc, c) => Math.max(acc, (c.startAt || 0) + (c.duration || 0)), 0);
+        if (total > 0) setDuration(total);
+        else setDuration(video.duration);
+      } else {
+        setDuration(video.duration);
+      }
       if (video.videoWidth && video.videoHeight) {
         setVideoAspect(video.videoWidth / video.videoHeight);
       }
