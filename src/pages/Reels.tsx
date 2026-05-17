@@ -3291,14 +3291,33 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
         }
       }
       
-      // Auto-detect gender for voice matching
-      const descLower = charPrompt.toLowerCase();
-      const femaleKeywords = ['woman', 'female', 'girl', 'lady', 'she', 'her', 'mother', 'mom', 'sister', 'actress', 'businesswoman', 'queen', 'princess', 'mrs', 'ms', 'miss'];
-      const maleKeywords = ['man', 'male', 'boy', 'guy', 'he', 'him', 'father', 'dad', 'brother', 'actor', 'businessman', 'king', 'prince', 'mr'];
-      const isFemale = femaleKeywords.some(k => descLower.includes(k));
-      const isMale = !isFemale && maleKeywords.some(k => descLower.includes(k));
-      const detectedGender = isFemale ? 'female' : 'male';
-      setDetectedCharGender(detectedGender as 'male' | 'female');
+      // Auto-detect gender for voice matching — use vision on the actual portrait first,
+      // then fall back to keyword heuristics on the prompt text.
+      let detectedGender: 'male' | 'female' = 'male';
+      try {
+        const { data: visionData } = await supabase.functions.invoke('ai', {
+          body: {
+            messages: [{
+              role: 'user',
+              content: [
+                { type: 'image_url', image_url: { url: firstImageUrl } },
+                { type: 'text', text: 'Look at this portrait. Reply with EXACTLY one word: "female" or "male". Choose the option that best matches the person\'s apparent gender presentation. No other text.' }
+              ]
+            }],
+            model: 'google/gemini-2.5-flash-lite'
+          }
+        });
+        const visionAnswer = (visionData?.choices?.[0]?.message?.content || '').toLowerCase();
+        if (visionAnswer.includes('female') || visionAnswer.includes('woman')) detectedGender = 'female';
+        else if (visionAnswer.includes('male') || visionAnswer.includes('man')) detectedGender = 'male';
+      } catch (visionErr) {
+        console.warn('Vision gender detection failed, using keyword fallback', visionErr);
+        const descLower = charPrompt.toLowerCase();
+        const femaleKeywords = ['woman', 'female', 'girl', 'lady', 'she', 'her', 'mother', 'mom', 'sister', 'actress', 'businesswoman', 'queen', 'princess', 'mrs', 'ms', 'miss'];
+        if (femaleKeywords.some(k => descLower.includes(k))) detectedGender = 'female';
+      }
+      const isFemale = detectedGender === 'female';
+      setDetectedCharGender(detectedGender);
       
       const matchedVoiceId = isFemale ? 'English_compelling_lady1' : 'English_magnetic_voiced_man';
       setSelectedVoice(matchedVoiceId);
