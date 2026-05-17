@@ -4320,6 +4320,27 @@ const ChatcutAI = () => {
             </Button>
             <Button
               size="sm"
+              variant="ghost"
+              className="text-xs gap-1 h-7 px-2"
+              onClick={async () => {
+                if (!user) return;
+                const { data } = await supabase
+                  .from('chatcut_drafts')
+                  .select('id, name, updated_at, video_url')
+                  .eq('user_id', user.id)
+                  .order('updated_at', { ascending: false });
+                if (data && data.length > 0) {
+                  setSavedDrafts(data);
+                  setShowDraftPicker(true);
+                } else {
+                  toast({ title: 'No saved projects yet' });
+                }
+              }}
+            >
+              <FolderOpen className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Open</span>
+            </Button>
+            <Button
+              size="sm"
               variant="outline"
               className="text-xs gap-1 h-7 px-2"
               disabled={isSaving || (!videoUrl && messages.length === 0)}
