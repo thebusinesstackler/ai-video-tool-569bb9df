@@ -3533,7 +3533,23 @@ const ChatcutAI = () => {
   };
 
    const seekTo = (time: number) => {
-    if (videoRef.current) {
+    if (!videoRef.current) return;
+    if (timelineClips.length > 1) {
+      const idx = timelineClips.findIndex(c => time >= c.startAt && time < c.startAt + c.duration);
+      const safeIdx = idx >= 0 ? idx : 0;
+      const clip = timelineClips[safeIdx];
+      const local = Math.max(0, time - (clip?.startAt || 0));
+      if (safeIdx !== activeClipIndex) {
+        setActiveClipIndex(safeIdx);
+        // local seek happens after src swap loads
+        const v = videoRef.current;
+        const onLoaded = () => { v.currentTime = local; };
+        v.addEventListener('loadeddata', onLoaded, { once: true });
+      } else {
+        videoRef.current.currentTime = local;
+      }
+      setCurrentTime(time);
+    } else {
       videoRef.current.currentTime = time;
       setCurrentTime(time);
     }
