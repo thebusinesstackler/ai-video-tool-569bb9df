@@ -670,6 +670,19 @@ const ChatcutAI = () => {
   }, [messages]);
 
 
+  // Auto-collapse the nav sidebar on tablet-ish widths so the editor has room.
+  // Desktop users (>=1280px) keep their saved preference.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.innerWidth < 1280) {
+      const prev = localStorage.getItem('sidebar-collapsed');
+      if (prev !== 'true') {
+        localStorage.setItem('sidebar-collapsed', 'true');
+        window.dispatchEvent(new Event('sidebar-collapse-changed'));
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (hasInteracted) return;
     const markInteracted = () => setHasInteracted(true);
