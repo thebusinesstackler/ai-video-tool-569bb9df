@@ -2869,9 +2869,12 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
 
     const cfg = resolveVoiceForGeneration();
     const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
+    // Fall back to the photo-detected gender when no twin is selected so we never
+    // accidentally default a female character to a male voice.
+    const effectiveGender = selectedTwin?.gender || detectedCharGender || undefined;
     return {
-      seed: selectedTwin?.id || `${selectedTwin?.gender || 'narrator'}-${selectedTwin?.name || 'default'}`,
-      gender: selectedTwin?.gender || undefined,
+      seed: selectedTwin?.id || `${effectiveGender || 'narrator'}-${selectedTwin?.name || 'default'}`,
+      gender: effectiveGender,
       voiceCloningKey: selectedTwin?.voice_cloning_key || undefined,
       voiceEngine: cfg.voiceEngine,
       voice: cfg.voice,
@@ -2887,6 +2890,38 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
   const applyVoiceMetaToAllScenes = (meta: ReturnType<typeof resolveSceneVoice>) => {
     previewScenes.forEach(s => sceneVoiceMetaRef.current.set(s.sceneNumber, meta));
     setAllScenesVoiceMeta(meta);
+  };
+
+  // Ask the AI to draft a fresh, relevant alternative visual description for a scene.
+  // Used when the user clicks "Regenerate scene" without typing a custom prompt, so they
+  // get a new interpretation of the same narration instead of the exact same shot again.
+  const generateFreshVisualPrompt = async (sceneNumber: number): Promise<string> => {
+    const scene = previewScenes.find(s => s.sceneNumber === sceneNumber);
+    const narration = scene?.narration?.trim() || '';
+    const original = scene?.visualDescription?.trim() || '';
+    if (!narration && !original) return original;
+    try {
+      const { data } = await supabase.functions.invoke('ai', {
+        body: {
+          model: 'google/gemini-3-flash-preview',
+          messages: [{
+            role: 'user',
+            content: `You are a cinematographer drafting an alternative shot for the same beat in a 9:16 vertical Reel.
+
+Topic: ${topic || 'n/a'}
+Narration of this scene: "${narration}"
+Previous visual description (do NOT repeat it): "${original}"
+
+Write ONE new visual description (2-3 sentences) for this exact narration. Keep the same subject and meaning, but change the framing, location, props, lighting, or action so the regenerated frame feels fresh and different from the previous one. Photorealistic, cinematic, vertical 9:16. Output only the description, no preamble.`
+          }]
+        }
+      });
+      const fresh = (data?.choices?.[0]?.message?.content || '').trim();
+      return fresh || original;
+    } catch (e) {
+      console.warn('Fresh visual prompt failed, reusing original', e);
+      return original;
+    }
   };
 
   const getResolvedVoiceDescription = () => {
@@ -3291,14 +3326,33 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
         }
       }
       
-      // Auto-detect gender for voice matching
-      const descLower = charPrompt.toLowerCase();
-      const femaleKeywords = ['woman', 'female', 'girl', 'lady', 'she', 'her', 'mother', 'mom', 'sister', 'actress', 'businesswoman', 'queen', 'princess', 'mrs', 'ms', 'miss'];
-      const maleKeywords = ['man', 'male', 'boy', 'guy', 'he', 'him', 'father', 'dad', 'brother', 'actor', 'businessman', 'king', 'prince', 'mr'];
-      const isFemale = femaleKeywords.some(k => descLower.includes(k));
-      const isMale = !isFemale && maleKeywords.some(k => descLower.includes(k));
-      const detectedGender = isFemale ? 'female' : 'male';
-      setDetectedCharGender(detectedGender as 'male' | 'female');
+      // Auto-detect gender for voice matching — use vision on the actual portrait first,
+      // then fall back to keyword heuristics on the prompt text.
+      let detectedGender: 'male' | 'female' = 'male';
+      try {
+        const { data: visionData } = await supabase.functions.invoke('ai', {
+          body: {
+            messages: [{
+              role: 'user',
+              content: [
+                { type: 'image_url', image_url: { url: firstImageUrl } },
+                { type: 'text', text: 'Look at this portrait. Reply with EXACTLY one word: "female" or "male". Choose the option that best matches the person\'s apparent gender presentation. No other text.' }
+              ]
+            }],
+            model: 'google/gemini-2.5-flash-lite'
+          }
+        });
+        const visionAnswer = (visionData?.choices?.[0]?.message?.content || '').toLowerCase();
+        if (visionAnswer.includes('female') || visionAnswer.includes('woman')) detectedGender = 'female';
+        else if (visionAnswer.includes('male') || visionAnswer.includes('man')) detectedGender = 'male';
+      } catch (visionErr) {
+        console.warn('Vision gender detection failed, using keyword fallback', visionErr);
+        const descLower = charPrompt.toLowerCase();
+        const femaleKeywords = ['woman', 'female', 'girl', 'lady', 'she', 'her', 'mother', 'mom', 'sister', 'actress', 'businesswoman', 'queen', 'princess', 'mrs', 'ms', 'miss'];
+        if (femaleKeywords.some(k => descLower.includes(k))) detectedGender = 'female';
+      }
+      const isFemale = detectedGender === 'female';
+      setDetectedCharGender(detectedGender);
       
       const matchedVoiceId = isFemale ? 'English_compelling_lady1' : 'English_magnetic_voiced_man';
       setSelectedVoice(matchedVoiceId);
@@ -6670,6 +6724,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         if (!scene?.narration?.trim()) return;
                         const voiceConfig = resolveVoiceForGeneration();
                         const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
+                        const effectiveGender = selectedTwin?.gender || detectedCharGender || undefined;
+                        // Fresh seed every click so the voice actually varies on regenerate.
+                        const freshSeed = `regen-${effectiveGender || 'narrator'}-${sceneNumber}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
                         regenerateSceneVoice(
                           sceneNumber,
                           scene.narration,
@@ -6678,14 +6735,16 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           voiceConfig.voiceEngine,
                           undefined,
                           user?.id,
-                          selectedTwin?.gender || undefined,
-                          selectedTwin?.id || `${selectedTwin?.gender || 'narrator'}-${selectedTwin?.name || 'default'}`
+                          effectiveGender,
+                          freshSeed
                         );
                       }}
-                      onRegenerateScene={(sceneNumber) => {
+                      onRegenerateScene={async (sceneNumber) => {
                         const scene = previewScenes.find(s => s.sceneNumber === sceneNumber);
                         if (!scene) return;
-                        const prompt = scene.visualDescription || scene.narration;
+                        toast({ title: 'Reimagining scene…', description: 'Drafting a fresh visual for this beat.' });
+                        const freshPrompt = await generateFreshVisualPrompt(sceneNumber);
+                        const prompt = freshPrompt || scene.visualDescription || scene.narration;
                         if (referenceImageUrl) {
                           regenerateWithReference(sceneNumber, prompt, referenceImageUrl, characterTransformation, characterDescription || undefined, selectedProductImageUrl || undefined, selectedProductName || undefined);
                         } else {
@@ -6697,9 +6756,16 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                 ) : (
                 <ScenePreview
                   scenes={previewScenes}
-                  onRegenerateImage={(sceneNumber, customPrompt, localRefUrl) => {
+                  onRegenerateImage={async (sceneNumber, customPrompt, localRefUrl) => {
                     const scene = project.scenes.find(s => s.sceneNumber === sceneNumber);
-                    const promptToUse = customPrompt || scene?.visualDescription || '';
+                    let promptToUse = customPrompt?.trim() || '';
+                    if (!promptToUse) {
+                      // No user prompt → ask AI for a fresh, relevant alternative visual
+                      // so the regenerated scene isn't just the same shot again.
+                      toast({ title: 'Reimagining scene…', description: 'Drafting a fresh visual for this beat.' });
+                      promptToUse = await generateFreshVisualPrompt(sceneNumber);
+                      if (!promptToUse) promptToUse = scene?.visualDescription || '';
+                    }
                     
                     // Use local reference if provided, else fall back to global reference
                     if (localRefUrl) {
@@ -6714,16 +6780,20 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                     const scene = previewScenes.find(s => s.sceneNumber === sceneNumber);
                     if (!scene?.narration?.trim()) return;
                     const base = resolveSceneVoice(sceneNumber);
+                    // Always roll a fresh seed so clicking "Regenerate voice" actually
+                    // produces a different voice instead of replaying the same one.
+                    const effectiveGender = genderOverride || base.gender || detectedCharGender || undefined;
+                    const freshSeed = `regen-${effectiveGender || 'narrator'}-${sceneNumber}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
                     const meta = genderOverride
                       ? {
                           ...base,
                           gender: genderOverride,
                           voiceCloningKey: undefined,
                           voiceEngine: 'wavespeed',
-                          seed: `override-${genderOverride}-${sceneNumber}-${Date.now()}`,
+                          seed: freshSeed,
                           label: `${genderOverride === 'female' ? 'Female' : 'Male'} (override)`,
                         }
-                      : base;
+                      : { ...base, gender: effectiveGender, seed: freshSeed };
                     applySceneVoiceMeta(sceneNumber, meta);
                     regenerateSceneVoice(
                       sceneNumber,
