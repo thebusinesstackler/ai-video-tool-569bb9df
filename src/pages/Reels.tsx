@@ -354,6 +354,7 @@ const Reels = () => {
 
   // One-click hand-off: package every generated clip into a ChatCut draft and redirect.
   const sendAllClipsToChatcut = () => {
+    const navigateFn = (window as any).__reelsNav as ((to: string) => void) | undefined;
     const clips = project.videoClips
       .filter(v => v.videoUrl)
       .sort((a, b) => a.sceneNumber - b.sceneNumber)
