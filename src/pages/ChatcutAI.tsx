@@ -1351,6 +1351,7 @@ const ChatcutAI = () => {
     setTranscript(null);
     setCuts([]);
     setTimelineClips([]);
+    setActiveClipIndex(0);
     setMusicTracks([]);
     setOverlays([]);
     setBRollClips([]);
