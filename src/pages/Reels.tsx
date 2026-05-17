@@ -354,7 +354,6 @@ const Reels = () => {
 
   // One-click hand-off: package every generated clip into a ChatCut draft and redirect.
   const sendAllClipsToChatcut = () => {
-    const navigateFn = (window as any).__reelsNav as ((to: string) => void) | undefined;
     const clips = project.videoClips
       .filter(v => v.videoUrl)
       .sort((a, b) => a.sceneNumber - b.sceneNumber)
@@ -378,7 +377,7 @@ const Reels = () => {
     sessionStorage.setItem('chatcut-handoff', JSON.stringify(payload));
     sessionStorage.setItem('vizard-to-chatcut', JSON.stringify(payload));
     toast({ title: 'Sending to ChatCut AI', description: `${clips.length} clip(s) queued for Marco` });
-    navigate('/chatcut-ai');
+    chatcutNavigate('/chatcut-ai');
   };
 
   const openChatcutForReel = (reel: SavedReel) => {
