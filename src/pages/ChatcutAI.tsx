@@ -4849,7 +4849,7 @@ const ChatcutAI = () => {
               <div className="h-full min-h-0 flex flex-col bg-black/95">
                 {/* Video preview */}
                 {videoUrl ? (
-                  <div className="flex-1 flex items-center justify-center min-h-[240px] sm:min-h-[280px] lg:min-h-[320px] overflow-hidden bg-black">
+                  <div className="flex items-center justify-center min-h-[200px] max-h-[55vh] flex-shrink-0 overflow-hidden bg-black">
                     {/* Video wrapper – sized to match the actual video aspect ratio so portrait/reel videos display correctly */}
                     <div
                       ref={videoWrapperRef}
