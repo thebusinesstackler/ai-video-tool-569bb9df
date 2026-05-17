@@ -141,7 +141,7 @@ serve(async (req) => {
           index: i,
           character: entry.character,
           line: entry.line,
-          twinId: speaker.twinId,
+          twinId: speaker.twinId || '',
           audioUrl,
           taskId: wsData.taskId,
           estDuration,
