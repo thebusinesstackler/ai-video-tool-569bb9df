@@ -7214,32 +7214,16 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                   )}
 
                   <div className="flex flex-wrap justify-center gap-3">
-                    {/* Stitch button - show when we have multiple clips */}
+                    {/* Send all clips to ChatCut AI - Marco assembles them on the timeline */}
                     {project.videoClips.length > 1 && (
-                      <div className="w-full space-y-3">
-                        <div className="flex justify-center">
-                          <Button 
-                            onClick={stitchVideos}
-                            disabled={isManualStitching}
-                            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90"
-                          >
-                            {isManualStitching ? (
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            ) : (
-                              <Layers className="w-4 h-4 mr-2" />
-                            )}
-                            Stitch All Clips Together
-                          </Button>
-                        </div>
-                        {isManualStitching && (
-                          <div className="space-y-2 px-4">
-                            <Progress value={progress} className="h-2" />
-                            <div className="flex justify-between text-xs text-muted-foreground">
-                              <span>{progressStatus}</span>
-                              <span>{Math.round(progress)}%</span>
-                            </div>
-                          </div>
-                        )}
+                      <div className="w-full flex justify-center">
+                        <Button
+                          onClick={sendAllClipsToChatcut}
+                          className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90"
+                        >
+                          <Scissors className="w-4 h-4 mr-2" />
+                          Send All Clips to ChatCut AI
+                        </Button>
                       </div>
                     )}
                     {project.videoBlobUrl && project.videoClips.length === 0 && (
