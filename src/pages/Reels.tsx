@@ -1832,46 +1832,111 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     }
   };
 
-  // Duplicate a saved reel - loads its script into the create form
-  const duplicateReel = (reel: SavedReel) => {
-    // Set the topic
-    setTopic(reel.topic);
-    
-    // Convert saved scenes to script scenes
-    if (reel.scenes && reel.scenes.length > 0) {
-      const scriptScenes: Scene[] = reel.scenes.map((scene, index) => ({
+  // Duplicate a saved reel - clones script + images into a fresh draft so the user
+  // can tweak the script or swap the voice (e.g. male → female) and regenerate.
+  const duplicateReel = async (reel: SavedReel) => {
+    try {
+      // Pull the full reel (scenes + draft_state if it has one)
+      const { data: full } = await supabase
+        .from('reels')
+        .select('scenes, draft_state, audio_url')
+        .eq('id', reel.id)
+        .single();
+
+      const scenes = ((full?.scenes as unknown as GeneratedScene[]) || reel.scenes || []);
+      const savedDraft = (full?.draft_state as unknown as DraftState | null) || null;
+
+      const scriptScenes: Scene[] = scenes.map((scene, index) => ({
         sceneNumber: index + 1,
         narration: scene.text || '',
         visualDescription: scene.text || '',
         duration: Math.round((scene.endTime || 0) - (scene.startTime || 0)) || 12,
       }));
-      
-      setProject(prev => ({
-        ...prev,
+
+      // Keep generated IMAGES so user doesn't need to re-render visuals,
+      // but reset voice/audio/video so a new voice can be picked.
+      const previewScenes: PreviewScene[] = scenes.map(s => ({
+        sceneNumber: s.sceneNumber,
+        narration: s.text || '',
+        visualDescription: s.text || '',
+        imageUrl: s.imageUrl || null,
+        audioUrl: null,
+        audioDuration: 0,
+        isGenerating: false,
+      }));
+
+      setTopic(reel.topic);
+      setSelectedSceneCount(String(scriptScenes.length));
+      // Reset voice so the user can intentionally pick a new one (e.g. female)
+      setSelectedVoice('');
+
+      setProject({
         topic: reel.topic,
         scenes: scriptScenes,
-        status: 'idle',
-        generatedScenes: [],
-        videoClips: [],
         voiceovers: [],
-        previewScenes: [],
+        videoUrl: null,
         videoBlobUrl: null,
-        videoUrl: null
-      }));
-      
-      setSelectedSceneCount(String(scriptScenes.length));
+        generatedScenes: scenes.map(s => ({ ...s, videoUrl: null })),
+        videoClips: [],
+        previewScenes,
+        status: 'idle',
+      });
+
+      // Save as a new editable draft so it shows up in the drafts list
+      if (user) {
+        const newDraft: DraftState = {
+          ...(savedDraft || {} as DraftState),
+          selectedSceneCount: String(scriptScenes.length),
+          selectedSceneDuration: savedDraft?.selectedSceneDuration || '12',
+          selectedVoice: '',
+          selectedVideoSize: savedDraft?.selectedVideoSize || '9:16',
+          transitionStyle: savedDraft?.transitionStyle || 'crossfade',
+          hookStyle: savedDraft?.hookStyle || 'auto',
+          characterDescription: savedDraft?.characterDescription || '',
+          preSelectedReference: savedDraft?.preSelectedReference || null,
+          selectedTwinId: savedDraft?.selectedTwinId || null,
+          selectedIntro: savedDraft?.selectedIntro || 'none',
+          selectedOutro: savedDraft?.selectedOutro || 'none',
+          introText: savedDraft?.introText || '',
+          outroText: savedDraft?.outroText || '',
+          enableCutScenes: savedDraft?.enableCutScenes || false,
+          enableLipSync: savedDraft?.enableLipSync ?? (isBeginner || isQuick),
+          portraitImage: savedDraft?.portraitImage || null,
+          featureToggles: savedDraft?.featureToggles || { introOutro: false, cutScenes: false, upscaler: false, lipSync: isBeginner || isQuick, captions: true, backgroundMusic: false },
+          scenes: scriptScenes,
+          previewScenes,
+          voiceovers: [],
+          customAudioMode: 'tts',
+          customAudioUrl: null,
+          customAudioDuration: 0,
+          voicePitch: 0,
+          generatedScenes: scenes.map(s => ({ ...s, videoUrl: null })),
+        };
+
+        await supabase.from('reels').insert([{
+          user_id: user.id,
+          topic: `${reel.topic} (Copy)`,
+          video_url: null,
+          thumbnail_url: scenes[0]?.imageUrl || null,
+          scenes: scenes.map(s => ({ ...s, videoUrl: null })) as unknown as any,
+          total_duration: reel.total_duration,
+          is_draft: true,
+          draft_state: newDraft as unknown as any,
+        }]);
+        fetchSavedReels();
+      }
+
+      setActiveTab('create');
+      resetPreview();
+
+      toast({
+        title: "Reel Duplicated",
+        description: "Script and images loaded. Pick a new voice (e.g. female) and regenerate.",
+      });
+    } catch (err: any) {
+      console.error('Duplicate error:', err);
+      toast({ title: "Duplicate Failed", description: err.message || 'Failed to duplicate reel.', variant: 'destructive' });
     }
-    
-    // Switch to create tab
-    setActiveTab('create');
-    
-    // Reset preview state
-    resetPreview();
-    
-    toast({
-      title: "Reel Duplicated",
-      description: "Script loaded. You can now regenerate with modifications.",
-    });
   };
 
   // Restore a completed reel as a new draft (preserving all assets)
