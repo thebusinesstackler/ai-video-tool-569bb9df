@@ -2923,6 +2923,8 @@ Write ONE new visual description (2-3 sentences) for this exact narration. Keep 
       return original;
     }
   };
+
+  const getResolvedVoiceDescription = () => {
     const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
     return selectedTwin
       ? `Auto-matched MiniMax voice for ${selectedTwin.name}`
