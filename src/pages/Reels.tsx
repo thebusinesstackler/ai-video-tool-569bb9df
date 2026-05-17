@@ -290,6 +290,7 @@ const Reels = () => {
   const isMobile = useIsMobile();
   const { mode: creatorMode, setMode: setCreatorMode, isAdvanced, isBeginner, isQuick } = useCreatorMode();
   const [searchParams, setSearchParams] = useSearchParams();
+  const chatcutNavigate = useNavigate();
   const [topic, setTopic] = useState('');
   const [selectedSceneCount, setSelectedSceneCount] = useState('4');
   const [selectedSceneDuration, setSelectedSceneDuration] = useState('12');
