@@ -421,6 +421,7 @@ const ChatcutAI = () => {
   const [duration, setDuration] = useState(0);
   const [videoAspect, setVideoAspect] = useState<number | null>(null); // width / height
   const [timelineClips, setTimelineClips] = useState<TimelineClip[]>([]);
+  const [activeClipIndex, setActiveClipIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<'ai' | 'transcript' | 'clips'>('ai');
   const [captionSettings, setCaptionSettings] = useState<CaptionSettings>({ ...defaultCaptionSettings, enabled: false });
   const [musicTracks, setMusicTracks] = useState<MusicTrack[]>([]);
