@@ -1088,37 +1088,67 @@ const ChatcutAI = () => {
           setDraftName(payload.clipTitle || payload.title || 'Vizard Clip');
 
           // ---- Multi-clip handoff (Reels → ChatCut) ----
-          if (Array.isArray(payload.timelineVideos) && payload.timelineVideos.length > 0) {
-            const videos = payload.timelineVideos as Array<{ url: string; name?: string; duration?: number }>;
+          // Filter out any clips that don't have a usable URL so partial drops don't
+          // silently truncate the timeline.
+          const rawVideos = Array.isArray(payload.timelineVideos) ? payload.timelineVideos : [];
+          const videos = (rawVideos as Array<{ url: string; name?: string; duration?: number }>)
+            .filter(v => v && typeof v.url === 'string' && v.url.length > 0);
+          if (videos.length > 0) {
+            console.log('[ChatCut handoff] Received clips:', videos.length, videos.map(v => v.name));
+            // Place every clip on the timeline IMMEDIATELY with a provisional duration
+            // (3s default) so all 4 show up. Then refine each duration as metadata loads
+            // and re-layout the cursor positions.
+            const provisional = 3;
+            let cursor = 0;
+            const initialClips = videos.map((v, i) => {
+              const dur = (v.duration && v.duration > 0) ? v.duration : provisional;
+              const clip = {
+                id: crypto.randomUUID(),
+                name: v.name || `Clip ${i + 1}`,
+                url: v.url,
+                duration: dur,
+                startAt: cursor,
+              };
+              cursor += dur;
+              return clip;
+            });
+            setVideoUrl(videos[0].url);
+            setTimelineClips(initialClips);
+            setCuts([]);
+            setDuration(cursor);
+            toast({ title: `Loaded ${videos.length} clip${videos.length === 1 ? '' : 's'} onto the timeline` });
+
+            // Refine durations from real video metadata in parallel, then relayout.
             (async () => {
               const probe = (url: string, hinted?: number) => new Promise<number>(resolve => {
                 if (hinted && hinted > 0) return resolve(hinted);
                 const v = document.createElement('video');
                 v.preload = 'metadata';
                 v.src = url;
-                const done = (d: number) => resolve(Math.max(0.1, d || 3));
+                let settled = false;
+                const done = (d: number) => {
+                  if (settled) return;
+                  settled = true;
+                  resolve(Math.max(0.1, d || provisional));
+                };
                 v.onloadedmetadata = () => done(v.duration);
-                v.onerror = () => done(3);
-                setTimeout(() => done(v.duration || 3), 8000);
+                v.onerror = () => done(provisional);
+                setTimeout(() => done(v.duration || provisional), 10000);
               });
               const durations = await Promise.all(videos.map(v => probe(v.url, v.duration)));
-              let cursor = 0;
-              const clipsForTimeline = videos.map((v, i) => {
-                const clip = {
-                  id: crypto.randomUUID(),
-                  name: v.name || `Clip ${i + 1}`,
-                  url: v.url,
-                  duration: durations[i],
-                  startAt: cursor,
-                };
-                cursor += durations[i];
-                return clip;
+              setTimelineClips(prev => {
+                // Only relayout if the prev list still matches the clips we set
+                if (prev.length !== initialClips.length) return prev;
+                let c = 0;
+                const next = prev.map((clip, i) => {
+                  const d = durations[i] || clip.duration;
+                  const updated = { ...clip, duration: d, startAt: c };
+                  c += d;
+                  return updated;
+                });
+                setDuration(c);
+                return next;
               });
-              setVideoUrl(videos[0].url);
-              setTimelineClips(clipsForTimeline);
-              setCuts([]);
-              setDuration(cursor);
-              toast({ title: `Loaded ${videos.length} clip${videos.length === 1 ? '' : 's'} onto the timeline` });
             })();
             return;
           }
