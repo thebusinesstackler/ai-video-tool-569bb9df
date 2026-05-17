@@ -15,6 +15,7 @@ Updated: just now
 - Video Thumbnails: Use `#t=0.5` in URLs instead of `crossOrigin=anonymous` to prevent CORS failures.
 - Architecture: Fallback AI transcription Whisper → Gemini 2.5 Flash via Lovable AI Gateway.
 - NEVER use `bytedance/avatar-omni-human-1.5` — too expensive. Use `infinitetalk-hd` for lip-sync instead.
+- Reels: NEVER use `kwaivgi/kling-v3.0-pro`. Narrator scenes (incl. 2–3 min) route to `wavespeed-ai/infinitetalk` with TTS audio so voice is always embedded. B-roll fallback uses `alibaba/wan-2.5/image-to-video`.
 
 ## Memories
 - [Scene Analysis](mem://technical/ai/scene-analysis-system) — Claude 3.5 Opus vision for dual-mode text/image B-roll description
