@@ -6724,6 +6724,9 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                         if (!scene?.narration?.trim()) return;
                         const voiceConfig = resolveVoiceForGeneration();
                         const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
+                        const effectiveGender = selectedTwin?.gender || detectedCharGender || undefined;
+                        // Fresh seed every click so the voice actually varies on regenerate.
+                        const freshSeed = `regen-${effectiveGender || 'narrator'}-${sceneNumber}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
                         regenerateSceneVoice(
                           sceneNumber,
                           scene.narration,
@@ -6732,14 +6735,16 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                           voiceConfig.voiceEngine,
                           undefined,
                           user?.id,
-                          selectedTwin?.gender || undefined,
-                          selectedTwin?.id || `${selectedTwin?.gender || 'narrator'}-${selectedTwin?.name || 'default'}`
+                          effectiveGender,
+                          freshSeed
                         );
                       }}
-                      onRegenerateScene={(sceneNumber) => {
+                      onRegenerateScene={async (sceneNumber) => {
                         const scene = previewScenes.find(s => s.sceneNumber === sceneNumber);
                         if (!scene) return;
-                        const prompt = scene.visualDescription || scene.narration;
+                        toast({ title: 'Reimagining scene…', description: 'Drafting a fresh visual for this beat.' });
+                        const freshPrompt = await generateFreshVisualPrompt(sceneNumber);
+                        const prompt = freshPrompt || scene.visualDescription || scene.narration;
                         if (referenceImageUrl) {
                           regenerateWithReference(sceneNumber, prompt, referenceImageUrl, characterTransformation, characterDescription || undefined, selectedProductImageUrl || undefined, selectedProductName || undefined);
                         } else {
