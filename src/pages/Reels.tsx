@@ -2869,9 +2869,12 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
 
     const cfg = resolveVoiceForGeneration();
     const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
+    // Fall back to the photo-detected gender when no twin is selected so we never
+    // accidentally default a female character to a male voice.
+    const effectiveGender = selectedTwin?.gender || detectedCharGender || undefined;
     return {
-      seed: selectedTwin?.id || `${selectedTwin?.gender || 'narrator'}-${selectedTwin?.name || 'default'}`,
-      gender: selectedTwin?.gender || undefined,
+      seed: selectedTwin?.id || `${effectiveGender || 'narrator'}-${selectedTwin?.name || 'default'}`,
+      gender: effectiveGender,
       voiceCloningKey: selectedTwin?.voice_cloning_key || undefined,
       voiceEngine: cfg.voiceEngine,
       voice: cfg.voice,
