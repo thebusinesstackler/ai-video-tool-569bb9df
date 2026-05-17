@@ -1033,15 +1033,17 @@ const ChatcutAI = () => {
     }
   }, [timelineClips]);
 
-  // Auto-play when activeClipIndex changes and we were playing
+  // Auto-play when activeClipIndex changes after a clip ended
+  const autoplayNextRef = useRef(false);
   useEffect(() => {
     if (timelineClips.length <= 1) return;
     const video = videoRef.current;
     if (!video) return;
-    const wasPlaying = isPlaying;
+    const shouldPlay = autoplayNextRef.current;
+    autoplayNextRef.current = false;
     const onLoaded = () => {
       video.currentTime = 0;
-      if (wasPlaying) video.play().catch(() => {});
+      if (shouldPlay) video.play().catch(() => {});
     };
     video.addEventListener('loadeddata', onLoaded, { once: true });
     return () => video.removeEventListener('loadeddata', onLoaded);
