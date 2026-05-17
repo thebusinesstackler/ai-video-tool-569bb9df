@@ -1280,20 +1280,41 @@ Absolutely no text, no captions, no subtitles, no watermarks.`,
               console.error('Credit error detected for scene', scene.sceneNumber);
             }
             
-            // Fallback: try Kling I2V if VEO 3 failed, or Wan-2.5 I2V as last resort
-            // IMPORTANT: If VEO3 was the intended model, preserve speech intent in the fallback prompt
+            // Fallback policy: NEVER use Kling. Prefer InfiniteTalk (with voice) for
+            // any narrator scene that has an audio URL — handles long-form (2-3 min)
+            // talking heads natively. For silent B-roll or missing image, fall back
+            // to Wan-2.5 I2V.
             console.log(`Falling back for scene ${scene.sceneNumber} (intended model: ${videoModel})`);
-            
-            const fallbackEndpoint = imageUrl 
-              ? 'https://api.wavespeed.ai/api/v3/kwaivgi/kling-v3.0-pro/image-to-video'
-              : 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/image-to-video';
-            const klingDuration = clipDuration <= 7 ? 5 : 10;
-            
-            // If VEO3 was intended, keep speech-friendly prompt; otherwise use silent B-roll prompt
-            const fallbackPrompt = videoModel === 'veo3'
-              ? `${scene.visualDescription || scene.narration}. ${charContext} ${topicContext} Cinematic motion, engaging expression, natural body language, direct-to-camera delivery. No text, no captions, no subtitles, no watermarks.`
-              : `${scene.visualDescription}. ${topicContext} Dynamic cinematic motion, engaging visuals. No text, no captions, no subtitles, no watermarks.`;
-            
+
+            // Try to ensure we have a TTS URL for narrator scenes so we can route to InfiniteTalk
+            let fallbackAudioUrl: string | undefined = audioUrl;
+            const isNarratorFallback = !!scene.narration && !scene.isIntro && !scene.isOutro;
+            if (isNarratorFallback && !fallbackAudioUrl && supabase && OPENAI_API_KEY) {
+              try {
+                const gender = (scene as any).voiceMeta?.gender || detectGender(characterDescription, aiTwin);
+                fallbackAudioUrl = await tryCreateTTSUrl(
+                  supabase, scene.narration, scene.sceneNumber,
+                  OPENAI_API_KEY, gender, aiTwin, authHeader, (scene as any).voiceMeta
+                ) || undefined;
+              } catch (ttsErr) {
+                console.warn(`Scene ${scene.sceneNumber}: TTS for fallback failed`, ttsErr);
+              }
+            }
+
+            const useInfiniteTalk = !!(imageUrl && fallbackAudioUrl);
+            const fallbackEndpoint = useInfiniteTalk
+              ? 'https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk'
+              : (imageUrl
+                  ? 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/image-to-video'
+                  : 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/text-to-video');
+
+            const wanPrompt = `${scene.visualDescription || scene.narration || ''}. ${charContext} ${topicContext} Cinematic motion, natural expression, professional color grading. No text, no captions, no subtitles, no watermarks.`;
+            const fallbackBody: any = useInfiniteTalk
+              ? { image: imageUrl, audio: fallbackAudioUrl, resolution: '720p' }
+              : (imageUrl
+                  ? { image: imageUrl, prompt: wanPrompt, duration: Math.max(5, Math.min(10, Math.round(clipDuration))) }
+                  : { prompt: wanPrompt, duration: Math.max(5, Math.min(10, Math.round(clipDuration))), aspect_ratio: '9:16' });
+
             try {
               const fallbackResponse = await fetch(fallbackEndpoint, {
                 method: 'POST',
@@ -1301,24 +1322,19 @@ Absolutely no text, no captions, no subtitles, no watermarks.`,
                   'Authorization': `Bearer ${WAVESPEED_API_KEY}`,
                   'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                  image: imageUrl,
-                  prompt: fallbackPrompt,
-                  duration: klingDuration
-                }),
+                body: JSON.stringify(fallbackBody),
               });
-              
+
               if (fallbackResponse.ok) {
                 const fallbackData = await fallbackResponse.json();
                 if (fallbackData.code === 200 && fallbackData.data?.id) {
-                  console.log(`Scene ${scene.sceneNumber}: Fallback to ${fallbackEndpoint.split('/').pop()} (NO embedded audio)`);
+                  console.log(`Scene ${scene.sceneNumber}: Fallback to ${fallbackEndpoint.split('/').pop()} (embeddedAudio=${useInfiniteTalk})`);
                   videoTasks.push({
                     sceneNumber: scene.sceneNumber,
                     taskId: fallbackData.data.id,
                     model: fallbackEndpoint,
-                    hasEmbeddedAudio: false
+                    hasEmbeddedAudio: useInfiniteTalk
                   });
-                  // Log fallback task
                   if (supabase && currentUserId) {
                     supabase.from('video_tasks').insert({
                       user_id: currentUserId,
@@ -1331,6 +1347,8 @@ Absolutely no text, no captions, no subtitles, no watermarks.`,
                     }).then(({ error }) => { if (error) console.error('[video_tasks] fallback log error:', error); });
                   }
                 }
+              } else {
+                console.error(`Fallback HTTP ${fallbackResponse.status} for scene ${scene.sceneNumber}:`, await fallbackResponse.text());
               }
             } catch (fallbackErr) {
               console.error('Fallback also failed for scene', scene.sceneNumber, fallbackErr);
