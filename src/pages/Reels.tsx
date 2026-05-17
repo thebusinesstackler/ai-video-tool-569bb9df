@@ -1940,59 +1940,91 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
   };
 
   // Restore a completed reel as a new draft (preserving all assets)
+  // Brings the user back exactly where they left off — images, voiceovers (incl.
+  // the male/female voice picked), and any generated video clips intact.
   const restoreAsDraft = async (reel: SavedReel) => {
     if (!user) return;
 
     try {
-      // Fetch full reel data
+      // Fetch full reel data (scenes + previously-saved draft_state + audio)
       const { data: fullReel, error: fetchErr } = await supabase
         .from('reels')
-        .select('scenes, draft_state')
+        .select('scenes, draft_state, audio_url')
         .eq('id', reel.id)
         .single();
       if (fetchErr) throw fetchErr;
 
       const scenes = (fullReel?.scenes as unknown as GeneratedScene[]) || reel.scenes || [];
-      const scriptScenes: Scene[] = scenes.map((scene, index) => ({
-        sceneNumber: index + 1,
-        narration: scene.text || '',
-        visualDescription: scene.text || '',
-        duration: Math.round((scene.endTime || 0) - (scene.startTime || 0)) || 12,
-      }));
+      const savedDraft = (fullReel?.draft_state as unknown as DraftState | null) || null;
+
+      const scriptScenes: Scene[] = savedDraft?.scenes && savedDraft.scenes.length > 0
+        ? savedDraft.scenes
+        : scenes.map((scene, index) => ({
+            sceneNumber: index + 1,
+            narration: scene.text || '',
+            visualDescription: scene.text || '',
+            duration: Math.round((scene.endTime || 0) - (scene.startTime || 0)) || 12,
+          }));
+
+      // Rebuild voiceovers from scene audio so the male/female voice the user
+      // generated is actually restored on the timeline.
+      const rebuiltVoiceovers = scenes
+        .filter(s => s.audioUrl)
+        .map(s => ({
+          sceneNumber: s.sceneNumber,
+          audioUrl: s.audioUrl as string,
+          storageUrl: s.audioUrl as string,
+          duration: (s.endTime || 0) - (s.startTime || 0) || 0,
+        }));
+      const voiceovers = savedDraft?.voiceovers && savedDraft.voiceovers.length > 0
+        ? savedDraft.voiceovers
+        : rebuiltVoiceovers;
+
+      // Rebuild preview scenes with both images AND audio attached
+      const previewScenes: PreviewScene[] = savedDraft?.previewScenes && savedDraft.previewScenes.length > 0
+        ? savedDraft.previewScenes
+        : scenes.map(s => {
+            const vo = voiceovers.find(v => v.sceneNumber === s.sceneNumber);
+            return {
+              sceneNumber: s.sceneNumber,
+              narration: s.text || '',
+              visualDescription: s.text || '',
+              imageUrl: s.imageUrl || null,
+              audioUrl: vo?.storageUrl || vo?.audioUrl || s.audioUrl || null,
+              audioDuration: vo?.duration || 0,
+              isGenerating: false,
+            };
+          });
+
+      const restoredVideoClips = scenes
+        .filter(s => s.videoUrl)
+        .map(s => ({ sceneNumber: s.sceneNumber, videoUrl: s.videoUrl! }));
 
       const draftState: DraftState = {
-        selectedSceneCount: String(scenes.length),
-        selectedSceneDuration: '12',
-        selectedVoice: '',
-        selectedVideoSize: '9:16',
-        transitionStyle: 'crossfade',
-        hookStyle: 'auto',
-        characterDescription: '',
-        preSelectedReference: null,
-        selectedTwinId: null,
-        selectedIntro: 'none',
-        selectedOutro: 'none',
-        introText: '',
-        outroText: '',
-        enableCutScenes: false,
-        enableLipSync: isBeginner || isQuick,
-        portraitImage: null,
-        featureToggles: { introOutro: false, cutScenes: false, upscaler: false, lipSync: isBeginner || isQuick, captions: true, backgroundMusic: false },
+        selectedSceneCount: savedDraft?.selectedSceneCount || String(scriptScenes.length),
+        selectedSceneDuration: savedDraft?.selectedSceneDuration || '12',
+        selectedVoice: savedDraft?.selectedVoice || '',
+        selectedVideoSize: savedDraft?.selectedVideoSize || '9:16',
+        transitionStyle: savedDraft?.transitionStyle || 'crossfade',
+        hookStyle: savedDraft?.hookStyle || 'auto',
+        characterDescription: savedDraft?.characterDescription || '',
+        preSelectedReference: savedDraft?.preSelectedReference || null,
+        selectedTwinId: savedDraft?.selectedTwinId || null,
+        selectedIntro: savedDraft?.selectedIntro || 'none',
+        selectedOutro: savedDraft?.selectedOutro || 'none',
+        introText: savedDraft?.introText || '',
+        outroText: savedDraft?.outroText || '',
+        enableCutScenes: savedDraft?.enableCutScenes || false,
+        enableLipSync: savedDraft?.enableLipSync ?? (isBeginner || isQuick),
+        portraitImage: savedDraft?.portraitImage || null,
+        featureToggles: savedDraft?.featureToggles || { introOutro: false, cutScenes: false, upscaler: false, lipSync: isBeginner || isQuick, captions: true, backgroundMusic: false },
         scenes: scriptScenes,
-        previewScenes: scenes.map(s => ({
-          sceneNumber: s.sceneNumber,
-          narration: s.text || '',
-          visualDescription: s.text || '',
-          imageUrl: s.imageUrl || null,
-          audioUrl: null,
-          audioDuration: 0,
-          isGenerating: false
-        })),
-        voiceovers: [],
-        customAudioMode: 'tts',
-        customAudioUrl: null,
-        customAudioDuration: 0,
-        voicePitch: 0,
+        previewScenes,
+        voiceovers,
+        customAudioMode: savedDraft?.customAudioMode || 'tts',
+        customAudioUrl: savedDraft?.customAudioUrl || null,
+        customAudioDuration: savedDraft?.customAudioDuration || 0,
+        voicePitch: savedDraft?.voicePitch || 0,
         generatedScenes: scenes,
       };
 
@@ -2011,33 +2043,26 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
 
       fetchSavedReels();
 
-      // Also load the reel into the editor immediately so user can edit scenes
-      const restoredVideoClips = scenes
-        .filter(s => s.videoUrl)
-        .map(s => ({ sceneNumber: s.sceneNumber, videoUrl: s.videoUrl! }));
+      // Push everything into live editor state so user lands exactly where they left off
+      setTopic(reel.topic);
+      setSelectedSceneCount(String(scriptScenes.length));
+      if (draftState.selectedVoice) setSelectedVoice(draftState.selectedVoice);
 
       setProject({
         topic: reel.topic,
         scenes: scriptScenes,
-        voiceovers: [],
+        voiceovers,
         videoUrl: null,
         videoBlobUrl: null,
         generatedScenes: scenes,
         videoClips: restoredVideoClips,
-        previewScenes: scenes.map(s => ({
-          sceneNumber: s.sceneNumber,
-          narration: s.text || '',
-          visualDescription: s.text || '',
-          imageUrl: s.imageUrl || null,
-          audioUrl: null,
-          audioDuration: 0,
-          isGenerating: false
-        })),
-        status: 'idle'
+        previewScenes,
+        status: restoredVideoClips.length > 0 ? 'preview-ready' : 'idle',
       });
 
-      setTopic(reel.topic);
-      setSelectedSceneCount(String(scenes.length));
+      // Hydrate the preview hook so ScenePreview renders images + audio bars
+      try { restorePreviewScenes(previewScenes, voiceovers); } catch {}
+
       setProgress(0);
       setProgressStatus('');
       setIsGenerating(false);
@@ -2045,8 +2070,8 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
       setActiveTab('create');
 
       toast({
-        title: "Restored as Draft",
-        description: "Reel loaded into the editor with all assets. You can now edit scenes and swap products."
+        title: "Restored to Editor",
+        description: `Loaded ${previewScenes.length} scenes, ${voiceovers.length} voiceovers${restoredVideoClips.length ? `, ${restoredVideoClips.length} video clips` : ''}.`,
       });
     } catch (error: any) {
       console.error('Error restoring as draft:', error);
