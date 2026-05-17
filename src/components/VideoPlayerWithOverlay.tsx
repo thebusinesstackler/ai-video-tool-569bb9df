@@ -131,13 +131,16 @@ export const VideoPlayerWithOverlay: React.FC<VideoPlayerWithOverlayProps> = ({
     setIsPlaying(!isPlaying);
   }, [isPlaying, isMuted]);
 
-  // Toggle mute for audio
+  // Toggle mute for audio (separate voiceover OR baked video audio)
   const toggleMute = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.muted = !isMuted;
     }
+    if (videoRef.current && !currentVoiceover) {
+      videoRef.current.muted = !isMuted;
+    }
     setIsMuted(!isMuted);
-  }, [isMuted]);
+  }, [isMuted, currentVoiceover]);
 
   // Seamless transition to next clip
   const transitionToNextClip = useCallback(() => {
