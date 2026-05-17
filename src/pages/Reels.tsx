@@ -6756,9 +6756,16 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                 ) : (
                 <ScenePreview
                   scenes={previewScenes}
-                  onRegenerateImage={(sceneNumber, customPrompt, localRefUrl) => {
+                  onRegenerateImage={async (sceneNumber, customPrompt, localRefUrl) => {
                     const scene = project.scenes.find(s => s.sceneNumber === sceneNumber);
-                    const promptToUse = customPrompt || scene?.visualDescription || '';
+                    let promptToUse = customPrompt?.trim() || '';
+                    if (!promptToUse) {
+                      // No user prompt → ask AI for a fresh, relevant alternative visual
+                      // so the regenerated scene isn't just the same shot again.
+                      toast({ title: 'Reimagining scene…', description: 'Drafting a fresh visual for this beat.' });
+                      promptToUse = await generateFreshVisualPrompt(sceneNumber);
+                      if (!promptToUse) promptToUse = scene?.visualDescription || '';
+                    }
                     
                     // Use local reference if provided, else fall back to global reference
                     if (localRefUrl) {
@@ -6773,16 +6780,20 @@ Example output: "A confident Black woman in her early 30s with natural curls, we
                     const scene = previewScenes.find(s => s.sceneNumber === sceneNumber);
                     if (!scene?.narration?.trim()) return;
                     const base = resolveSceneVoice(sceneNumber);
+                    // Always roll a fresh seed so clicking "Regenerate voice" actually
+                    // produces a different voice instead of replaying the same one.
+                    const effectiveGender = genderOverride || base.gender || detectedCharGender || undefined;
+                    const freshSeed = `regen-${effectiveGender || 'narrator'}-${sceneNumber}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
                     const meta = genderOverride
                       ? {
                           ...base,
                           gender: genderOverride,
                           voiceCloningKey: undefined,
                           voiceEngine: 'wavespeed',
-                          seed: `override-${genderOverride}-${sceneNumber}-${Date.now()}`,
+                          seed: freshSeed,
                           label: `${genderOverride === 'female' ? 'Female' : 'Male'} (override)`,
                         }
-                      : base;
+                      : { ...base, gender: effectiveGender, seed: freshSeed };
                     applySceneVoiceMeta(sceneNumber, meta);
                     regenerateSceneVoice(
                       sceneNumber,
