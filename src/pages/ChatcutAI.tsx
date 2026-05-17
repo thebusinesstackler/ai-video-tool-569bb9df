@@ -670,6 +670,19 @@ const ChatcutAI = () => {
   }, [messages]);
 
 
+  // Auto-collapse the nav sidebar on tablet-ish widths so the editor has room.
+  // Desktop users (>=1280px) keep their saved preference.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.innerWidth < 1280) {
+      const prev = localStorage.getItem('sidebar-collapsed');
+      if (prev !== 'true') {
+        localStorage.setItem('sidebar-collapsed', 'true');
+        window.dispatchEvent(new Event('sidebar-collapse-changed'));
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (hasInteracted) return;
     const markInteracted = () => setHasInteracted(true);
@@ -4285,7 +4298,7 @@ const ChatcutAI = () => {
 
   return (
     <Layout>
-      <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden">
+      <div className="flex flex-col h-[calc(100vh-64px)] min-h-[600px] overflow-hidden">
         {/* Draft picker overlay */}
         {showDraftPicker && savedDrafts.length > 0 && (
           <div className="absolute inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setShowDraftPicker(false)}>
@@ -4407,7 +4420,7 @@ const ChatcutAI = () => {
 
         {/* Main content: resizable 3-panel layout (vertical stack on mobile) */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          <ResizablePanelGroup direction="horizontal" className="flex-1 hidden md:flex">
+          <ResizablePanelGroup direction="horizontal" className="flex-1 hidden sm:flex">
             {/* Left Panel: AI Chat + Transcript */}
             {aiPanelVisible ? (
             <ResizablePanel defaultSize={24} minSize={18} maxSize={34}>
@@ -4836,7 +4849,7 @@ const ChatcutAI = () => {
               <div className="h-full min-h-0 flex flex-col bg-black/95">
                 {/* Video preview */}
                 {videoUrl ? (
-                  <div className="flex-1 flex items-center justify-center min-h-[240px] sm:min-h-[280px] lg:min-h-[320px] overflow-hidden bg-black">
+                  <div className="flex items-center justify-center min-h-[200px] max-h-[55vh] flex-shrink-0 overflow-hidden bg-black">
                     {/* Video wrapper – sized to match the actual video aspect ratio so portrait/reel videos display correctly */}
                     <div
                       ref={videoWrapperRef}
@@ -6699,7 +6712,7 @@ const ChatcutAI = () => {
           </ResizablePanelGroup>
 
           {/* Mobile: tabbed single-panel layout (video always on top) */}
-          <div className="flex-1 flex flex-col md:hidden overflow-hidden">
+          <div className="flex-1 flex flex-col sm:hidden overflow-hidden">
             <Tabs defaultValue="video" className="flex-1 flex flex-col overflow-hidden">
               <TabsList className="mx-2 mt-2 mb-0 bg-muted/50 grid grid-cols-3 w-auto">
                 <TabsTrigger value="video" className="text-xs">Video</TabsTrigger>
