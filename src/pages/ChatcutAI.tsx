@@ -4929,7 +4929,7 @@ const ChatcutAI = () => {
                       {/* Main video - when PiP is enabled with a bg layer, this becomes the PiP overlay */}
                       <video
                         ref={videoRef}
-                        src={videoUrl}
+                        src={timelineClips.length > 1 ? (timelineClips[activeClipIndex]?.url || videoUrl) : videoUrl}
                         className={cn(
                           "w-full h-full block object-contain",
                           activeBRoll && "opacity-0",
