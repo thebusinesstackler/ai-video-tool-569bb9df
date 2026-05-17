@@ -1217,19 +1217,19 @@ No text, no captions, no subtitles, no watermarks.`,
           sceneHasEmbeddedAudio = true;
           
         } else {
-          // ====== KLING 3.0 PRO: B-roll / fallback ======
-          console.log(`Scene ${scene.sceneNumber}: Using Kling 3.0 Pro for B-roll`);
-          
-          apiEndpoint = 'https://api.wavespeed.ai/api/v3/kwaivgi/kling-v3.0-pro/image-to-video';
-          const klingDuration = clipDuration <= 7 ? 5 : 10;
-          
+          // ====== WAN 2.5 I2V: B-roll / fallback (no Kling — too costly + no audio) ======
+          console.log(`Scene ${scene.sceneNumber}: Using Wan 2.5 I2V for B-roll`);
+
+          apiEndpoint = 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.5/image-to-video';
+          const wanDuration = Math.max(5, Math.min(10, Math.round(clipDuration)));
+
           requestBody = {
             image: imageUrl,
             prompt: `${scene.visualDescription}. ${topicContext}
 Premium cinematic B-roll — smooth camera movement, subtle parallax depth, professional color grading.
 Photorealistic, high-end commercial quality. Emotionally resonant visuals.
 Absolutely no text, no captions, no subtitles, no watermarks.`,
-            duration: klingDuration
+            duration: wanDuration
           };
         }
         
