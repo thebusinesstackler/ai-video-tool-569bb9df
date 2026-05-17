@@ -6712,7 +6712,7 @@ const ChatcutAI = () => {
           </ResizablePanelGroup>
 
           {/* Mobile: tabbed single-panel layout (video always on top) */}
-          <div className="flex-1 flex flex-col md:hidden overflow-hidden">
+          <div className="flex-1 flex flex-col sm:hidden overflow-hidden">
             <Tabs defaultValue="video" className="flex-1 flex flex-col overflow-hidden">
               <TabsList className="mx-2 mt-2 mb-0 bg-muted/50 grid grid-cols-3 w-auto">
                 <TabsTrigger value="video" className="text-xs">Video</TabsTrigger>
