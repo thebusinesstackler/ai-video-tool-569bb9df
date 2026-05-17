@@ -2892,7 +2892,37 @@ Return ONLY the enhanced topic text. No quotes, no labels, no explanation.` },
     setAllScenesVoiceMeta(meta);
   };
 
-  const getResolvedVoiceDescription = () => {
+  // Ask the AI to draft a fresh, relevant alternative visual description for a scene.
+  // Used when the user clicks "Regenerate scene" without typing a custom prompt, so they
+  // get a new interpretation of the same narration instead of the exact same shot again.
+  const generateFreshVisualPrompt = async (sceneNumber: number): Promise<string> => {
+    const scene = previewScenes.find(s => s.sceneNumber === sceneNumber);
+    const narration = scene?.narration?.trim() || '';
+    const original = scene?.visualDescription?.trim() || '';
+    if (!narration && !original) return original;
+    try {
+      const { data } = await supabase.functions.invoke('ai', {
+        body: {
+          model: 'google/gemini-3-flash-preview',
+          messages: [{
+            role: 'user',
+            content: `You are a cinematographer drafting an alternative shot for the same beat in a 9:16 vertical Reel.
+
+Topic: ${topic || 'n/a'}
+Narration of this scene: "${narration}"
+Previous visual description (do NOT repeat it): "${original}"
+
+Write ONE new visual description (2-3 sentences) for this exact narration. Keep the same subject and meaning, but change the framing, location, props, lighting, or action so the regenerated frame feels fresh and different from the previous one. Photorealistic, cinematic, vertical 9:16. Output only the description, no preamble.`
+          }]
+        }
+      });
+      const fresh = (data?.choices?.[0]?.message?.content || '').trim();
+      return fresh || original;
+    } catch (e) {
+      console.warn('Fresh visual prompt failed, reusing original', e);
+      return original;
+    }
+  };
     const selectedTwin = selectedTwinId ? aiTwins.find(t => t.id === selectedTwinId) : null;
     return selectedTwin
       ? `Auto-matched MiniMax voice for ${selectedTwin.name}`
