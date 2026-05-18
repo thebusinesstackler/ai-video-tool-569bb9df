@@ -949,69 +949,30 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
       setMessages(prev => [...prev, assistantMsg]);
       setIsAnalyzing(false);
 
-      // Auto-generate if video prompt found
+      // Push a script preview card instead of auto-generating
       if (newVideoPrompt) {
-        setIsGenerating(true);
-
-        const generatingMsg: ChatMessage = {
-          id: `assistant-gen-${Date.now()}`,
+        const isT2VFollow = !newImageUrl;
+        const useProductLockFollow = lockProduct && !!newImageUrl && !isT2VFollow;
+        const followModel: 'sora-2' | 'wan-2.5-i2v' = useProductLockFollow ? 'wan-2.5-i2v' : 'sora-2';
+        const previewMsg: ChatMessage = {
+          id: `script-preview-${Date.now()}`,
           role: 'assistant',
-          content: '🎬 Regenerating your video with the updated script...',
+          content: `📝 **Updated script ready for review** — nothing has been regenerated yet. Edit if needed, then click **Approve & Generate Video**.`,
+          scriptPreview: {
+            videoPrompt: newVideoPrompt,
+            critique: '',
+            persistentImageUrl: newImageUrl,
+            isT2V: isT2VFollow,
+            useProductLock: useProductLockFollow,
+            generationModel: followModel,
+            soraDuration,
+            outputFormat,
+            bulkCount: 1,
+            projectId: currentProjectId,
+            status: 'pending',
+          },
         };
-        setMessages(prev => [...prev, generatingMsg]);
-
-        const useProductLockFollow = lockProduct && !!newImageUrl;
-        const followModel = useProductLockFollow ? 'wan-2.5-i2v' : 'sora-2';
-        try {
-          const taskId = await createWaveSpeedVideo({
-            prompt: newVideoPrompt,
-            model: followModel,
-            aspectRatio: outputFormat,
-            duration: soraDuration,
-            userId: user?.id,
-            source: 'video-repo',
-            ...(newImageUrl ? { imageUrls: [newImageUrl] } : {}),
-          });
-
-          let attempts = 0;
-          const maxAttempts = 120;
-          while (attempts < maxAttempts) {
-            await new Promise(r => setTimeout(r, 5000));
-            const job = await getWaveSpeedVideoJob(taskId);
-            if (job.status === 'completed' && job.videoUrl) {
-              if (currentProjectId) {
-                await supabase.from('video_repo_projects').update({
-                  generated_video_url: job.videoUrl,
-                  status: 'completed',
-                }).eq('id', currentProjectId);
-              }
-
-              const resultMsg: ChatMessage = {
-                id: `result-${Date.now()}`,
-                role: 'assistant',
-                content: '✅ Updated video is ready! Review it below — feel free to send more feedback to iterate further.',
-                videoResult: { url: job.videoUrl, status: 'completed' },
-              };
-              setMessages(prev => prev.filter(m => m.id !== generatingMsg.id).concat(resultMsg));
-              fetchHistory();
-              break;
-            }
-            if (job.status === 'failed') throw new Error(job.error || 'Video generation failed');
-            attempts++;
-          }
-          if (attempts >= maxAttempts) throw new Error('Generation timed out');
-        } catch (genErr: any) {
-          if (currentProjectId) {
-            await supabase.from('video_repo_projects').update({ status: 'failed' }).eq('id', currentProjectId);
-          }
-          const errorMsg: ChatMessage = {
-            id: `error-${Date.now()}`,
-            role: 'assistant',
-            content: `⚠️ Regeneration failed: ${genErr.message}. You can try again with different feedback.`,
-          };
-          setMessages(prev => prev.filter(m => m.id !== generatingMsg.id).concat(errorMsg));
-        }
-        setIsGenerating(false);
+        setMessages(prev => [...prev, previewMsg]);
       }
       fetchHistory();
     } catch (err: any) {
