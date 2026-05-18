@@ -2765,29 +2765,60 @@ HARD RULES:
                                         : 'Pending approval'}
                                   </Badge>
                                 </div>
-                                <div className="flex flex-wrap gap-2 text-[10px]">
-                                  <Badge variant="outline">{msg.scriptPreview.soraDuration}s</Badge>
-                                  <Badge variant="outline">{msg.scriptPreview.outputFormat}</Badge>
-                                  <Badge variant="outline">{msg.scriptPreview.generationModel}</Badge>
-                                  {msg.scriptPreview.persistentImageUrl ? (
-                                    <Badge variant="outline" className="bg-emerald-500/10 border-emerald-500/30">Product attached</Badge>
-                                  ) : (
-                                    <Badge variant="outline" className="bg-amber-500/10 border-amber-500/30">No product</Badge>
-                                  )}
-                                  {msg.scriptPreview.bulkCount > 1 && (
-                                    <Badge variant="outline">{msg.scriptPreview.bulkCount} variants</Badge>
-                                  )}
-                                </div>
-                                <div className="rounded-lg bg-muted/40 p-2">
-                                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-between">
-                                    <span>Video prompt (editable)</span>
-                                    <span className="text-muted-foreground/70">{msg.scriptPreview.videoPrompt.split(/\s+/).length} words</span>
-                                  </div>
-                                  <Textarea
-                                    value={msg.scriptPreview.videoPrompt}
-                                    onChange={(e) => updateScriptPreviewPrompt(msg.id, e.target.value)}
-                                    disabled={msg.scriptPreview.status !== 'pending'}
-                                    className="min-h-[220px] text-xs font-mono leading-relaxed bg-background"
+                                {(() => {
+                                  const sp = msg.scriptPreview!;
+                                  const spoken = extractSpokenLines(sp.videoPrompt);
+                                  const spokenWords = spoken ? spoken.split(/\s+/).filter(Boolean).length : 0;
+                                  const target = Math.max(8, Math.round((sp.soraDuration - 1) * 2.5));
+                                  const wordMin = Math.max(6, Math.round(target * 0.85));
+                                  const wordMax = Math.round(target * 1.15);
+                                  const inRange = spokenWords >= wordMin && spokenWords <= wordMax;
+                                  const speakSecs = (spokenWords / 2.5).toFixed(1);
+                                  const truncated = looksTruncated(sp.videoPrompt);
+                                  const pillColor = inRange ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/40' : spokenWords === 0 ? 'bg-amber-500/15 text-amber-700 border-amber-500/40' : 'bg-amber-500/15 text-amber-700 border-amber-500/40';
+                                  return (
+                                    <>
+                                      <div className="flex flex-wrap gap-2 text-[10px]">
+                                        <Badge variant="outline">{sp.soraDuration}s clip</Badge>
+                                        <Badge variant="outline">{sp.outputFormat}</Badge>
+                                        <Badge variant="outline">{sp.generationModel}</Badge>
+                                        <Badge variant="outline" className={pillColor}>
+                                          {spokenWords} / {target} spoken words • {speakSecs}s talking
+                                        </Badge>
+                                        {sp.persistentImageUrl ? (
+                                          <Badge variant="outline" className="bg-emerald-500/10 border-emerald-500/30">Product attached</Badge>
+                                        ) : (
+                                          <Badge variant="outline" className="bg-amber-500/10 border-amber-500/30">No product</Badge>
+                                        )}
+                                        {sp.bulkCount > 1 && (
+                                          <Badge variant="outline">{sp.bulkCount} variants</Badge>
+                                        )}
+                                        {truncated && (
+                                          <Badge variant="outline" className="bg-destructive/10 border-destructive/40 text-destructive">⚠ May be truncated — Rewrite</Badge>
+                                        )}
+                                      </div>
+                                      {spoken && (
+                                        <div className="rounded-lg bg-primary/5 border border-primary/20 p-3">
+                                          <div className="text-[10px] uppercase tracking-wider text-primary/80 mb-1.5 font-semibold">🎤 What the actor will say</div>
+                                          <p className="text-sm leading-relaxed italic text-foreground">
+                                            "{spoken}"
+                                          </p>
+                                        </div>
+                                      )}
+                                      <details className="rounded-lg bg-muted/40 p-2 group" open={!spoken}>
+                                        <summary className="text-[10px] uppercase tracking-wider text-muted-foreground cursor-pointer flex items-center justify-between list-none">
+                                          <span className="flex items-center gap-1">
+                                            <span className="group-open:rotate-90 transition-transform inline-block">▶</span>
+                                            🎬 Full Sora prompt (editable)
+                                          </span>
+                                          <span className="text-muted-foreground/70 normal-case">{sp.videoPrompt.split(/\s+/).length} words total</span>
+                                        </summary>
+                                        <Textarea
+                                          value={sp.videoPrompt}
+                                          onChange={(e) => updateScriptPreviewPrompt(msg.id, e.target.value)}
+                                          disabled={sp.status !== 'pending'}
+                                          className="mt-2 min-h-[360px] text-xs font-mono leading-relaxed bg-background resize-y"
+
                                   />
                                 </div>
                                 {msg.scriptPreview.status === 'pending' && (
