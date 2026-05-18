@@ -2203,7 +2203,7 @@ HARD RULES:
             {/* Workspace sub-tabs (Ad only) — Compose / Review / Results */}
             {activeTab === 'ad' && (
               <div className="flex items-center justify-center gap-1 flex-shrink-0">
-                <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/60 border border-border/60">
+                <div className="inline-flex items-center gap-0.5 p-1 rounded-full bg-muted/50 border border-border/40">
                   {([
                     { id: 'compose' as const, label: 'Compose', icon: Wand2, count: 0 },
                     { id: 'review' as const, label: 'Review Script', icon: Sparkles, count: messages.filter(m => m.scriptPreview && m.scriptPreview.status === 'pending').length },
@@ -2216,7 +2216,7 @@ HARD RULES:
                         key={t.id}
                         type="button"
                         onClick={() => setWorkspaceTab(t.id)}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                        className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors ${
                           active ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
                         }`}
                       >
@@ -2236,10 +2236,10 @@ HARD RULES:
 
             <div className="flex-1 flex flex-col gap-4 min-h-0 overflow-hidden">
             {/* Composer Panel — visible on Compose tab or in Motion mode */}
-            <div className={`${activeTab === 'motion' || workspaceTab === 'compose' ? 'w-full max-w-3xl mx-auto' : 'hidden'} flex-shrink-0 overflow-y-auto`}>
-              <Card className="bg-card/95 border border-border shadow-sm rounded-2xl overflow-hidden">
+            <div className={`${activeTab === 'motion' || workspaceTab === 'compose' ? 'w-full max-w-[560px] mx-auto' : 'hidden'} flex-shrink-0 overflow-y-auto`}>
+              <Card className="bg-card/80 backdrop-blur-xl border border-border/40 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_12px_32px_-12px_rgba(0,0,0,0.08)] rounded-3xl overflow-hidden">
                 {/* Sub-tabs: Ad / Motion */}
-                <div className="flex items-center gap-1 px-3 pt-2.5 pb-2 border-b border-border/60 bg-muted/30">
+                <div className="flex items-center gap-1 px-4 pt-3 pb-2.5 border-b border-border/40 bg-muted/20">
                   <button
                     onClick={() => setActiveTab('ad')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
