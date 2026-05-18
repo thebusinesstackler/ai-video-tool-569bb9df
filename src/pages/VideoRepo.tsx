@@ -158,6 +158,31 @@ const countSpokenWords = (prompt: string): number => {
   return spoken.split(/\s+/).filter(Boolean).length;
 };
 
+// Detect when the user's prompt contains an explicit spoken script we should use verbatim.
+// Returns the cleaned spoken text, or null if nothing qualifies.
+const extractUserProvidedScript = (text: string): string | null => {
+  if (!text) return null;
+  const src = text.replace(/\r\n/g, '\n');
+
+  // 1) Explicit "Script:" / "Dialogue:" / "Voiceover:" / "VO:" label
+  const labeled = src.match(/(?:^|\n)\s*(?:script|dialogue|voice\s*over|voiceover|vo)\s*:\s*([\s\S]+?)(?:\n\s*\n[A-Z][^\n]{0,40}:\s|\n\s*$|$)/i);
+  if (labeled?.[1]) {
+    const cleaned = labeled[1].trim().replace(/^[""']+|[""']+$/g, '').trim();
+    const wc = cleaned.split(/\s+/).filter(Boolean).length;
+    if (wc >= 8) return cleaned;
+  }
+
+  // 2) Any long quoted block (curly or straight) of ≥12 words
+  const quoteMatches = Array.from(src.matchAll(/[""]([^""]{40,})[""]|"([^"]{40,})"/g));
+  for (const m of quoteMatches) {
+    const q = (m[1] || m[2] || '').trim();
+    const wc = q.split(/\s+/).filter(Boolean).length;
+    if (wc >= 12) return q;
+  }
+
+  return null;
+};
+
 // Heuristic: a finished Sora prompt should contain an AUDIO block and end on punctuation, not mid-sentence
 const looksTruncated = (prompt: string): boolean => {
   if (!prompt || prompt.length < 200) return true;
