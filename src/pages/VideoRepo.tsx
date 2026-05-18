@@ -571,19 +571,18 @@ const VideoRepo = () => {
         contentParts.push({ type: 'image_url', image_url: { url: productImageUrl } });
       }
 
-      // Brand-aware context block — injects user's brand profile so Marco knows the brand without being told
-      const brandBlock = brandProfile && (brandProfile.company_name || brandProfile.brand_url || brandProfile.brand_description)
-        ? `\n\n**🏷️ BRAND CONTEXT (you already represent this brand — never ask for it, never invent another):**
-${brandProfile.company_name ? `- Brand name: ${brandProfile.company_name}` : ''}
-${brandProfile.brand_url ? `- Website (use VERBATIM for any URL/CTA overlay or voiceover mention): ${brandProfile.brand_url.replace(/^https?:\/\//, '')}` : ''}
-${brandProfile.brand_description ? `- Brand voice & positioning: ${brandProfile.brand_description}` : ''}
+      // Brand block — derive the brand ONLY from what the user's idea/request says.
+      // Do NOT pull from the saved profile; each video can be for a different brand.
+      const brandBlock = `\n\n**🏷️ BRAND SOURCING RULE (read carefully):**
+The brand for THIS video comes ONLY from the user's request below (and the attached product image, if any). It is NOT stored anywhere else — there is no global "house brand".
+
 🚫 ABSOLUTE RULES (violating these = broken output):
-- The ONLY brand name allowed in the script, voiceover, on-screen text, or video-prompt is "${brandProfile.company_name || brandProfile.brand_url?.replace(/^https?:\/\//, '') || 'the brand above'}". Do NOT invent, hallucinate, or substitute any other brand name (no "Adtomic", "Adtp,oc", "BrandX", random startup names, etc.).
-- The ONLY URL allowed is "${brandProfile.brand_url ? brandProfile.brand_url.replace(/^https?:\/\//, '') : (brandProfile.company_name || 'the brand')}". No placeholders like "YourWebsite.com", "yoursite.com", "[Your Brand]", ".app/.io" stand-ins.
-- If you don't know what to say, say the real brand name above. Never make one up.
-Speak as if you are this brand's in-house creative director.`
-        : `\n\n**🏷️ BRAND CONTEXT:** No brand profile is set for this user.
-🚫 ABSOLUTE RULE: Do NOT invent or hallucinate a brand name, product name, or website URL. Refer to the product generically ("this product", "the bottle", "the kit"). The CTA must be a felt benefit or specific number — NEVER a fake URL or made-up brand.`;
+- Do NOT invent, hallucinate, or substitute a brand name. No "Adtomic", "Adtp,oc", "BrandX", or any random startup name.
+- Do NOT invent a website URL. No "yoursite.com", "brand.app", "YourWebsite.com", or any made-up domain.
+- If the user explicitly names a brand or URL in their request (e.g. "make an ad for busybee.guru"), use that EXACT name and that EXACT URL verbatim in the script, voiceover, and on-screen CTA.
+- If the user does NOT name a brand, stay completely generic — refer to "this product", "the bottle", "the kit". The CTA must be a felt benefit ("Clear by 3pm.") or specific number ("11 days. No fog.") — NEVER a fake URL or made-up brand name.
+- The product on screen must match the attached reference image (if provided). Do NOT redesign labels or invent product names that aren't visible on the reference.`;
+
 
       // Recent-history awareness — gives Marco the last 8 successful concepts so it doesn't repeat itself
       const recentSuccesses = (historyProjects || [])
