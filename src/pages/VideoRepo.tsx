@@ -2208,15 +2208,15 @@ HARD RULES:
 
         <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'create' | 'history' | 'import')} className="flex-1 flex flex-col min-h-0">
           {/* Segmented-control nav */}
-          <div className="flex justify-center px-4 mb-4">
-            <TabsList className="inline-flex h-9 items-center gap-0.5 rounded-full bg-muted/60 p-1 border border-border/40">
-              <TabsTrigger value="create" className="gap-1.5 rounded-full px-4 h-7 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+          <div className="flex justify-center px-4 py-2 flex-shrink-0 border-b border-border/40 bg-background/60">
+            <TabsList className="inline-flex h-8 items-center gap-0.5 rounded-full bg-muted/60 p-0.5 border border-border/40">
+              <TabsTrigger value="create" className="gap-1.5 rounded-full px-3.5 h-7 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
                 <Play className="w-3.5 h-3.5" /> Create
               </TabsTrigger>
-              <TabsTrigger value="import" className="gap-1.5 rounded-full px-4 h-7 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <TabsTrigger value="import" className="gap-1.5 rounded-full px-3.5 h-7 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
                 <Upload className="w-3.5 h-3.5" /> Import
               </TabsTrigger>
-              <TabsTrigger value="history" className="gap-1.5 rounded-full px-4 h-7 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <TabsTrigger value="history" className="gap-1.5 rounded-full px-3.5 h-7 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
                 <History className="w-3.5 h-3.5" /> History
                 {historyProjects.length > 0 && (
                   <span className="ml-0.5 bg-primary/15 text-primary text-[10px] px-1.5 py-0 rounded-full font-medium">{historyProjects.length}</span>
@@ -2225,7 +2225,7 @@ HARD RULES:
             </TabsList>
           </div>
 
-          <TabsContent value="create" className="flex-1 flex flex-col gap-3 px-4 min-h-0 overflow-hidden mt-0">
+          <TabsContent value="create" className="flex-1 flex flex-col gap-2 px-3 lg:px-4 pt-2 min-h-0 overflow-hidden mt-0">
             {/* Workspace sub-tabs (Ad only) — Compose / Review / Results */}
             {activeTab === 'ad' && (
               <div className="flex items-center justify-center gap-1 flex-shrink-0">
