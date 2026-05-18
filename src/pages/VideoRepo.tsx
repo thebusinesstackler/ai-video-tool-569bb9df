@@ -2110,9 +2110,44 @@ HARD RULES:
             </TabsList>
           </div>
 
-          <TabsContent value="create" className="flex-1 flex flex-col lg:flex-row gap-4 px-4 min-h-0 overflow-hidden mt-0">
-            {/* Left: Composer Panel */}
-            <div className="w-full lg:w-[420px] lg:min-w-[380px] flex-shrink-0 overflow-y-auto">
+          <TabsContent value="create" className="flex-1 flex flex-col gap-3 px-4 min-h-0 overflow-hidden mt-0">
+            {/* Workspace sub-tabs (Ad only) — Compose / Review / Results */}
+            {activeTab === 'ad' && (
+              <div className="flex items-center justify-center gap-1 flex-shrink-0">
+                <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/60 border border-border/60">
+                  {([
+                    { id: 'compose' as const, label: 'Compose', icon: Wand2, count: 0 },
+                    { id: 'review' as const, label: 'Review Script', icon: Sparkles, count: messages.filter(m => m.scriptPreview && m.scriptPreview.status === 'pending').length },
+                    { id: 'results' as const, label: 'Results', icon: Play, count: messages.filter(m => m.videoResult).length },
+                  ]).map(t => {
+                    const Icon = t.icon;
+                    const active = workspaceTab === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setWorkspaceTab(t.id)}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                          active ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        <Icon className="w-3.5 h-3.5" />
+                        {t.label}
+                        {t.count > 0 && (
+                          <span className={`ml-0.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] rounded-full ${active ? 'bg-primary text-primary-foreground' : 'bg-primary/15 text-primary'}`}>
+                            {t.count}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="flex-1 flex flex-col gap-4 min-h-0 overflow-hidden">
+            {/* Composer Panel — visible on Compose tab or in Motion mode */}
+            <div className={`${activeTab === 'motion' || workspaceTab === 'compose' ? 'w-full max-w-3xl mx-auto' : 'hidden'} flex-shrink-0 overflow-y-auto`}>
               <Card className="bg-card/95 border border-border shadow-sm rounded-2xl overflow-hidden">
                 {/* Sub-tabs: Ad / Motion */}
                 <div className="flex items-center gap-1 px-3 pt-2.5 pb-2 border-b border-border/60 bg-muted/30">
