@@ -824,12 +824,16 @@ The attached image is the EXACT hero product. The video model MUST keep label te
       const disableHookBank = archetype.disableHookBank === true;
       const disableCTA = archetype.disableCTA === true;
 
+      const wordTargetTop = Math.max(8, Math.round((soraDuration - 1) * 2.5));
+      const noProductTopBlock = !persistentImageUrl
+        ? `\n\n🚫🚫🚫 **NO-PRODUCT MODE — HIGHEST PRIORITY RULE (READ FIRST):** No product image was attached to this request. The video MUST NOT contain ANY product. Specifically: NO bottle, NO dropper, NO tincture, NO package, NO box, NO jar, NO can, NO label, NO branded item, NO held object of any kind. The actor's hands must NEVER hold, lift, grip, squeeze, pour, demo, present, point at, or gesture toward a product. There are NO product insert shots. NO logos appear on any object. The ad sells the felt benefit through the actor's voiceover, expression, and lifestyle scene ONLY. If you find yourself writing "she holds the bottle" or "close-up of the package" — DELETE IT and replace with a lifestyle gesture or environmental beat. Violating this rule = broken output.\n`
+        : '';
       const analysisInstruction = `User request: "${userMsg.content}"
-
+${noProductTopBlock}
 ${videoFrames.length > 0 ? `Reference video: "${referenceVideoName}" — I've provided ${videoFrames.length} key frames above. Study them carefully.` : ''}
 ${productImageUrl ? 'Product image provided above — incorporate this product naturally.' : ''}${productContextBlock}${productFidelityBlock}${archetypeBlock}
 
-🎯 **TARGET DURATION: ${soraDuration} SECONDS — HARD LOCK.** Every timed beat, the ACTION MANIFEST, and the SHOT STRUCTURE below MUST sum to EXACTLY ${soraDuration}s. Do NOT write a script that finishes early. Do NOT pad with dead air. The actor speaks CONTINUOUSLY from ~0.5s through ~${(soraDuration - 0.5).toFixed(1)}s — no 3-second silence buffers, no "wait for the cut" pauses.
+🎯 **TARGET DURATION: ${soraDuration} SECONDS — HARD LOCK.** Every timed beat, the ACTION MANIFEST, and the SHOT STRUCTURE below MUST sum to EXACTLY ${soraDuration}s. Do NOT write a script that finishes early. Do NOT pad with dead air. The actor speaks CONTINUOUSLY from ~0.5s through ~${(soraDuration - 0.5).toFixed(1)}s — no 3-second silence buffers, no "wait for the cut" pauses. Spoken voiceover word count MUST land in ${Math.round(wordTargetTop * 0.85)}–${Math.round(wordTargetTop * 1.15)} words (target ${wordTargetTop}). BEFORE you write the final VIDEO PROMPT, count the words in your quoted dialogue and confirm they fit this range — if not, revise.
 
 Provide:
 1. **Reference Analysis**: ${contentStyle === 'auto' ? 'Begin with "ARCHETYPE: [chosen archetype name]" and a 1-line reason. Then describe' : `Confirm "ARCHETYPE: ${archetype.label}" then describe`} what you observed in the reference frames (if any) — hook type, pacing, camera style, talent energy.
