@@ -2567,6 +2567,88 @@ ${brandNote}`;
                                 )}
                               </div>
                             )}
+                            {msg.scriptPreview && (
+                              <div className="mt-3 space-y-3 rounded-xl border border-primary/30 bg-background/60 p-3">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-semibold uppercase tracking-wider text-primary">
+                                    Script preview — review before generating
+                                  </span>
+                                  <Badge
+                                    variant={
+                                      msg.scriptPreview.status === 'approved'
+                                        ? 'default'
+                                        : msg.scriptPreview.status === 'cancelled'
+                                          ? 'outline'
+                                          : 'secondary'
+                                    }
+                                    className="text-[10px]"
+                                  >
+                                    {msg.scriptPreview.status === 'approved'
+                                      ? '✓ Approved — generating'
+                                      : msg.scriptPreview.status === 'cancelled'
+                                        ? 'Cancelled'
+                                        : 'Pending approval'}
+                                  </Badge>
+                                </div>
+                                <div className="flex flex-wrap gap-2 text-[10px]">
+                                  <Badge variant="outline">{msg.scriptPreview.soraDuration}s</Badge>
+                                  <Badge variant="outline">{msg.scriptPreview.outputFormat}</Badge>
+                                  <Badge variant="outline">{msg.scriptPreview.generationModel}</Badge>
+                                  {msg.scriptPreview.persistentImageUrl ? (
+                                    <Badge variant="outline" className="bg-emerald-500/10 border-emerald-500/30">Product attached</Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="bg-amber-500/10 border-amber-500/30">No product</Badge>
+                                  )}
+                                  {msg.scriptPreview.bulkCount > 1 && (
+                                    <Badge variant="outline">{msg.scriptPreview.bulkCount} variants</Badge>
+                                  )}
+                                </div>
+                                <div className="rounded-lg bg-muted/40 p-2">
+                                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-between">
+                                    <span>Video prompt (editable)</span>
+                                    <span className="text-muted-foreground/70">{msg.scriptPreview.videoPrompt.split(/\s+/).length} words</span>
+                                  </div>
+                                  <Textarea
+                                    value={msg.scriptPreview.videoPrompt}
+                                    onChange={(e) => updateScriptPreviewPrompt(msg.id, e.target.value)}
+                                    disabled={msg.scriptPreview.status !== 'pending'}
+                                    className="min-h-[220px] text-xs font-mono leading-relaxed bg-background"
+                                  />
+                                </div>
+                                {msg.scriptPreview.status === 'pending' && (
+                                  <div className="flex flex-wrap gap-2">
+                                    <Button
+                                      size="sm"
+                                      className="rounded-lg gap-1.5 flex-1"
+                                      onClick={() => approveScriptAndGenerate(msg.id)}
+                                      disabled={isAnalyzing || isGenerating}
+                                    >
+                                      <Play className="w-3.5 h-3.5" />
+                                      Approve & Generate Video
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="rounded-lg gap-1.5"
+                                      onClick={() => regenerateScriptPreview(msg.id)}
+                                      disabled={isAnalyzing || isGenerating}
+                                    >
+                                      <RefreshCw className="w-3.5 h-3.5" />
+                                      Rewrite Script
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="rounded-lg gap-1.5 text-muted-foreground"
+                                      onClick={() => cancelScriptPreview(msg.id)}
+                                      disabled={isAnalyzing || isGenerating}
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                           {msg.role === 'user' && (
                             <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
