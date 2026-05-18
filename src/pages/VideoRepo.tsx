@@ -726,9 +726,8 @@ Explicitly state "Follow the ACTION MANIFEST literally — counts are non-negoti
       setMessages((prev) => [...prev, assistantMsg]);
       setIsAnalyzing(false);
 
-      const videoPromptMatch = analysisText.match(/```video-prompt\n([\s\S]*?)```/);
-      if (videoPromptMatch) {
-        const videoPrompt = videoPromptMatch[1].trim();
+      const videoPrompt = extractVideoPrompt(analysisText);
+      if (videoPrompt) {
         setLastVideoPrompt(videoPrompt);
         setLastPersistentImageUrl(persistentImageUrl);
 
@@ -944,10 +943,9 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
       if (!aiData?.response) throw new Error('No response from AI');
 
       const responseText = aiData.response;
-      const videoPromptMatch = responseText.match(/```video-prompt\n([\s\S]*?)```/);
+      const newVideoPrompt = extractVideoPrompt(responseText);
 
-      if (videoPromptMatch) {
-        const newVideoPrompt = videoPromptMatch[1].trim();
+      if (newVideoPrompt) {
         setLastVideoPrompt(newVideoPrompt);
 
         // Update DB
@@ -969,8 +967,7 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
       setIsAnalyzing(false);
 
       // Auto-generate if video prompt found
-      if (videoPromptMatch) {
-        const newVideoPrompt = videoPromptMatch[1].trim();
+      if (newVideoPrompt) {
         setIsGenerating(true);
 
         const generatingMsg: ChatMessage = {
