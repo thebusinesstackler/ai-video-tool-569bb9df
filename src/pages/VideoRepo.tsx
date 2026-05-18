@@ -2169,29 +2169,31 @@ HARD RULES:
 
   return (
     <Layout>
-      <div className="flex h-[calc(100vh-4rem)] max-w-7xl mx-auto flex-col overflow-hidden">
-        <div className="text-center py-4 px-4">
-          <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary via-purple-400 to-accent bg-clip-text text-transparent mb-1">
+      <div className="flex h-[calc(100vh-4rem)] max-w-6xl mx-auto flex-col overflow-hidden">
+        {/* Refined Apple-style header */}
+        <div className="text-center pt-6 pb-3 px-4">
+          <h1 className="text-[22px] md:text-[26px] font-semibold tracking-tight text-foreground">
             AI UGC Video Generator
           </h1>
-          <p className="text-muted-foreground text-xs md:text-sm max-w-xl mx-auto">
-            Generate AI UGC-style video ads in minutes — no creators, no filming, no editing.
+          <p className="text-muted-foreground/80 text-[12px] md:text-[13px] font-normal mt-1 max-w-md mx-auto">
+            Generate scroll-stopping ads in minutes. No filming, no editing.
           </p>
         </div>
 
         <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'create' | 'history' | 'import')} className="flex-1 flex flex-col min-h-0">
-          <div className="flex justify-center px-4 mb-3">
-            <TabsList>
-              <TabsTrigger value="create" className="gap-1.5">
+          {/* Segmented-control nav */}
+          <div className="flex justify-center px-4 mb-4">
+            <TabsList className="inline-flex h-9 items-center gap-0.5 rounded-full bg-muted/60 p-1 border border-border/40">
+              <TabsTrigger value="create" className="gap-1.5 rounded-full px-4 h-7 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
                 <Play className="w-3.5 h-3.5" /> Create
               </TabsTrigger>
-              <TabsTrigger value="import" className="gap-1.5">
+              <TabsTrigger value="import" className="gap-1.5 rounded-full px-4 h-7 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
                 <Upload className="w-3.5 h-3.5" /> Import
               </TabsTrigger>
-              <TabsTrigger value="history" className="gap-1.5">
+              <TabsTrigger value="history" className="gap-1.5 rounded-full px-4 h-7 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
                 <History className="w-3.5 h-3.5" /> History
                 {historyProjects.length > 0 && (
-                  <span className="ml-1 bg-primary/20 text-primary text-xs px-1.5 py-0.5 rounded-full">{historyProjects.length}</span>
+                  <span className="ml-0.5 bg-primary/15 text-primary text-[10px] px-1.5 py-0 rounded-full font-medium">{historyProjects.length}</span>
                 )}
               </TabsTrigger>
             </TabsList>
@@ -2201,7 +2203,7 @@ HARD RULES:
             {/* Workspace sub-tabs (Ad only) — Compose / Review / Results */}
             {activeTab === 'ad' && (
               <div className="flex items-center justify-center gap-1 flex-shrink-0">
-                <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/60 border border-border/60">
+                <div className="inline-flex items-center gap-0.5 p-1 rounded-full bg-muted/50 border border-border/40">
                   {([
                     { id: 'compose' as const, label: 'Compose', icon: Wand2, count: 0 },
                     { id: 'review' as const, label: 'Review Script', icon: Sparkles, count: messages.filter(m => m.scriptPreview && m.scriptPreview.status === 'pending').length },
@@ -2214,7 +2216,7 @@ HARD RULES:
                         key={t.id}
                         type="button"
                         onClick={() => setWorkspaceTab(t.id)}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                        className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors ${
                           active ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
                         }`}
                       >
@@ -2234,10 +2236,10 @@ HARD RULES:
 
             <div className="flex-1 flex flex-col gap-4 min-h-0 overflow-hidden">
             {/* Composer Panel — visible on Compose tab or in Motion mode */}
-            <div className={`${activeTab === 'motion' || workspaceTab === 'compose' ? 'w-full max-w-3xl mx-auto' : 'hidden'} flex-shrink-0 overflow-y-auto`}>
-              <Card className="bg-card/95 border border-border shadow-sm rounded-2xl overflow-hidden">
+            <div className={`${activeTab === 'motion' || workspaceTab === 'compose' ? 'w-full max-w-[560px] mx-auto' : 'hidden'} flex-shrink-0 overflow-y-auto`}>
+              <Card className="bg-card/80 backdrop-blur-xl border border-border/40 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_12px_32px_-12px_rgba(0,0,0,0.08)] rounded-3xl overflow-hidden">
                 {/* Sub-tabs: Ad / Motion */}
-                <div className="flex items-center gap-1 px-3 pt-2.5 pb-2 border-b border-border/60 bg-muted/30">
+                <div className="flex items-center gap-1 px-4 pt-3 pb-2.5 border-b border-border/40 bg-muted/20">
                   <button
                     onClick={() => setActiveTab('ad')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
@@ -2681,7 +2683,7 @@ HARD RULES:
                           {lockProduct ? 'Product Locked' : 'Lock Product'}
                         </Button>
                         <Button
-                          className="flex-1 rounded-xl gap-1.5"
+                          className="flex-1 h-11 rounded-2xl gap-2 text-sm font-medium shadow-[0_4px_12px_-2px_hsl(var(--primary)/0.35)] hover:shadow-[0_6px_20px_-4px_hsl(var(--primary)/0.45)] transition-shadow"
                           onClick={useMyScript ? useMyPromptAsScript : analyzeAndGenerate}
                           disabled={isAnalyzing || isGenerating || isExtractingFrames || !hasComposerInput}
                           title={useMyScript ? 'Preview your prompt before sending to Sora' : 'Marco will write a Sora-ready script you can review'}
