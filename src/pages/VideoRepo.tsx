@@ -654,12 +654,16 @@ Then provide a final **VIDEO PROMPT** block:
 \`\`\`video-prompt
 [180–280 word cinematic directive that EXECUTES the ARCHETYPE LOCK above. Cover: environment, character, action choreography (literal counts from ACTION MANIFEST — non-negotiable), camera movement (per archetype), lighting, product placement (pixel-identical to reference if attached), pacing, performance direction (per archetype), final-frame description.
 
+🎬 **SHOT STRUCTURE (MANDATORY — this is an ad, not a single locked-off take):** Break the ${soraDuration}s into ${soraDuration <= 10 ? '2–3' : '3–4'} distinct shots with clean hard CUTS between them. For EACH shot write a labeled block: \`SHOT 1 (0–Xs) — [framing: WIDE / MEDIUM / CLOSE-UP / INSERT / OVER-THE-SHOULDER]: [action + camera + what's on screen]\`. Vary framing between shots (don't stay in the same medium shot the whole time). Typical pattern: HOOK shot (tight, attention-grabbing) → DEMO / RITUAL shots (medium + insert close-ups of the product in use) → PAYOFF / HERO shot (clean product hero or satisfied-user close-up). The CUTS themselves must be written into the prompt as "CUT TO:" so Sora-2 actually renders them.
+
+🏁 **CLOSE-OUT (MANDATORY):** The final shot must be a deliberate HERO BEAT — a clean, held composition of the product (or product + brand-confident user) with the on-screen CTA text fully visible for the last 1.5–2s. No fade-out, no motion-blur exit, no mid-action freeze. The viewer's last frame must be a screenshot-worthy hero shot that names the brand.
+
 🔊 **AUDIO IS MANDATORY — Sora-2 only renders sound when explicitly written in this prompt.** You MUST include an "AUDIO:" section near the end with:
 ${noDialogue
   ? `  • Detailed diegetic sound design — every sound, in order, with texture words (clink, squeeze, plip, pour, whoosh, ambient room tone). NO music unless specified. NO speech.`
   : `  • The full spoken voiceover written as literal quoted dialogue, e.g.: \`The woman speaks directly to camera in a warm, conversational tone: "I tried this for 11 days. By day 4, the brain fog was just… gone."\` — include EVERY word she says, in quotes, with delivery direction (warm/dry/excited/whispered). Sora-2 will NOT generate speech without quoted lines in this prompt.\n  • Plus diegetic ambient sound (room tone, dropper squeeze, glass clink, etc.).\n  • Voice gender + age + tone descriptor (e.g. "female, late 20s, warm and grounded").`}
 
-Explicitly state "Follow the ACTION MANIFEST literally — counts are non-negotiable." End with the closing shot description so the ${soraDuration}s video ends on a complete payoff, not a cut-off.]
+Explicitly state "Follow the ACTION MANIFEST literally — counts are non-negotiable." End with the HERO close-out shot description so the ${soraDuration}s video lands on a complete brand payoff, not a cut-off.]
 \`\`\``
 
       contentParts.push({ type: 'text', text: analysisInstruction });
