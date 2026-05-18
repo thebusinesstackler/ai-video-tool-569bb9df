@@ -2194,15 +2194,16 @@ HARD RULES:
 
   return (
     <Layout>
-      <div className="flex h-[calc(100vh-4rem)] max-w-6xl mx-auto flex-col overflow-hidden">
-        {/* Refined Apple-style header */}
-        <div className="text-center pt-6 pb-3 px-4">
-          <h1 className="text-[22px] md:text-[26px] font-semibold tracking-tight text-foreground">
-            AI UGC Video Generator
-          </h1>
-          <p className="text-muted-foreground/80 text-[12px] md:text-[13px] font-normal mt-1 max-w-md mx-auto">
-            Generate scroll-stopping ads in minutes. No filming, no editing.
-          </p>
+      <div className="flex h-[calc(100vh-4rem)] w-full flex-col overflow-hidden">
+        {/* Compact app-shell header */}
+        <div className="flex items-center justify-between gap-4 px-4 lg:px-6 h-14 flex-shrink-0 border-b border-border/40 bg-background/80 backdrop-blur-xl">
+          <div className="flex items-center gap-2 min-w-0">
+            <Play className="w-4 h-4 text-primary flex-shrink-0" />
+            <h1 className="text-sm font-semibold tracking-tight text-foreground truncate">
+              AI UGC Video Generator
+            </h1>
+            <span className="hidden md:inline text-[11px] text-muted-foreground/70 truncate">· Generate scroll-stopping ads in minutes</span>
+          </div>
         </div>
 
         <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'create' | 'history' | 'import')} className="flex-1 flex flex-col min-h-0">
