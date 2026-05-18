@@ -1655,8 +1655,8 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
     try {
       const seconds = soraDuration;
       const wordsTarget = Math.max(1, Math.floor((seconds - 6) * 1.7));
-      const productNote = selectedProductCtx?.name
-        ? `Product in scene: ${selectedProductCtx.name}. The actor must NOT hold or touch the product — it sits as ambient set dressing only.`
+      const productNote = selectedProductCtx?.productName
+        ? `Product in scene: ${selectedProductCtx.productName}. The actor must NOT hold or touch the product — it sits as ambient set dressing only.`
         : 'No product attached — do not write any product holding/demonstration into the script.';
       const brandNote = brandProfile?.company_name
         ? `Brand context (only use if the user's idea is about THIS brand): ${brandProfile.company_name}${brandProfile.brand_url ? ` (${brandProfile.brand_url})` : ''}${brandProfile.brand_description ? ` — ${brandProfile.brand_description}` : ''}.`
