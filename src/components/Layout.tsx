@@ -9,9 +9,11 @@ const SIDEBAR_COLLAPSED_KEY = 'sidebar-collapsed';
 
 interface LayoutProps {
   children: React.ReactNode;
+  /** Render children edge-to-edge with no padding or max-width — for app-shell pages */
+  fullBleed?: boolean;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, fullBleed = false }) => {
   const isMobile = useIsMobile();
   const { authServiceDown, clearLocalSession } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -73,10 +75,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         </div>
       )}
       <Navigation />
-      <main className={`${isMobile ? "pt-16 px-3 pb-24" : `${isCollapsed ? 'ml-16' : 'ml-64'} p-6 pb-24`} ${authServiceDown ? 'pt-20' : ''} ${hasMounted ? 'transition-[margin] duration-300' : ''}`}>
-        <div className="max-w-7xl mx-auto">
-          {children}
-        </div>
+      <main className={`${isMobile ? (fullBleed ? "pt-16" : "pt-16 px-3 pb-24") : `${isCollapsed ? 'ml-16' : 'ml-64'} ${fullBleed ? '' : 'p-6 pb-24'}`} ${authServiceDown ? 'pt-20' : ''} ${hasMounted ? 'transition-[margin] duration-300' : ''}`}>
+        {fullBleed ? children : <div className="max-w-7xl mx-auto">{children}</div>}
       </main>
     </div>
   );

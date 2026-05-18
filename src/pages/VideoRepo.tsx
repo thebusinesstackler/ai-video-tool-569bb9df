@@ -2193,8 +2193,8 @@ HARD RULES:
   }
 
   return (
-    <Layout>
-      <div className="flex h-[calc(100vh-4rem)] w-full flex-col overflow-hidden">
+    <Layout fullBleed>
+      <div className="flex h-[calc(100vh-4rem)] md:h-screen w-full flex-col overflow-hidden">
         {/* Compact app-shell header */}
         <div className="flex items-center justify-between gap-4 px-4 lg:px-6 h-14 flex-shrink-0 border-b border-border/40 bg-background/80 backdrop-blur-xl">
           <div className="flex items-center gap-2 min-w-0">
