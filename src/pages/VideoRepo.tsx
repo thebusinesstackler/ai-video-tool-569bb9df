@@ -2194,28 +2194,29 @@ HARD RULES:
 
   return (
     <Layout>
-      <div className="flex h-[calc(100vh-4rem)] max-w-6xl mx-auto flex-col overflow-hidden">
-        {/* Refined Apple-style header */}
-        <div className="text-center pt-6 pb-3 px-4">
-          <h1 className="text-[22px] md:text-[26px] font-semibold tracking-tight text-foreground">
-            AI UGC Video Generator
-          </h1>
-          <p className="text-muted-foreground/80 text-[12px] md:text-[13px] font-normal mt-1 max-w-md mx-auto">
-            Generate scroll-stopping ads in minutes. No filming, no editing.
-          </p>
+      <div className="flex h-[calc(100vh-4rem)] w-full flex-col overflow-hidden">
+        {/* Compact app-shell header */}
+        <div className="flex items-center justify-between gap-4 px-4 lg:px-6 h-14 flex-shrink-0 border-b border-border/40 bg-background/80 backdrop-blur-xl">
+          <div className="flex items-center gap-2 min-w-0">
+            <Play className="w-4 h-4 text-primary flex-shrink-0" />
+            <h1 className="text-sm font-semibold tracking-tight text-foreground truncate">
+              AI UGC Video Generator
+            </h1>
+            <span className="hidden md:inline text-[11px] text-muted-foreground/70 truncate">· Generate scroll-stopping ads in minutes</span>
+          </div>
         </div>
 
         <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'create' | 'history' | 'import')} className="flex-1 flex flex-col min-h-0">
           {/* Segmented-control nav */}
-          <div className="flex justify-center px-4 mb-4">
-            <TabsList className="inline-flex h-9 items-center gap-0.5 rounded-full bg-muted/60 p-1 border border-border/40">
-              <TabsTrigger value="create" className="gap-1.5 rounded-full px-4 h-7 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+          <div className="flex justify-center px-4 py-2 flex-shrink-0 border-b border-border/40 bg-background/60">
+            <TabsList className="inline-flex h-8 items-center gap-0.5 rounded-full bg-muted/60 p-0.5 border border-border/40">
+              <TabsTrigger value="create" className="gap-1.5 rounded-full px-3.5 h-7 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
                 <Play className="w-3.5 h-3.5" /> Create
               </TabsTrigger>
-              <TabsTrigger value="import" className="gap-1.5 rounded-full px-4 h-7 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <TabsTrigger value="import" className="gap-1.5 rounded-full px-3.5 h-7 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
                 <Upload className="w-3.5 h-3.5" /> Import
               </TabsTrigger>
-              <TabsTrigger value="history" className="gap-1.5 rounded-full px-4 h-7 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <TabsTrigger value="history" className="gap-1.5 rounded-full px-3.5 h-7 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
                 <History className="w-3.5 h-3.5" /> History
                 {historyProjects.length > 0 && (
                   <span className="ml-0.5 bg-primary/15 text-primary text-[10px] px-1.5 py-0 rounded-full font-medium">{historyProjects.length}</span>
@@ -2224,10 +2225,10 @@ HARD RULES:
             </TabsList>
           </div>
 
-          <TabsContent value="create" className="flex-1 flex flex-col gap-3 px-4 min-h-0 overflow-hidden mt-0">
-            {/* Workspace sub-tabs (Ad only) — Compose / Review / Results */}
+          <TabsContent value="create" className="flex-1 flex flex-col gap-2 px-3 lg:px-4 pt-2 min-h-0 overflow-hidden mt-0">
+            {/* Workspace sub-tabs (Ad only, mobile/tablet only) — Compose / Review / Results */}
             {activeTab === 'ad' && (
-              <div className="flex items-center justify-center gap-1 flex-shrink-0">
+              <div className="flex items-center justify-center gap-1 flex-shrink-0 lg:hidden">
                 <div className="inline-flex items-center gap-0.5 p-1 rounded-full bg-muted/50 border border-border/40">
                   {([
                     { id: 'compose' as const, label: 'Compose', icon: Wand2, count: 0 },
@@ -2259,10 +2260,10 @@ HARD RULES:
               </div>
             )}
 
-            <div className="flex-1 flex flex-col gap-4 min-h-0 overflow-hidden">
-            {/* Composer Panel — visible on Compose tab or in Motion mode */}
-            <div className={`${activeTab === 'motion' || workspaceTab === 'compose' ? 'w-full max-w-[560px] mx-auto' : 'hidden'} flex-shrink-0 overflow-y-auto`}>
-              <Card className="bg-card/80 backdrop-blur-xl border border-border/40 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_12px_32px_-12px_rgba(0,0,0,0.08)] rounded-3xl overflow-hidden">
+            <div className="flex-1 flex flex-col gap-3 min-h-0 overflow-hidden lg:grid lg:grid-cols-[520px_1fr] lg:gap-4">
+            {/* Composer Panel — left column on desktop, always visible. On mobile shown when on Compose tab or Motion mode */}
+            <div className={`${activeTab === 'motion' || workspaceTab === 'compose' ? 'flex' : 'hidden lg:flex'} flex-col w-full max-w-[560px] mx-auto lg:mx-0 lg:max-w-none lg:min-w-0 min-h-0 overflow-y-auto`}>
+              <Card className="bg-card/80 backdrop-blur-xl border border-border/40 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_12px_32px_-12px_rgba(0,0,0,0.08)] rounded-2xl">
                 {/* Sub-tabs: Ad / Motion */}
                 <div className="flex items-center gap-1 px-4 pt-3 pb-2.5 border-b border-border/40 bg-muted/20">
                   <button
@@ -2678,8 +2679,8 @@ HARD RULES:
                         </button>
                       </div>
 
-                      {/* Mode + Duration + Send */}
-                      <div className="flex items-center gap-2 pt-1">
+                      {/* Mode + Duration + Send — sticky footer */}
+                      <div className="flex items-center gap-2 pt-2 sticky bottom-0 bg-card/95 backdrop-blur-xl border-t border-border/40 px-4 py-2.5 -mx-4 -mb-4 z-10">
                         <Select value={mode} onValueChange={(v: 'guided' | 'freeform') => setMode(v)}>
                           <SelectTrigger className="h-8 text-xs w-[110px] rounded-lg bg-background"><SelectValue /></SelectTrigger>
                           <SelectContent>
@@ -2724,7 +2725,7 @@ HARD RULES:
             </div>
 
             {/* Conversation area — visible on Review or Results tab (Ad mode only) */}
-            <div className={`${activeTab === 'ad' && workspaceTab !== 'compose' ? 'flex-1 flex flex-col min-h-0 min-w-0' : 'hidden'}`}>
+            <div className={`${activeTab === 'ad' ? (workspaceTab !== 'compose' ? 'flex flex-1' : 'hidden lg:flex lg:flex-1') : 'hidden'} flex-col min-h-0 min-w-0`}>
               {showConversation ? (
                 <>
                   <ScrollArea className="flex-1 rounded-2xl border border-border/60 bg-muted/10 px-4">
