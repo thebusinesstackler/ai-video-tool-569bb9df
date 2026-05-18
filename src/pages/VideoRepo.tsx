@@ -2679,8 +2679,8 @@ HARD RULES:
                         </button>
                       </div>
 
-                      {/* Mode + Duration + Send */}
-                      <div className="flex items-center gap-2 pt-1">
+                      {/* Mode + Duration + Send — sticky footer */}
+                      <div className="flex items-center gap-2 pt-2 sticky bottom-0 bg-card/95 backdrop-blur-xl border-t border-border/40 px-4 py-2.5 -mx-4 -mb-4 z-10">
                         <Select value={mode} onValueChange={(v: 'guided' | 'freeform') => setMode(v)}>
                           <SelectTrigger className="h-8 text-xs w-[110px] rounded-lg bg-background"><SelectValue /></SelectTrigger>
                           <SelectContent>
