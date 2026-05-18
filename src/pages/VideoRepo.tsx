@@ -846,8 +846,154 @@ Return STRICT JSON only (no markdown fences, no commentary outside JSON):
       setMessages((prev) => [...prev, errorMsg]);
       setIsAnalyzing(false);
       setIsGenerating(false);
-      fetchHistory();
     }
+  };
+
+  // === Script preview card handlers ===
+  const updateScriptPreviewPrompt = (messageId: string, newPrompt: string) => {
+    setMessages(prev => prev.map(m =>
+      m.id === messageId && m.scriptPreview
+        ? { ...m, scriptPreview: { ...m.scriptPreview, videoPrompt: newPrompt } }
+        : m
+    ));
+  };
+
+  const cancelScriptPreview = (messageId: string) => {
+    setMessages(prev => prev.map(m =>
+      m.id === messageId && m.scriptPreview
+        ? { ...m, scriptPreview: { ...m.scriptPreview, status: 'cancelled' } }
+        : m
+    ));
+    toast({ title: 'Cancelled', description: 'No video was generated.' });
+  };
+
+  const regenerateScriptPreview = async (messageId: string) => {
+    setMessages(prev => prev.map(m =>
+      m.id === messageId && m.scriptPreview
+        ? { ...m, scriptPreview: { ...m.scriptPreview, status: 'cancelled' } }
+        : m
+    ));
+    await analyzeAndGenerate();
+  };
+
+  const approveScriptAndGenerate = async (messageId: string) => {
+    const msg = messages.find(m => m.id === messageId);
+    if (!msg?.scriptPreview) return;
+    const card = msg.scriptPreview;
+
+    setMessages(prev => prev.map(m =>
+      m.id === messageId && m.scriptPreview
+        ? { ...m, scriptPreview: { ...m.scriptPreview, status: 'approved' } }
+        : m
+    ));
+
+    setLastVideoPrompt(card.videoPrompt);
+    setLastPersistentImageUrl(card.persistentImageUrl);
+    setIsGenerating(true);
+
+    if (card.projectId) {
+      await supabase.from('video_repo_projects').update({
+        video_prompt: card.videoPrompt,
+        status: 'generating',
+      }).eq('id', card.projectId);
+    }
+
+    const generatingMsg: ChatMessage = {
+      id: `assistant-gen-${Date.now()}`,
+      role: 'assistant',
+      content: card.useProductLock
+        ? `🔒 Locking product. 🎬 Generating with Wan 2.5 i2v (product-locked)...`
+        : card.isT2V
+          ? `📝 Text → Video: Generating with Sora 2...`
+          : `🎬 Generating with Sora 2...`,
+    };
+    setMessages(prev => [...prev, generatingMsg]);
+
+    const variantHints = [
+      '',
+      '\n\n[Variation B] Try a different opening hook angle and slightly faster pacing while keeping the same characters, setting, and overall message.',
+      '\n\n[Variation C] Use an alternate camera framing and a different lighting mood while keeping the same characters, setting, and overall message.',
+    ];
+    const totalVariants = Math.max(1, card.bulkCount);
+    const variantPrompts = Array.from({ length: totalVariants }, (_, i) => card.videoPrompt + variantHints[i % variantHints.length]);
+
+    if (totalVariants > 1) {
+      setMessages(prev => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `🎬 Bulk generating ${totalVariants} variants in parallel...` } : m));
+    }
+
+    const runOne = async (variantPrompt: string, idx: number) => {
+      try {
+        const taskId = await createWaveSpeedVideo({
+          prompt: variantPrompt,
+          model: card.generationModel,
+          aspectRatio: card.outputFormat,
+          duration: card.soraDuration,
+          userId: user?.id,
+          source: 'video-repo',
+          ...(card.persistentImageUrl ? { imageUrls: [card.persistentImageUrl] } : {}),
+        });
+        let attempts = 0;
+        const maxAttempts = 120;
+        while (attempts < maxAttempts) {
+          await new Promise(r => setTimeout(r, 5000));
+          const job = await getWaveSpeedVideoJob(taskId);
+          if (job.status === 'completed' && job.videoUrl) {
+            if (user) {
+              await supabase.from('generated_images').insert({
+                user_id: user.id,
+                image_url: job.videoUrl,
+                prompt: variantPrompt,
+                source: 'video-repo',
+                reference_image_url: card.persistentImageUrl,
+              });
+            }
+            const resultMsg: ChatMessage = {
+              id: `result-${Date.now()}-${idx}`,
+              role: 'assistant',
+              content: totalVariants > 1 ? `✅ Variant ${idx + 1} of ${totalVariants} ready!` : '✅ Your UGC ad video is ready!',
+              videoResult: { url: job.videoUrl, status: 'completed' },
+            };
+            setMessages(prev => prev.concat(resultMsg));
+            return job.videoUrl;
+          }
+          if (job.status === 'failed') throw new Error(job.error || 'Video generation failed');
+          attempts++;
+        }
+        throw new Error('Video generation timed out.');
+      } catch (e: any) {
+        const errorMsg: ChatMessage = {
+          id: `error-${Date.now()}-${idx}`,
+          role: 'assistant',
+          content: `⚠️ Variant ${idx + 1} failed: ${e.message}`,
+        };
+        setMessages(prev => prev.concat(errorMsg));
+        return null;
+      }
+    };
+
+    try {
+      const results = await Promise.all(variantPrompts.map((p, i) => runOne(p, i)));
+      const firstUrl = results.find((u) => !!u) || null;
+      if (card.projectId && firstUrl) {
+        await supabase.from('video_repo_projects').update({
+          generated_video_url: firstUrl,
+          status: 'completed',
+        }).eq('id', card.projectId);
+      }
+      setMessages(prev => prev.filter(m => m.id !== generatingMsg.id));
+      fetchHistory();
+    } catch (genErr: any) {
+      if (card.projectId) {
+        await supabase.from('video_repo_projects').update({ status: 'failed' }).eq('id', card.projectId);
+      }
+      const errorMsg: ChatMessage = {
+        id: `error-${Date.now()}`,
+        role: 'assistant',
+        content: `⚠️ Video generation failed: ${genErr.message}.`,
+      };
+      setMessages(prev => prev.filter(m => m.id !== generatingMsg.id).concat(errorMsg));
+    }
+    setIsGenerating(false);
   };
 
   // === Follow-up chat handler ===
