@@ -573,12 +573,17 @@ const VideoRepo = () => {
 
       // Brand-aware context block — injects user's brand profile so Marco knows the brand without being told
       const brandBlock = brandProfile && (brandProfile.company_name || brandProfile.brand_url || brandProfile.brand_description)
-        ? `\n\n**🏷️ BRAND CONTEXT (you already represent this brand — never ask for it):**
-${brandProfile.company_name ? `- Brand: ${brandProfile.company_name}` : ''}
-${brandProfile.brand_url ? `- Website (use for any URL/CTA overlay or voiceover mention): ${brandProfile.brand_url.replace(/^https?:\/\//, '')}` : ''}
+        ? `\n\n**🏷️ BRAND CONTEXT (you already represent this brand — never ask for it, never invent another):**
+${brandProfile.company_name ? `- Brand name: ${brandProfile.company_name}` : ''}
+${brandProfile.brand_url ? `- Website (use VERBATIM for any URL/CTA overlay or voiceover mention): ${brandProfile.brand_url.replace(/^https?:\/\//, '')}` : ''}
 ${brandProfile.brand_description ? `- Brand voice & positioning: ${brandProfile.brand_description}` : ''}
-RULES: When a CTA or on-screen URL is needed, use "${brandProfile.brand_url ? brandProfile.brand_url.replace(/^https?:\/\//, '') : (brandProfile.company_name || 'the brand')}" — NEVER use placeholders like "YourWebsite.com", "yoursite.com", "[Your Brand]", or generic stand-ins. Speak as if you are this brand's in-house creative director.`
-        : '';
+🚫 ABSOLUTE RULES (violating these = broken output):
+- The ONLY brand name allowed in the script, voiceover, on-screen text, or video-prompt is "${brandProfile.company_name || brandProfile.brand_url?.replace(/^https?:\/\//, '') || 'the brand above'}". Do NOT invent, hallucinate, or substitute any other brand name (no "Adtomic", "Adtp,oc", "BrandX", random startup names, etc.).
+- The ONLY URL allowed is "${brandProfile.brand_url ? brandProfile.brand_url.replace(/^https?:\/\//, '') : (brandProfile.company_name || 'the brand')}". No placeholders like "YourWebsite.com", "yoursite.com", "[Your Brand]", ".app/.io" stand-ins.
+- If you don't know what to say, say the real brand name above. Never make one up.
+Speak as if you are this brand's in-house creative director.`
+        : `\n\n**🏷️ BRAND CONTEXT:** No brand profile is set for this user.
+🚫 ABSOLUTE RULE: Do NOT invent or hallucinate a brand name, product name, or website URL. Refer to the product generically ("this product", "the bottle", "the kit"). The CTA must be a felt benefit or specific number — NEVER a fake URL or made-up brand.`;
 
       // Recent-history awareness — gives Marco the last 8 successful concepts so it doesn't repeat itself
       const recentSuccesses = (historyProjects || [])
@@ -631,7 +636,7 @@ Provide:
 ${disableHookBank ? '' : '2. **Hook Strategy**: How the first 1.5–3 seconds will stop the scroll, written to the archetype\'s opening rule (NOT a generic "I used to feel…" opener).'}
 ${noDialogue
   ? `${disableHookBank ? '2' : '3'}. **SOUND DESIGN MANIFEST**: Timed beats (0-3s, 3-8s, etc.) summing to exactly ${soraDuration}s. List every sound + texture (NO spoken words). Example: "0–2s: glass placed on counter (clink), 2–4s: dropper squeeze (3 distinct squeezes), 4–6s: drops hitting liquid (plip, plip, plip)."`
-  : `${disableHookBank ? '2' : '3'}. **Scene-by-Scene Script**: Timed beats (0-3s, 3-8s, etc.) summing to exactly ${soraDuration}s. Voiceover paced at ~2.5 words/second (~${Math.round(soraDuration * 2.5)} words total). Write spoken lines in the archetype's voice — NOT polished ad copy. Use contractions, real diction, allowed filler.`}
+  : `${disableHookBank ? '2' : '3'}. **Scene-by-Scene Script**: Timed beats (0-3s, 3-8s, etc.) summing to exactly ${soraDuration}s. Voiceover paced at a NATURAL conversational ~2.2 words/second (HARD CAP: ${Math.round(soraDuration * 2.2)} words total for the entire spoken script — count them, do NOT exceed). Leave ~1s of silent breathing room at the start and ~1s at the end so the actor isn't rushed. Write spoken lines in the archetype's voice — NOT polished ad copy. Use contractions, real diction, allowed filler. If the script would exceed the word cap, CUT lines — never compress delivery.`}
 ${disableHookBank ? '3' : '4'}. **PERFORMANCE DIRECTION** — required labeled lines for the actor (skip if archetype is ASMR with no actor face): BREATH:, EYES:, HANDS:, POSTURE:, MICRO-EXPRESSION:, PACING:, EMOTIONAL ARC:. Match the archetype's acting rules above.
 ${disableHookBank ? '4' : '5'}. **CAMERA INTELLIGENCE** — labeled lines: LENS FEEL:, ENERGY: (handheld/locked/slider/etc), CUT PACING:, PUSH-IN:, FOCUS:. Match the archetype's camera direction above.
 ${disableHookBank ? '5' : '6'}. **ACTION MANIFEST** — a literal bullet list of countable physical actions the video model MUST execute exactly. Be specific with COUNTS and TARGETS. For dropper/tincture products: ALWAYS specify "squeeze dropper 3-5 times — multiple visible drops fall into a [water glass / coffee mug / tea cup / smoothie / juice]" — NEVER just "a dropper in water." Pick a beverage that fits the scene (water, coffee, tea, smoothie, juice) and name it explicitly. Other examples: "hand lifts glass once," "stir spoon clockwise twice." Format:
