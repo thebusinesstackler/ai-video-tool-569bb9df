@@ -2587,8 +2587,8 @@ HARD RULES:
               </Card>
             </div>
 
-            {/* Right: Conversation area */}
-            <div className="flex-1 flex flex-col min-h-0 min-w-0">
+            {/* Conversation area — visible on Review or Results tab (Ad mode only) */}
+            <div className={`${activeTab === 'ad' && workspaceTab !== 'compose' ? 'flex-1 flex flex-col min-h-0 min-w-0' : 'hidden'}`}>
               {showConversation ? (
                 <>
                   <ScrollArea className="flex-1 rounded-2xl border border-border/60 bg-muted/10 px-4">
