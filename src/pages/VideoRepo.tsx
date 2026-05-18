@@ -2036,10 +2036,20 @@ HARD RULES:
         },
       });
       if (error) throw new Error(error.message || 'AI request failed');
-      const out = (data?.response || '').trim();
+      let out = (data?.response || '').trim();
       if (!out) throw new Error('No response from AI');
+      // Strip any stray stage directions / labels the model might leak in
+      out = out
+        .replace(/^\s*(script|voice\s*over|voiceover|vo|hook|dialogue)\s*:\s*/gim, '')
+        .replace(/\*[^*\n]{1,80}\*/g, '')        // *pointing*, *smiling*
+        .replace(/\[[^\]\n]{1,80}\]/g, '')        // [smiles], [B-roll]
+        .replace(/\([^)\n]{0,80}(point|smil|hold|gestur|lean|look|wink|nod|shrug|wave)[^)\n]*\)/gi, '')
+        .replace(/^\s*["“”'']+|["“”'']+\s*$/g, '') // wrapping quotes
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
       setPrompt(out);
-      toast({ title: mode === 'rewrite' ? 'Script rewritten' : mode === 'enhance' ? 'Script enhanced' : 'Auto-enhanced', description: 'Review the new brief, then tap Generate.' });
+      const wc = out.split(/\s+/).filter(Boolean).length;
+      toast({ title: mode === 'rewrite' ? 'Script rewritten' : mode === 'enhance' ? 'Script enhanced' : 'Auto-enhanced', description: `${wc} words • ~${(wc / 2.5).toFixed(1)}s spoken. Review, then tap Generate.` });
     } catch (e: any) {
       toast({ title: 'Enhance failed', description: e?.message || 'Try again in a moment.', variant: 'destructive' });
     } finally {
