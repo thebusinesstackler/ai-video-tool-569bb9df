@@ -2245,41 +2245,7 @@ HARD RULES:
                           📝 Text → Video
                         </button>
                       </div>
-                      <div className="mb-2">
-                        <div className="mb-1.5 text-xs font-medium text-muted-foreground uppercase tracking-[0.18em] flex items-center gap-1.5">
-                          <Sparkles className="w-3 h-3 text-primary" /> Content Style
-                        </div>
-                        <TooltipProvider delayDuration={150}>
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {ARCHETYPE_LIST.map((a) => {
-                              const Icon = a.icon;
-                              const active = contentStyle === a.id;
-                              return (
-                                <Tooltip key={a.id}>
-                                  <TooltipTrigger asChild>
-                                    <button
-                                      type="button"
-                                      onClick={() => setContentStyle(a.id)}
-                                      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                                        active
-                                          ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                                          : 'bg-background text-muted-foreground border-border hover:bg-muted hover:text-foreground'
-                                      }`}
-                                    >
-                                      <Icon className="w-3 h-3" />
-                                      {a.label}
-                                    </button>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top" className="max-w-[240px]">
-                                    <div className="text-xs font-semibold mb-0.5">{a.label} — {a.vibe}</div>
-                                    <div className="text-[11px] text-muted-foreground">{a.useCase}</div>
-                                  </TooltipContent>
-                                </Tooltip>
-                              );
-                            })}
-                          </div>
-                        </TooltipProvider>
-                      </div>
+                      {/* Content Style chips removed — keeps composer focused on the prompt + attachments */}
                       <div className="mb-1.5 flex items-center justify-between gap-2">
                         <div className="text-xs font-medium text-muted-foreground uppercase tracking-[0.18em]">
                           {inputMode === 't2v' ? 'Describe your video' : 'Prompt'}
