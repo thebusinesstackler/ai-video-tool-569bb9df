@@ -2263,7 +2263,7 @@ HARD RULES:
             <div className="flex-1 flex flex-col gap-3 min-h-0 overflow-hidden lg:grid lg:grid-cols-[520px_1fr] lg:gap-4">
             {/* Composer Panel — left column on desktop, always visible. On mobile shown when on Compose tab or Motion mode */}
             <div className={`${activeTab === 'motion' || workspaceTab === 'compose' ? 'flex' : 'hidden lg:flex'} flex-col w-full max-w-[560px] mx-auto lg:mx-0 lg:max-w-none lg:min-w-0 min-h-0 overflow-y-auto`}>
-              <Card className="bg-card/80 backdrop-blur-xl border border-border/40 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_12px_32px_-12px_rgba(0,0,0,0.08)] rounded-3xl overflow-hidden">
+              <Card className="bg-card/80 backdrop-blur-xl border border-border/40 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_12px_32px_-12px_rgba(0,0,0,0.08)] rounded-2xl">
                 {/* Sub-tabs: Ad / Motion */}
                 <div className="flex items-center gap-1 px-4 pt-3 pb-2.5 border-b border-border/40 bg-muted/20">
                   <button
