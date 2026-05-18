@@ -230,7 +230,7 @@ const VideoRepo = () => {
     ? Boolean(prompt.trim())
     : Boolean(prompt.trim() || referenceVideoUrl || productImageUrl);
   const hasFollowUpInput = Boolean(followUpPrompt.trim() || followUpImageUrl);
-  const conversationComplete = messages.some(m => m.videoResult) || messages.some(m => m.content.includes('```video-prompt'));
+  const conversationComplete = messages.some(m => m.videoResult) || messages.some(m => m.scriptPreview);
   const showFollowUpComposer = conversationComplete && !isAnalyzing && !isGenerating;
   const showConversation = messages.length > 0 || isAnalyzing || isGenerating || isExtractingFrames;
   const statusLabel = isExtractingFrames
