@@ -72,6 +72,8 @@ interface ScriptPreviewCard {
   bulkCount: number;
   projectId: string | null;
   status: 'pending' | 'approved' | 'cancelled' | 'generating';
+  originalUserBrief?: string;
+  hasProduct?: boolean;
 }
 
 interface ChatMessage {
@@ -822,12 +824,16 @@ The attached image is the EXACT hero product. The video model MUST keep label te
       const disableHookBank = archetype.disableHookBank === true;
       const disableCTA = archetype.disableCTA === true;
 
+      const wordTargetTop = Math.max(8, Math.round((soraDuration - 1) * 2.5));
+      const noProductTopBlock = !persistentImageUrl
+        ? `\n\n🚫🚫🚫 **NO-PRODUCT MODE — HIGHEST PRIORITY RULE (READ FIRST):** No product image was attached to this request. The video MUST NOT contain ANY product. Specifically: NO bottle, NO dropper, NO tincture, NO package, NO box, NO jar, NO can, NO label, NO branded item, NO held object of any kind. The actor's hands must NEVER hold, lift, grip, squeeze, pour, demo, present, point at, or gesture toward a product. There are NO product insert shots. NO logos appear on any object. The ad sells the felt benefit through the actor's voiceover, expression, and lifestyle scene ONLY. If you find yourself writing "she holds the bottle" or "close-up of the package" — DELETE IT and replace with a lifestyle gesture or environmental beat. Violating this rule = broken output.\n`
+        : '';
       const analysisInstruction = `User request: "${userMsg.content}"
-
+${noProductTopBlock}
 ${videoFrames.length > 0 ? `Reference video: "${referenceVideoName}" — I've provided ${videoFrames.length} key frames above. Study them carefully.` : ''}
 ${productImageUrl ? 'Product image provided above — incorporate this product naturally.' : ''}${productContextBlock}${productFidelityBlock}${archetypeBlock}
 
-🎯 **TARGET DURATION: ${soraDuration} SECONDS — HARD LOCK.** Every timed beat, the ACTION MANIFEST, and the SHOT STRUCTURE below MUST sum to EXACTLY ${soraDuration}s. Do NOT write a script that finishes early. Do NOT pad with dead air. The actor speaks CONTINUOUSLY from ~0.5s through ~${(soraDuration - 0.5).toFixed(1)}s — no 3-second silence buffers, no "wait for the cut" pauses.
+🎯 **TARGET DURATION: ${soraDuration} SECONDS — HARD LOCK.** Every timed beat, the ACTION MANIFEST, and the SHOT STRUCTURE below MUST sum to EXACTLY ${soraDuration}s. Do NOT write a script that finishes early. Do NOT pad with dead air. The actor speaks CONTINUOUSLY from ~0.5s through ~${(soraDuration - 0.5).toFixed(1)}s — no 3-second silence buffers, no "wait for the cut" pauses. Spoken voiceover word count MUST land in ${Math.round(wordTargetTop * 0.85)}–${Math.round(wordTargetTop * 1.15)} words (target ${wordTargetTop}). BEFORE you write the final VIDEO PROMPT, count the words in your quoted dialogue and confirm they fit this range — if not, revise.
 
 Provide:
 1. **Reference Analysis**: ${contentStyle === 'auto' ? 'Begin with "ARCHETYPE: [chosen archetype name]" and a 1-line reason. Then describe' : `Confirm "ARCHETYPE: ${archetype.label}" then describe`} what you observed in the reference frames (if any) — hook type, pacing, camera style, talent energy.
@@ -984,6 +990,8 @@ Return STRICT JSON only (no markdown fences, no commentary outside JSON):
             bulkCount: Math.max(1, bulkCount),
             projectId,
             status: 'pending',
+            originalUserBrief: userMsg.content,
+            hasProduct: !!persistentImageUrl,
           },
         };
         setMessages((prev) => [...prev, previewMsg]);
@@ -1071,16 +1079,53 @@ Return STRICT JSON only (no markdown fences, no commentary outside JSON):
     };
     setMessages(prev => [...prev, generatingMsg]);
 
-    const variantHints = [
-      '',
-      '\n\n[Variation B] Try a different opening hook angle and slightly faster pacing while keeping the same characters, setting, and overall message.',
-      '\n\n[Variation C] Use an alternate camera framing and a different lighting mood while keeping the same characters, setting, and overall message.',
-    ];
     const totalVariants = Math.max(1, card.bulkCount);
-    const variantPrompts = Array.from({ length: totalVariants }, (_, i) => card.videoPrompt + variantHints[i % variantHints.length]);
+    let variantPrompts: string[] = [card.videoPrompt];
 
     if (totalVariants > 1) {
-      setMessages(prev => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `🎬 Bulk generating ${totalVariants} variants in parallel...` } : m));
+      setMessages(prev => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `✍️ Marco is writing ${totalVariants - 1} alternate distinct scripts...` } : m));
+      try {
+        const altSys = `You are a senior UGC ad script writer. The user already has one approved video prompt. Your job is to write ${totalVariants - 1} ADDITIONAL, COMPLETELY DISTINCT video prompts for the SAME offer — each with a different hook, different opening line, different setting/location, different actor archetype, different shot structure, and different CTA delivery. Do NOT recycle the first script's hook, dialogue, or framing.
+
+HARD RULES (every alternate prompt must obey):
+- TARGET DURATION: exactly ${card.soraDuration} seconds. Voiceover MUST be ${Math.round(Math.max(8, (card.soraDuration - 1) * 2.5) * 0.85)}–${Math.round(Math.max(8, (card.soraDuration - 1) * 2.5) * 1.15)} words (~2.5 words/sec) so the actor speaks continuously.
+- ${card.hasProduct ? 'PRODUCT FIDELITY: the product is in-scene as ambient set dressing — actor NEVER holds it.' : '🚫 NO-PRODUCT MODE: NO bottle, dropper, package, label, branded object, or held product anywhere. Actor hands stay empty. No product insert shots.'}
+- NO on-screen text/captions/subtitles/lower-thirds.
+- Same SHOT STRUCTURE format (CUT TO: between shots), ACTION MANIFEST, AUDIO block with quoted dialogue, HERO close-out.
+- For each, write the SAME voice gender/age as the first one is fine OR vary it — but be deliberate.
+
+Return STRICT JSON only:
+{
+  "alternates": [
+    "FULL video prompt #2 (entire prompt body, ready to send to Sora)",
+    "FULL video prompt #3"${totalVariants > 3 ? ',\n    "FULL video prompt #4"' : ''}${totalVariants > 4 ? ',\n    "FULL video prompt #5"' : ''}
+  ]
+}`;
+        const altUser = `USER OFFER / REQUEST:\n"""${card.originalUserBrief || ''}"""\n\nTARGET DURATION: ${card.soraDuration}s\nPRODUCT ATTACHED: ${card.hasProduct ? 'YES' : 'NO'}\nFORMAT: ${card.outputFormat}\nNUMBER OF ALTERNATES NEEDED: ${totalVariants - 1}\n\nFIRST APPROVED PROMPT (do NOT copy it — write ${totalVariants - 1} different ones):\n"""\n${card.videoPrompt}\n"""`;
+        const { data: altData } = await supabase.functions.invoke('ai', {
+          body: { messages: [{ role: 'system', content: altSys }, { role: 'user', content: altUser }] },
+        });
+        const raw = (altData?.response || '').trim();
+        let jsonStr = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+        const fb = jsonStr.indexOf('{'); const lb = jsonStr.lastIndexOf('}');
+        if (fb !== -1 && lb > fb) jsonStr = jsonStr.slice(fb, lb + 1);
+        const parsed = JSON.parse(jsonStr);
+        if (Array.isArray(parsed.alternates) && parsed.alternates.length > 0) {
+          const cleanAlts = parsed.alternates
+            .map((s: any) => (typeof s === 'string' ? s.trim() : ''))
+            .filter((s: string) => s.length > 80);
+          variantPrompts = [card.videoPrompt, ...cleanAlts].slice(0, totalVariants);
+        }
+      } catch (e) {
+        console.warn('[VideoRepo] Variant regen failed, falling back to hint-based variants:', e);
+        const variantHints = [
+          '',
+          '\n\n[Variation B] Try a different opening hook angle and slightly faster pacing while keeping the same characters, setting, and overall message.',
+          '\n\n[Variation C] Use an alternate camera framing and a different lighting mood while keeping the same characters, setting, and overall message.',
+        ];
+        variantPrompts = Array.from({ length: totalVariants }, (_, i) => card.videoPrompt + variantHints[i % variantHints.length]);
+      }
+      setMessages(prev => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `🎬 Bulk generating ${variantPrompts.length} distinct variants in parallel...` } : m));
     }
 
     const runOne = async (variantPrompt: string, idx: number) => {
