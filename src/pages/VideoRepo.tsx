@@ -158,6 +158,31 @@ const countSpokenWords = (prompt: string): number => {
   return spoken.split(/\s+/).filter(Boolean).length;
 };
 
+// Detect when the user's prompt contains an explicit spoken script we should use verbatim.
+// Returns the cleaned spoken text, or null if nothing qualifies.
+const extractUserProvidedScript = (text: string): string | null => {
+  if (!text) return null;
+  const src = text.replace(/\r\n/g, '\n');
+
+  // 1) Explicit "Script:" / "Dialogue:" / "Voiceover:" / "VO:" label
+  const labeled = src.match(/(?:^|\n)\s*(?:script|dialogue|voice\s*over|voiceover|vo)\s*:\s*([\s\S]+?)(?:\n\s*\n[A-Z][^\n]{0,40}:\s|\n\s*$|$)/i);
+  if (labeled?.[1]) {
+    const cleaned = labeled[1].trim().replace(/^[""']+|[""']+$/g, '').trim();
+    const wc = cleaned.split(/\s+/).filter(Boolean).length;
+    if (wc >= 8) return cleaned;
+  }
+
+  // 2) Any long quoted block (curly or straight) of ≥12 words
+  const quoteMatches = Array.from(src.matchAll(/[""]([^""]{40,})[""]|"([^"]{40,})"/g));
+  for (const m of quoteMatches) {
+    const q = (m[1] || m[2] || '').trim();
+    const wc = q.split(/\s+/).filter(Boolean).length;
+    if (wc >= 12) return q;
+  }
+
+  return null;
+};
+
 // Heuristic: a finished Sora prompt should contain an AUDIO block and end on punctuation, not mid-sentence
 const looksTruncated = (prompt: string): boolean => {
   if (!prompt || prompt.length < 200) return true;
@@ -754,11 +779,28 @@ ${recentSuccesses.map((p, i) => {
 RULES: Do NOT reuse the same hook, opening line, setting, or shot composition from the videos above. Vary the archetype, beverage choice (water/coffee/tea/smoothie/juice), location, time-of-day, and emotional arc. If the user keeps making the same product, your job is to find a NEW angle each time.`
         : '';
 
+      // 🔒 Locked spoken script — if the user pasted explicit dialogue, force Marco to use it verbatim
+      const lockedSpokenScript = extractUserProvidedScript(userMsg.content);
+      const lockedScriptBlock = lockedSpokenScript
+        ? `\n\n**🔒 LOCKED SPOKEN SCRIPT — USE VERBATIM (HIGHEST PRIORITY):**
+The user has provided the EXACT words the actor must say. You MUST copy these words character-for-character into the AUDIO: block, inside quotes. Do NOT rewrite, paraphrase, shorten, expand, reorder, or substitute synonyms. Do NOT apply the "spoken brand pronunciation" rule to these locked words — keep the user's exact spelling. Your job is ONLY to wrap these words with visual direction (camera, lighting, wardrobe, action, sound design).
+
+If the locked script is longer than fits in ${soraDuration}s at ~2.5 words/sec, still include every word — pace tighter rather than trimming.
+
+SCRIPT (verbatim, do not change a single word):
+"""
+${lockedSpokenScript}
+"""
+
+The AUDIO: block's quoted dialogue MUST be this exact text. Other sections (visuals, action manifest, camera) can be fully creative.`
+        : '';
+
       const systemPrompt = (inputMode === 't2v'
         ? `You are a UGC ad video strategist and creative director specializing in pure text-to-video generation (no product image required). Your job is to translate the user's idea into a cinematic, scroll-stopping ad concept built from scratch. Focus on scene/concept storytelling: vivid setting, character casting, action choreography, lighting mood, camera movement, sound design. Enforce: a dynamic hook in the first 1.5s, a spoken voice script paced at ~2.5 words/second, studio-clean broadcast audio, and a varied creative style — never default to the same format twice (rotate Founder POV, ASMR Ritual, PAS, Mockumentary, Before/After, Kinetic Typography, Day-in-the-Life, etc.).`
         : `You are a UGC ad video strategist and visual analyst. When given reference video frames, study them carefully: identify the hook technique (first 3 seconds), pacing rhythm, camera movements, talent actions, lighting style, text overlays, and transition patterns. Use these insights to craft a new video that captures the same energy and conversion potential.`)
         + brandBlock
-        + historyBlock;
+        + historyBlock
+        + lockedScriptBlock;
 
       const productContextBlock = selectedProductCtx
         ? `\n\n**FEATURED PRODUCT (must appear naturally in the ad):**
@@ -2373,6 +2415,28 @@ HARD RULES:
                         className="min-h-[72px] rounded-xl border border-border bg-background px-3 py-2 text-sm shadow-sm focus-visible:ring-2 focus-visible:ring-ring"
                         rows={3}
                       />
+                      {(() => {
+                        const locked = extractUserProvidedScript(prompt);
+                        if (!locked) return null;
+                        const wc = locked.split(/\s+/).filter(Boolean).length;
+                        const estSecs = Math.round(wc / 2.5);
+                        const overBudget = estSecs > soraDuration + 2;
+                        return (
+                          <div className={`mt-2 flex items-start gap-2 rounded-lg border px-2.5 py-1.5 text-[11px] ${overBudget ? 'border-amber-500/40 bg-amber-500/10 text-amber-700' : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700'}`}>
+                            <Lock className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium leading-tight">
+                                📝 Script detected — actor will say these {wc} words verbatim
+                              </div>
+                              <div className="text-[10px] opacity-80 leading-tight mt-0.5">
+                                {overBudget
+                                  ? `~${estSecs}s of speech but clip is ${soraDuration}s. Consider trimming or bumping duration to ${estSecs <= 20 ? 20 : 30}s.`
+                                  : `~${estSecs}s of speech fits in your ${soraDuration}s clip. Marco will wrap it with visuals.`}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     <div className="px-3 py-3 space-y-3 bg-background/60">
