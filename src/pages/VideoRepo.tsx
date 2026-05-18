@@ -832,10 +832,12 @@ Explicitly state "Follow the ACTION MANIFEST literally — counts are non-negoti
         let improvedPrompt = videoPrompt;
         let critique = '';
         try {
-          const wordCap = Math.max(1, Math.floor((soraDuration - 6) * 1.7));
+          const wordTarget = Math.max(8, Math.round((soraDuration - 1) * 2.5));
+          const wordMin = Math.max(6, Math.round(wordTarget * 0.85));
+          const wordMax = Math.round(wordTarget * 1.15);
           const criticSys = `You are a senior UGC ad script auditor. Review the video prompt below and aggressively fix any of these failures BEFORE the user sees it:
 
-1. SPOKEN SCRIPT WORD COUNT: voiceover (everything inside quoted dialogue in the AUDIO block) must be ≤ ${wordCap} words for a ${soraDuration}s clip. If over, CUT lines (do not rush delivery). The last word must finish with ≥1.5s of silence before the cut.
+1. CONTINUOUS SPEAKING / DURATION: this is a ${soraDuration}-second clip. The actor must speak from ~0.5s to ~${(soraDuration - 0.5).toFixed(1)}s — NO 3s silent buffers. Spoken voiceover (everything inside quoted dialogue in the AUDIO block) must be ${wordMin}–${wordMax} words (target ${wordTarget}, ~2.5 words/sec). If UNDER ${wordMin} words, ADD a second sentence that extends the message (more benefit, a follow-up beat, a punch CTA) so the actor speaks the whole time. If OVER ${wordMax}, trim — never rush delivery.
 2. ${persistentImageUrl ? 'PRODUCT FIDELITY: a product image was attached — the actor must NEVER hold/grip/squeeze/pour/demo it. The product sits in scene as ambient set dressing; camera may push in as INSERT only.' : 'NO-PRODUCT MODE: no product image was attached. REMOVE every mention of bottles, droppers, tinctures, packages, labels, brands, or any held object. No product inserts. The ad sells the felt benefit through scene + voiceover only.'}
 3. NO ON-SCREEN TEXT: strip every burned-in caption, subtitle, lower-third, kinetic typography, or "text reads" instruction. Papers/screens/signs must be blank or out-of-focus.
 4. BRAND SPELLING: if the user named a brand or URL, it must appear character-for-character in any written reference, AND in the spoken AUDIO line it must be SEPARATED with the dot spelled out (e.g. "busybee.guru" → spoken as "Busy Bee dot guru"). Never phonetic respell ("Buzzy Bee" is banned).
