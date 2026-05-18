@@ -521,6 +521,86 @@ const VideoRepo = () => {
     e.target.value = '';
   };
 
+  // Use the user's prompt verbatim as the Sora prompt — skip AI rewriting.
+  // Still routes through the script preview card so the user can review/edit before send.
+  const useMyPromptAsScript = async () => {
+    const trimmedPrompt = prompt.trim();
+    if (!trimmedPrompt) {
+      toast({ title: 'Write your script first', description: 'Type the exact prompt you want to send to Sora.', variant: 'destructive' });
+      return;
+    }
+
+    let persistentVideoUrl: string | null = null;
+    let persistentImageUrl: string | null = null;
+    try {
+      if (referenceVideoFile) persistentVideoUrl = await uploadFileToStorage(referenceVideoFile, 'videos');
+      else if (referenceVideoUrl && !referenceVideoUrl.startsWith('blob:')) persistentVideoUrl = referenceVideoUrl;
+      if (productImageFile) persistentImageUrl = await uploadFileToStorage(productImageFile, 'images');
+      else if (productImageUrl && !productImageUrl.startsWith('blob:')) persistentImageUrl = productImageUrl;
+    } catch (err: any) {
+      console.error('Upload error:', err);
+      toast({ title: 'File upload failed', description: err.message, variant: 'destructive' });
+    }
+
+    let projectId: string | null = null;
+    if (user) {
+      try {
+        const { data: insertedRow } = await supabase
+          .from('video_repo_projects')
+          .insert({
+            user_id: user.id,
+            prompt: trimmedPrompt,
+            reference_video_url: persistentVideoUrl,
+            product_image_url: persistentImageUrl,
+            video_prompt: trimmedPrompt,
+            status: 'analyzing',
+          })
+          .select('id')
+          .single();
+        if (insertedRow) { projectId = insertedRow.id; setCurrentProjectId(insertedRow.id); }
+      } catch (err) {
+        console.error('DB insert error:', err);
+      }
+    }
+
+    const userMsg: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: trimmedPrompt,
+      attachments: [
+        ...(referenceVideoUrl ? [{ type: 'video' as const, url: referenceVideoUrl, name: referenceVideoName }] : []),
+        ...(productImageUrl ? [{ type: 'image' as const, url: productImageUrl, name: productImageName }] : []),
+      ],
+    };
+
+    const isT2V = inputMode === 't2v' || !persistentImageUrl;
+    const useProductLock = lockProduct && !!persistentImageUrl;
+    const generationModel: 'sora-2' | 'wan-2.5-i2v' = useProductLock ? 'wan-2.5-i2v' : 'sora-2';
+
+    const previewMsg: ChatMessage = {
+      id: `script-preview-${Date.now()}`,
+      role: 'assistant',
+      content: `📝 **Your script is ready to preview** — this is the exact prompt that will be sent to Sora. Edit if needed, then click **Approve & Generate Video**.`,
+      scriptPreview: {
+        videoPrompt: trimmedPrompt,
+        critique: '',
+        persistentImageUrl,
+        isT2V,
+        useProductLock,
+        generationModel,
+        soraDuration,
+        outputFormat,
+        bulkCount: Math.max(1, bulkCount),
+        projectId,
+        status: 'pending',
+      },
+    };
+
+    setMessages(prev => [...prev, userMsg, previewMsg]);
+    setPrompt('');
+    scrollToBottom('auto');
+  };
+
   const analyzeAndGenerate = async () => {
     if (isExtractingFrames) {
       toast({ title: 'Reference video still processing', description: 'Please wait for frame extraction to finish.' });
