@@ -176,6 +176,7 @@ const VideoRepo = () => {
   const [urlInput, setUrlInput] = useState('');
   const [isDownloadingUrl, setIsDownloadingUrl] = useState(false);
   const [isEnhancingPrompt, setIsEnhancingPrompt] = useState<null | 'rewrite' | 'enhance' | 'auto'>(null);
+  const [useMyScript, setUseMyScript] = useState(false);
 
   // Iterative chat state
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
@@ -518,6 +519,86 @@ const VideoRepo = () => {
     const url = await fileToDataUrl(file);
     if (url) setProductImageUrl(url);
     e.target.value = '';
+  };
+
+  // Use the user's prompt verbatim as the Sora prompt — skip AI rewriting.
+  // Still routes through the script preview card so the user can review/edit before send.
+  const useMyPromptAsScript = async () => {
+    const trimmedPrompt = prompt.trim();
+    if (!trimmedPrompt) {
+      toast({ title: 'Write your script first', description: 'Type the exact prompt you want to send to Sora.', variant: 'destructive' });
+      return;
+    }
+
+    let persistentVideoUrl: string | null = null;
+    let persistentImageUrl: string | null = null;
+    try {
+      if (referenceVideoFile) persistentVideoUrl = await uploadFileToStorage(referenceVideoFile, 'videos');
+      else if (referenceVideoUrl && !referenceVideoUrl.startsWith('blob:')) persistentVideoUrl = referenceVideoUrl;
+      if (productImageFile) persistentImageUrl = await uploadFileToStorage(productImageFile, 'images');
+      else if (productImageUrl && !productImageUrl.startsWith('blob:')) persistentImageUrl = productImageUrl;
+    } catch (err: any) {
+      console.error('Upload error:', err);
+      toast({ title: 'File upload failed', description: err.message, variant: 'destructive' });
+    }
+
+    let projectId: string | null = null;
+    if (user) {
+      try {
+        const { data: insertedRow } = await supabase
+          .from('video_repo_projects')
+          .insert({
+            user_id: user.id,
+            prompt: trimmedPrompt,
+            reference_video_url: persistentVideoUrl,
+            product_image_url: persistentImageUrl,
+            video_prompt: trimmedPrompt,
+            status: 'analyzing',
+          })
+          .select('id')
+          .single();
+        if (insertedRow) { projectId = insertedRow.id; setCurrentProjectId(insertedRow.id); }
+      } catch (err) {
+        console.error('DB insert error:', err);
+      }
+    }
+
+    const userMsg: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: trimmedPrompt,
+      attachments: [
+        ...(referenceVideoUrl ? [{ type: 'video' as const, url: referenceVideoUrl, name: referenceVideoName }] : []),
+        ...(productImageUrl ? [{ type: 'image' as const, url: productImageUrl, name: productImageName }] : []),
+      ],
+    };
+
+    const isT2V = inputMode === 't2v' || !persistentImageUrl;
+    const useProductLock = lockProduct && !!persistentImageUrl;
+    const generationModel: 'sora-2' | 'wan-2.5-i2v' = useProductLock ? 'wan-2.5-i2v' : 'sora-2';
+
+    const previewMsg: ChatMessage = {
+      id: `script-preview-${Date.now()}`,
+      role: 'assistant',
+      content: `📝 **Your script is ready to preview** — this is the exact prompt that will be sent to Sora. Edit if needed, then click **Approve & Generate Video**.`,
+      scriptPreview: {
+        videoPrompt: trimmedPrompt,
+        critique: '',
+        persistentImageUrl,
+        isT2V,
+        useProductLock,
+        generationModel,
+        soraDuration,
+        outputFormat,
+        bulkCount: Math.max(1, bulkCount),
+        projectId,
+        status: 'pending',
+      },
+    };
+
+    setMessages(prev => [...prev, userMsg, previewMsg]);
+    setPrompt('');
+    scrollToBottom('auto');
   };
 
   const analyzeAndGenerate = async () => {
@@ -1767,9 +1848,9 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
       const productNote = selectedProductCtx?.productName
         ? `Product in scene: ${selectedProductCtx.productName}. The actor must NOT hold or touch the product — it sits as ambient set dressing only.`
         : 'No product attached — do not write any product holding/demonstration into the script.';
-      const brandNote = brandProfile?.company_name
-        ? `Brand context (only use if the user's idea is about THIS brand): ${brandProfile.company_name}${brandProfile.brand_url ? ` (${brandProfile.brand_url})` : ''}${brandProfile.brand_description ? ` — ${brandProfile.brand_description}` : ''}.`
-        : '';
+      // Brand bleed guard: NEVER inject the user's saved company profile into the script.
+      // The brand for each video must come ONLY from what the user wrote in this specific prompt.
+      const brandNote = '';
       const instruction =
         mode === 'rewrite'
           ? `Completely REWRITE this video idea from scratch with a fresh angle, new hook, and a different creative format. Keep the same product/brand intent but pick a new archetype (e.g. Founder POV, ASMR Ritual, PAS, Before/After, Mockumentary).`
@@ -1780,12 +1861,12 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
       const system = `You are Marco, a UGC ad scriptwriter. Rewrite the user's video idea into a SHORT brief (3–6 sentences) the video generator can turn into a ${seconds}s Sora-2 ad.
 
 HARD RULES:
+- Stay FAITHFUL to the user's idea below. Do NOT invent a brand, company name, product, or website URL that the user did not mention. No "Adtomic", "atomic.app", "BrandX", "yoursite.com", or any made-up domain. If the user did not name a brand, stay generic ("this", "the product").
 - The spoken voiceover must fit in ~${wordsTarget} words so it finishes with ~1.5s of silence at the end of a ${seconds}s clip (~2.5 words/sec).
 - NEVER write the actor holding, squeezing, pouring, or demonstrating any product. ${productNote}
 - NEVER include on-screen text, captions, subtitles, or kinetic typography — captions are added in post.
 - Spell brand domains phonetically in spoken lines: "busybee.guru" → "Busy Bee dot guru", "theranovex.com" → "Thera Novex dot com". Numbers with $ → "17 dollars".
-- Output ONLY the rewritten brief — no preamble, no headings, no bullet lists. Plain prose.
-${brandNote}`;
+- Output ONLY the rewritten brief — no preamble, no headings, no bullet lists. Plain prose.`;
 
       const { data, error } = await supabase.functions.invoke('ai', {
         body: {
@@ -2164,41 +2245,7 @@ ${brandNote}`;
                           📝 Text → Video
                         </button>
                       </div>
-                      <div className="mb-2">
-                        <div className="mb-1.5 text-xs font-medium text-muted-foreground uppercase tracking-[0.18em] flex items-center gap-1.5">
-                          <Sparkles className="w-3 h-3 text-primary" /> Content Style
-                        </div>
-                        <TooltipProvider delayDuration={150}>
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {ARCHETYPE_LIST.map((a) => {
-                              const Icon = a.icon;
-                              const active = contentStyle === a.id;
-                              return (
-                                <Tooltip key={a.id}>
-                                  <TooltipTrigger asChild>
-                                    <button
-                                      type="button"
-                                      onClick={() => setContentStyle(a.id)}
-                                      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                                        active
-                                          ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                                          : 'bg-background text-muted-foreground border-border hover:bg-muted hover:text-foreground'
-                                      }`}
-                                    >
-                                      <Icon className="w-3 h-3" />
-                                      {a.label}
-                                    </button>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top" className="max-w-[240px]">
-                                    <div className="text-xs font-semibold mb-0.5">{a.label} — {a.vibe}</div>
-                                    <div className="text-[11px] text-muted-foreground">{a.useCase}</div>
-                                  </TooltipContent>
-                                </Tooltip>
-                              );
-                            })}
-                          </div>
-                        </TooltipProvider>
-                      </div>
+                      {/* Content Style chips removed — keeps composer focused on the prompt + attachments */}
                       <div className="mb-1.5 flex items-center justify-between gap-2">
                         <div className="text-xs font-medium text-muted-foreground uppercase tracking-[0.18em]">
                           {inputMode === 't2v' ? 'Describe your video' : 'Prompt'}
@@ -2255,20 +2302,47 @@ ${brandNote}`;
                     </div>
 
                     <div className="px-3 py-3 space-y-3 bg-background/60">
-                      {/* Attached files */}
+                      {/* Attached files — thumbnails */}
                       {(referenceVideoUrl || productImageUrl) && (
                         <div className="flex gap-2 flex-wrap">
                           {productImageUrl && (
-                            <Badge variant="outline" className="text-xs gap-1 bg-background">
-                              <ImagePlus className="w-3 h-3" /> {productImageName || 'Product'}
-                              <button type="button" onClick={clearProductImage} className="ml-1 hover:text-destructive">×</button>
-                            </Badge>
+                            <div className="relative group">
+                              <img
+                                src={productImageUrl}
+                                alt={productImageName || 'Product'}
+                                className="w-16 h-16 rounded-lg object-cover border border-border bg-background"
+                              />
+                              <button
+                                type="button"
+                                onClick={clearProductImage}
+                                className="absolute -top-1.5 -right-1.5 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs shadow"
+                                title="Remove product image"
+                              >×</button>
+                              <p className="text-[9px] text-muted-foreground text-center mt-0.5 truncate max-w-[64px]">{productImageName || 'Product'}</p>
+                            </div>
                           )}
                           {referenceVideoUrl && (
-                            <Badge variant="outline" className="text-xs gap-1 bg-background">
-                              <Video className="w-3 h-3" /> {referenceVideoName || 'Reference'} {videoFrames.length > 0 ? `(${videoFrames.length} frames)` : ''}
-                              <button type="button" onClick={clearReferenceVideo} className="ml-1 hover:text-destructive">×</button>
-                            </Badge>
+                            <div className="relative group">
+                              <video
+                                src={referenceVideoUrl + (referenceVideoUrl.startsWith('blob:') ? '' : '#t=0.5')}
+                                muted
+                                playsInline
+                                preload="metadata"
+                                className="w-16 h-16 rounded-lg object-cover border border-border bg-black"
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <Video className="w-4 h-4 text-white drop-shadow" />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={clearReferenceVideo}
+                                className="absolute -top-1.5 -right-1.5 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs shadow"
+                                title="Remove reference video"
+                              >×</button>
+                              <p className="text-[9px] text-muted-foreground text-center mt-0.5 truncate max-w-[64px]">
+                                {videoFrames.length > 0 ? `${videoFrames.length} frames` : (referenceVideoName || 'Reference')}
+                              </p>
+                            </div>
                           )}
                         </div>
                       )}
@@ -2368,6 +2442,32 @@ ${brandNote}`;
                         </Select>
                       </div>
 
+                      {/* My-script toggle */}
+                      <div className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-muted/30 px-2.5 py-1.5">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Wand2 className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                          <div className="min-w-0">
+                            <div className="text-[11px] font-medium text-foreground leading-tight">Use my prompt as the script</div>
+                            <div className="text-[10px] text-muted-foreground leading-tight truncate">
+                              Skip AI rewriting — send your text to Sora verbatim (preview first).
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={useMyScript}
+                          onClick={() => setUseMyScript(v => !v)}
+                          className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors ${
+                            useMyScript ? 'bg-primary' : 'bg-muted-foreground/30'
+                          }`}
+                        >
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-background transition-transform ${
+                            useMyScript ? 'translate-x-4' : 'translate-x-0.5'
+                          }`} />
+                        </button>
+                      </div>
+
                       {/* Mode + Duration + Send */}
                       <div className="flex items-center gap-2 pt-1">
                         <Select value={mode} onValueChange={(v: 'guided' | 'freeform') => setMode(v)}>
@@ -2399,11 +2499,12 @@ ${brandNote}`;
                         </Button>
                         <Button
                           className="flex-1 rounded-xl gap-1.5"
-                          onClick={analyzeAndGenerate}
+                          onClick={useMyScript ? useMyPromptAsScript : analyzeAndGenerate}
                           disabled={isAnalyzing || isGenerating || isExtractingFrames || !hasComposerInput}
+                          title={useMyScript ? 'Preview your prompt before sending to Sora' : 'Marco will write a Sora-ready script you can review'}
                         >
                           {statusLabel ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4 h-4" />}
-                          {inputMode === 't2v' ? 'Generate from Text' : 'Generate'}
+                          {useMyScript ? 'Preview Script' : (inputMode === 't2v' ? 'Generate from Text' : 'Generate')}
                         </Button>
                       </div>
                     </div>
