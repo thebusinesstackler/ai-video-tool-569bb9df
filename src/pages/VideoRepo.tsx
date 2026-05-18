@@ -2936,7 +2936,7 @@ HARD RULES:
                                       {spoken && (
                                         <div className="rounded-lg bg-primary/5 border border-primary/20 p-3">
                                           <div className="text-[10px] uppercase tracking-wider text-primary/80 mb-1.5 font-semibold">🎤 What the actor will say</div>
-                                          <p className="text-sm leading-relaxed italic text-foreground">
+                                          <p className="text-sm leading-relaxed italic text-foreground whitespace-pre-wrap break-words">
                                             "{spoken}"
                                           </p>
                                         </div>
@@ -2945,16 +2945,47 @@ HARD RULES:
                                         <summary className="text-[10px] uppercase tracking-wider text-muted-foreground cursor-pointer flex items-center justify-between list-none">
                                           <span className="flex items-center gap-1">
                                             <span className="group-open:rotate-90 transition-transform inline-block">▶</span>
-                                            🎬 Full Sora prompt (editable)
+                                            🎬 Full script (formatted)
                                           </span>
                                           <span className="text-muted-foreground/70 normal-case">{sp.videoPrompt.split(/\s+/).length} words total</span>
                                         </summary>
-                                        <Textarea
-                                          value={sp.videoPrompt}
-                                          onChange={(e) => updateScriptPreviewPrompt(msg.id, e.target.value)}
-                                          disabled={sp.status !== 'pending'}
-                                          className="mt-2 min-h-[360px] text-xs font-mono leading-relaxed bg-background resize-y"
-                                        />
+                                        <div className="mt-2 space-y-2">
+                                          {parseScriptSections(sp.videoPrompt).map((section, i) => {
+                                            const isAudio = /AUDIO|VOICEOVER|VO|DIALOGUE/i.test(section.label);
+                                            const isShot = /SHOT|CUT|HERO|FINAL/i.test(section.label);
+                                            return (
+                                              <div
+                                                key={i}
+                                                className={`rounded-md border p-2.5 ${
+                                                  isAudio
+                                                    ? 'bg-primary/5 border-primary/20'
+                                                    : isShot
+                                                      ? 'bg-background border-border/60'
+                                                      : 'bg-muted/30 border-border/40'
+                                                }`}
+                                              >
+                                                <div className={`text-[10px] uppercase tracking-wider font-semibold mb-1 ${isAudio ? 'text-primary/80' : 'text-muted-foreground'}`}>
+                                                  {section.label}
+                                                </div>
+                                                <p className="text-[13px] leading-relaxed text-foreground whitespace-pre-wrap break-words">
+                                                  {section.body}
+                                                </p>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                        <details className="mt-3 group/raw">
+                                          <summary className="text-[10px] uppercase tracking-wider text-muted-foreground/70 cursor-pointer hover:text-muted-foreground">
+                                            ✏️ Edit raw prompt
+                                          </summary>
+                                          <Textarea
+                                            value={sp.videoPrompt}
+                                            onChange={(e) => updateScriptPreviewPrompt(msg.id, e.target.value)}
+                                            disabled={sp.status !== 'pending'}
+                                            wrap="soft"
+                                            className="mt-2 min-h-[300px] text-[13px] leading-relaxed bg-background resize-y whitespace-pre-wrap break-words"
+                                          />
+                                        </details>
                                       </details>
                                     </>
                                   );
