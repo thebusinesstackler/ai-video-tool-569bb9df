@@ -2906,6 +2906,7 @@ HARD RULES:
                 </div>
               )}
             </div>
+            </div>
           </TabsContent>
 
           {/* Import Tab */}
