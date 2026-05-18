@@ -39,6 +39,7 @@ import {
   Package,
   Trash2,
   Share2,
+  ChevronRight,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
