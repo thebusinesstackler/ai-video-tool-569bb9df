@@ -279,6 +279,17 @@ const VideoRepo = () => {
     scrollToBottom(messages.length > 0 ? 'smooth' : 'auto');
   }, [messages, showConversation, isAnalyzing, isGenerating, isExtractingFrames]);
 
+  // Auto-switch workspace tab: when a script preview appears → Review; when a video result lands → Results
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    if (!last) return;
+    if (last.scriptPreview && last.scriptPreview.status === 'pending') {
+      setWorkspaceTab('review');
+    } else if (last.videoResult) {
+      setWorkspaceTab('results');
+    }
+  }, [messages]);
+
   // Fetch history
   const fetchHistory = useCallback(async () => {
     if (!user) return;
