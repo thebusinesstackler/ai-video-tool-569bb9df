@@ -9,9 +9,11 @@ const SIDEBAR_COLLAPSED_KEY = 'sidebar-collapsed';
 
 interface LayoutProps {
   children: React.ReactNode;
+  /** Render children edge-to-edge with no padding or max-width — for app-shell pages */
+  fullBleed?: boolean;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, fullBleed = false }) => {
   const isMobile = useIsMobile();
   const { authServiceDown, clearLocalSession } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(() => {
