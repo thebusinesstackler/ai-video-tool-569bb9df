@@ -72,6 +72,8 @@ interface ScriptPreviewCard {
   bulkCount: number;
   projectId: string | null;
   status: 'pending' | 'approved' | 'cancelled' | 'generating';
+  originalUserBrief?: string;
+  hasProduct?: boolean;
 }
 
 interface ChatMessage {
