@@ -60,6 +60,20 @@ interface MotionApprovalCard {
   status: 'pending' | 'approved' | 'cancelled';
 }
 
+interface ScriptPreviewCard {
+  videoPrompt: string;
+  critique: string;
+  persistentImageUrl: string | null;
+  isT2V: boolean;
+  useProductLock: boolean;
+  generationModel: 'sora-2' | 'wan-2.5-i2v';
+  soraDuration: number;
+  outputFormat: '9:16' | '16:9';
+  bulkCount: number;
+  projectId: string | null;
+  status: 'pending' | 'approved' | 'cancelled' | 'generating';
+}
+
 interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -67,6 +81,7 @@ interface ChatMessage {
   attachments?: { type: 'image' | 'video'; url: string; name?: string }[];
   videoResult?: { url: string; status: string };
   approvalCard?: MotionApprovalCard;
+  scriptPreview?: ScriptPreviewCard;
 }
 
 interface VideoRepoProject {
