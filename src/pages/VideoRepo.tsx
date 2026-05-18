@@ -176,6 +176,7 @@ const VideoRepo = () => {
   const [urlInput, setUrlInput] = useState('');
   const [isDownloadingUrl, setIsDownloadingUrl] = useState(false);
   const [isEnhancingPrompt, setIsEnhancingPrompt] = useState<null | 'rewrite' | 'enhance' | 'auto'>(null);
+  const [useMyScript, setUseMyScript] = useState(false);
 
   // Iterative chat state
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
