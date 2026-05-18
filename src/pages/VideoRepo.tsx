@@ -185,6 +185,31 @@ const extractUserProvidedScript = (text: string): string | null => {
   return null;
 };
 
+// Split a Sora prompt into labeled, human-readable sections for display
+type ScriptSection = { label: string; body: string };
+const parseScriptSections = (prompt: string): ScriptSection[] => {
+  if (!prompt) return [];
+  const text = prompt.replace(/\r\n/g, '\n').trim();
+  // Match common section headers used by Marco: SHOT 1:, AUDIO:, ACTION MANIFEST:, CLOSE-OUT:, CAMERA:, LIGHTING:, WARDROBE:, SETTING:, HERO:, CUT TO:, MATCH CUT TO:, SMASH CUT TO:
+  const headerRe = /(^|\n)\s*(SHOT\s*\d+|AUDIO|ACTION\s*MANIFEST|CLOSE[- ]?OUT|HERO|CAMERA|LIGHTING|WARDROBE|SETTING|LOCATION|TALENT|PROPS|SOUND(?:\s*DESIGN)?|VOICEOVER|VO|DIALOGUE|MUSIC|SFX|CUT\s*TO|MATCH\s*CUT\s*TO|SMASH\s*CUT\s*TO|TRANSITION|OPENING|FINAL\s*SHOT)\s*:/gi;
+  const matches = Array.from(text.matchAll(headerRe));
+  if (matches.length === 0) return [{ label: 'Prompt', body: text }];
+  const sections: ScriptSection[] = [];
+  if (matches[0].index! > 0) {
+    const intro = text.slice(0, matches[0].index!).trim();
+    if (intro) sections.push({ label: 'Setup', body: intro });
+  }
+  for (let i = 0; i < matches.length; i++) {
+    const m = matches[i];
+    const label = m[2].replace(/\s+/g, ' ').toUpperCase();
+    const start = m.index! + m[0].length;
+    const end = i + 1 < matches.length ? matches[i + 1].index! : text.length;
+    const body = text.slice(start, end).trim();
+    if (body) sections.push({ label, body });
+  }
+  return sections;
+};
+
 // Heuristic: a finished Sora prompt should contain an AUDIO block and end on punctuation, not mid-sentence
 const looksTruncated = (prompt: string): boolean => {
   if (!prompt || prompt.length < 200) return true;
