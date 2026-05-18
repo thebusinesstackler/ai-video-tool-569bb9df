@@ -25,6 +25,7 @@ import {
   Upload,
   Save,
   Sparkles,
+  Wand2,
   RefreshCw,
   ArrowRight,
   Package,
