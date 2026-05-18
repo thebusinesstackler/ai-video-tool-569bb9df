@@ -185,6 +185,31 @@ const extractUserProvidedScript = (text: string): string | null => {
   return null;
 };
 
+// Split a Sora prompt into labeled, human-readable sections for display
+type ScriptSection = { label: string; body: string };
+const parseScriptSections = (prompt: string): ScriptSection[] => {
+  if (!prompt) return [];
+  const text = prompt.replace(/\r\n/g, '\n').trim();
+  // Match common section headers used by Marco: SHOT 1:, AUDIO:, ACTION MANIFEST:, CLOSE-OUT:, CAMERA:, LIGHTING:, WARDROBE:, SETTING:, HERO:, CUT TO:, MATCH CUT TO:, SMASH CUT TO:
+  const headerRe = /(^|\n)\s*(SHOT\s*\d+|AUDIO|ACTION\s*MANIFEST|CLOSE[- ]?OUT|HERO|CAMERA|LIGHTING|WARDROBE|SETTING|LOCATION|TALENT|PROPS|SOUND(?:\s*DESIGN)?|VOICEOVER|VO|DIALOGUE|MUSIC|SFX|CUT\s*TO|MATCH\s*CUT\s*TO|SMASH\s*CUT\s*TO|TRANSITION|OPENING|FINAL\s*SHOT)\s*:/gi;
+  const matches = Array.from(text.matchAll(headerRe));
+  if (matches.length === 0) return [{ label: 'Prompt', body: text }];
+  const sections: ScriptSection[] = [];
+  if (matches[0].index! > 0) {
+    const intro = text.slice(0, matches[0].index!).trim();
+    if (intro) sections.push({ label: 'Setup', body: intro });
+  }
+  for (let i = 0; i < matches.length; i++) {
+    const m = matches[i];
+    const label = m[2].replace(/\s+/g, ' ').toUpperCase();
+    const start = m.index! + m[0].length;
+    const end = i + 1 < matches.length ? matches[i + 1].index! : text.length;
+    const body = text.slice(start, end).trim();
+    if (body) sections.push({ label, body });
+  }
+  return sections;
+};
+
 // Heuristic: a finished Sora prompt should contain an AUDIO block and end on punctuation, not mid-sentence
 const looksTruncated = (prompt: string): boolean => {
   if (!prompt || prompt.length < 200) return true;
@@ -2911,7 +2936,7 @@ HARD RULES:
                                       {spoken && (
                                         <div className="rounded-lg bg-primary/5 border border-primary/20 p-3">
                                           <div className="text-[10px] uppercase tracking-wider text-primary/80 mb-1.5 font-semibold">🎤 What the actor will say</div>
-                                          <p className="text-sm leading-relaxed italic text-foreground">
+                                          <p className="text-sm leading-relaxed italic text-foreground whitespace-pre-wrap break-words">
                                             "{spoken}"
                                           </p>
                                         </div>
@@ -2920,16 +2945,47 @@ HARD RULES:
                                         <summary className="text-[10px] uppercase tracking-wider text-muted-foreground cursor-pointer flex items-center justify-between list-none">
                                           <span className="flex items-center gap-1">
                                             <span className="group-open:rotate-90 transition-transform inline-block">▶</span>
-                                            🎬 Full Sora prompt (editable)
+                                            🎬 Full script (formatted)
                                           </span>
                                           <span className="text-muted-foreground/70 normal-case">{sp.videoPrompt.split(/\s+/).length} words total</span>
                                         </summary>
-                                        <Textarea
-                                          value={sp.videoPrompt}
-                                          onChange={(e) => updateScriptPreviewPrompt(msg.id, e.target.value)}
-                                          disabled={sp.status !== 'pending'}
-                                          className="mt-2 min-h-[360px] text-xs font-mono leading-relaxed bg-background resize-y"
-                                        />
+                                        <div className="mt-2 space-y-2">
+                                          {parseScriptSections(sp.videoPrompt).map((section, i) => {
+                                            const isAudio = /AUDIO|VOICEOVER|VO|DIALOGUE/i.test(section.label);
+                                            const isShot = /SHOT|CUT|HERO|FINAL/i.test(section.label);
+                                            return (
+                                              <div
+                                                key={i}
+                                                className={`rounded-md border p-2.5 ${
+                                                  isAudio
+                                                    ? 'bg-primary/5 border-primary/20'
+                                                    : isShot
+                                                      ? 'bg-background border-border/60'
+                                                      : 'bg-muted/30 border-border/40'
+                                                }`}
+                                              >
+                                                <div className={`text-[10px] uppercase tracking-wider font-semibold mb-1 ${isAudio ? 'text-primary/80' : 'text-muted-foreground'}`}>
+                                                  {section.label}
+                                                </div>
+                                                <p className="text-[13px] leading-relaxed text-foreground whitespace-pre-wrap break-words">
+                                                  {section.body}
+                                                </p>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                        <details className="mt-3 group/raw">
+                                          <summary className="text-[10px] uppercase tracking-wider text-muted-foreground/70 cursor-pointer hover:text-muted-foreground">
+                                            ✏️ Edit raw prompt
+                                          </summary>
+                                          <Textarea
+                                            value={sp.videoPrompt}
+                                            onChange={(e) => updateScriptPreviewPrompt(msg.id, e.target.value)}
+                                            disabled={sp.status !== 'pending'}
+                                            wrap="soft"
+                                            className="mt-2 min-h-[300px] text-[13px] leading-relaxed bg-background resize-y whitespace-pre-wrap break-words"
+                                          />
+                                        </details>
                                       </details>
                                     </>
                                   );
