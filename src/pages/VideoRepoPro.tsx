@@ -2056,163 +2056,133 @@ Output the VEO3-optimized prompt now.`
           {/* Main content: Videos left, Script/Analysis right */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Left column: Videos stacked compact */}
-            <div className="lg:col-span-1 space-y-3">
-              <Card><CardContent className="p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-medium text-muted-foreground uppercase">Reference Video</p>
-                  {selectedProject.reference_video_url && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 text-xs gap-1"
-                      disabled={isAnalyzingRef}
-                      onClick={() => analyzeVideoWithDirector(selectedProject.reference_video_url!, 'reference', selectedProject)}
-                    >
-                      {isAnalyzingRef ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />}
-                      {isAnalyzingRef ? 'Analyzing...' : 'AI Director'}
-                    </Button>
-                  )}
-                </div>
-                {selectedProject.reference_video_url ? (
-                  <video src={selectedProject.reference_video_url} controls className="w-full rounded-lg max-h-[280px] object-contain bg-black" />
-                ) : (
-                  <div className="h-40 rounded-lg bg-muted flex items-center justify-center">
-                    <p className="text-sm text-muted-foreground">No reference video</p>
+            <div className="lg:col-span-1 space-y-2">
+              {/* Generated Video — primary */}
+              <Card>
+                <CardContent className="p-2.5 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase truncate">
+                      {selectedProject.segment_urls && selectedProject.segment_urls.length > 1
+                        ? `Generated · ${selectedProject.segment_urls.length} segments`
+                        : 'Generated Video'}
+                    </p>
+                    {selectedProject.product_image_url && (
+                      <img
+                        src={selectedProject.product_image_url}
+                        alt="Product"
+                        title="Product reference"
+                        className="w-7 h-7 object-cover rounded-md border border-border shrink-0"
+                      />
+                    )}
                   </div>
-                )}
-              </CardContent></Card>
 
-              <Card><CardContent className="p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-medium text-muted-foreground uppercase">
-                    {selectedProject.segment_urls && selectedProject.segment_urls.length > 1
-                      ? `Generated Segments (${selectedProject.segment_urls.length})`
-                      : 'Generated Video'}
-                  </p>
-                  {selectedProject.generated_video_url && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 text-xs gap-1"
-                      disabled={isAnalyzingGen}
-                      onClick={() => analyzeVideoWithDirector(selectedProject.generated_video_url!, 'generated', selectedProject)}
-                    >
-                      {isAnalyzingGen ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />}
-                      {isAnalyzingGen ? 'Analyzing...' : 'AI Director'}
-                    </Button>
-                  )}
-                </div>
-                {selectedProject.segment_urls && selectedProject.segment_urls.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {selectedProject.segment_urls.map((segUrl, idx) => (
-                      <div key={idx} className="space-y-2">
-                        <p className="text-[11px] font-medium text-muted-foreground">Segment {idx + 1}</p>
-                        <video src={segUrl} controls className="w-full rounded-lg max-h-[280px] object-contain bg-black" preload="metadata" playsInline />
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="w-full h-8 text-xs"
-                          onClick={() => downloadAsMp4(segUrl, `${selectedProject.custom_name || 'video'}-segment-${idx + 1}.mp4`)}
-                        >
-                          <Download className="w-3 h-3 mr-1" /> Download Segment {idx + 1}
+                  {selectedProject.segment_urls && selectedProject.segment_urls.length > 0 ? (
+                    <div className="space-y-2">
+                      {selectedProject.segment_urls.map((segUrl, idx) => (
+                        <div key={idx} className="space-y-1">
+                          <video src={segUrl} controls className="w-full rounded-md max-h-[220px] object-contain bg-black" preload="metadata" playsInline />
+                          <div className="grid grid-cols-2 gap-1">
+                            <Button size="sm" variant="secondary" className="h-7 text-[11px] px-2"
+                              onClick={() => downloadAsMp4(segUrl, `${selectedProject.custom_name || 'video'}-seg-${idx + 1}.mp4`)}>
+                              <Download className="w-3 h-3 mr-1" /> Seg {idx + 1}
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-7 text-[11px] px-2"
+                              onClick={() => setFrameExtractor({ url: segUrl, projectId: selectedProject.id, label: `${selectedProject.custom_name || 'Video'} - Seg ${idx + 1}` })}>
+                              <Scissors className="w-3 h-3 mr-1" /> B-Roll
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : selectedProject.generated_video_url ? (
+                    <div className="space-y-1.5">
+                      <video src={selectedProject.generated_video_url} controls className="w-full rounded-md max-h-[260px] object-contain bg-black" />
+                      <div className="grid grid-cols-2 gap-1">
+                        <Button size="sm" variant="secondary" className="h-7 text-[11px]"
+                          onClick={() => downloadAsMp4(selectedProject.generated_video_url!, `${selectedProject.custom_name || 'video'}.mp4`)}>
+                          <Download className="w-3 h-3 mr-1" /> Download
                         </Button>
+                        <Button size="sm" variant="outline" className="h-7 text-[11px]"
+                          onClick={() => setFrameExtractor({ url: selectedProject.generated_video_url!, projectId: selectedProject.id, label: selectedProject.custom_name || 'Video' })}>
+                          <Scissors className="w-3 h-3 mr-1" /> B-Roll
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="h-32 rounded-md bg-muted flex items-center justify-center">
+                      <p className="text-xs text-muted-foreground">
+                        {selectedProject.status === 'generating' || selectedProject.status === 'stitching' ? 'Processing…' : selectedProject.status === 'failed' ? 'Failed' : 'Not generated'}
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Reference Video — collapsed details */}
+              {selectedProject.reference_video_url && (
+                <details className="group rounded-lg border border-border bg-card">
+                  <summary className="cursor-pointer list-none flex items-center justify-between px-2.5 py-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                    <span className="flex items-center gap-1.5">
+                      <ChevronRight className="w-3 h-3 transition-transform group-open:rotate-90" />
+                      Reference Video
+                    </span>
+                    <span className="text-[10px] normal-case text-muted-foreground/70 font-normal">tap to view</span>
+                  </summary>
+                  <div className="px-2.5 pb-2.5">
+                    <video src={selectedProject.reference_video_url} controls className="w-full rounded-md max-h-[200px] object-contain bg-black" preload="metadata" />
+                  </div>
+                </details>
+              )}
+
+              {/* Action toolbar — inline, single card, everything visible */}
+              {selectedProject.generated_video_url && (
+                <Card>
+                  <CardContent className="p-2 space-y-1.5">
+                    <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase px-1">Actions</p>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-[11px] gap-1 border-orange-500/40 text-orange-400 hover:bg-orange-500/10"
+                        disabled={isAnalyzingGen || isAnalyzingRef}
+                        onClick={() => {
+                          analyzeVideoWithDirector(selectedProject.generated_video_url!, 'generated', selectedProject);
+                          if (selectedProject.reference_video_url) {
+                            analyzeVideoWithDirector(selectedProject.reference_video_url!, 'reference', selectedProject);
+                          }
+                        }}
+                      >
+                        {(isAnalyzingGen || isAnalyzingRef) ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />}
+                        {(isAnalyzingGen || isAnalyzingRef) ? 'Analyzing…' : 'AI Director'}
+                      </Button>
+
+                      {selectedProject.segment_urls && selectedProject.segment_urls.length >= 2 ? (
                         <Button
                           size="sm"
                           variant="outline"
-                          className="w-full gap-1.5 h-8 text-xs"
-                          onClick={() => setFrameExtractor({
-                            url: segUrl,
-                            projectId: selectedProject.id,
-                            label: `${selectedProject.custom_name || 'Video'} - Segment ${idx + 1}`,
-                          })}
+                          className="h-8 text-[11px] gap-1 border-purple-500/40 text-purple-400 hover:bg-purple-500/10"
+                          onClick={() => recreateWithSameEnding(selectedProject)}
                         >
-                          <Scissors className="w-3 h-3" /> Extract B-Roll
+                          <RotateCcw className="w-3 h-3" /> Same Ending
                         </Button>
-                      </div>
-                    ))}
-                  </div>
-                ) : selectedProject.generated_video_url ? (
-                  <div className="space-y-2">
-                    <video src={selectedProject.generated_video_url} controls className="w-full rounded-lg max-h-[280px] object-contain bg-black" />
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="w-full"
-                      onClick={() => downloadAsMp4(selectedProject.generated_video_url!, `${selectedProject.custom_name || 'video'}.mp4`)}
-                    >
-                      <Download className="w-3 h-3 mr-1" /> Download
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="w-full gap-1.5"
-                      onClick={() => setFrameExtractor({
-                        url: selectedProject.generated_video_url!,
-                        projectId: selectedProject.id,
-                        label: selectedProject.custom_name || 'Video',
-                      })}
-                    >
-                      <Scissors className="w-3 h-3" /> Extract B-Roll Clips
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="h-40 rounded-lg bg-muted flex items-center justify-center">
-                    <p className="text-sm text-muted-foreground">
-                      {selectedProject.status === 'generating' || selectedProject.status === 'stitching' ? 'Processing...' : selectedProject.status === 'failed' ? 'Failed' : 'Not generated'}
-                    </p>
-                  </div>
-                )}
-              </CardContent></Card>
+                      ) : (
+                        <div />
+                      )}
+                    </div>
 
-              {selectedProject.product_image_url && (
-                <Card><CardContent className="p-3">
-                  <p className="text-xs font-medium text-muted-foreground uppercase mb-2">Product Image</p>
-                  <img src={selectedProject.product_image_url} alt="Product" className="w-24 h-24 object-cover rounded-lg" />
-                </CardContent></Card>
-              )}
-
-              {/* Action buttons: Analyze + Regenerate + Recreate with Same Ending */}
-              {selectedProject.generated_video_url && (
-                <div className="space-y-2">
-                  <Button
-                    className="w-full h-10 gap-2 rounded-xl border-orange-500/40 text-orange-400 hover:bg-orange-500/10"
-                    variant="outline"
-                    disabled={isAnalyzingGen || isAnalyzingRef}
-                    onClick={() => {
-                      analyzeVideoWithDirector(selectedProject.generated_video_url!, 'generated', selectedProject);
-                      if (selectedProject.reference_video_url) {
-                        analyzeVideoWithDirector(selectedProject.reference_video_url!, 'reference', selectedProject);
-                      }
-                    }}
-                  >
-                    {(isAnalyzingGen || isAnalyzingRef) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
-                    {(isAnalyzingGen || isAnalyzingRef) ? 'Analyzing Videos...' : 'Analyze Video'}
-                  </Button>
-
-                  {/* Recreate with Same Ending */}
-                  {selectedProject.segment_urls && selectedProject.segment_urls.length >= 2 && (
-                    <Button
-                      className="w-full h-10 gap-2 rounded-xl border-purple-500/40 text-purple-400 hover:bg-purple-500/10"
-                      variant="outline"
-                      onClick={() => recreateWithSameEnding(selectedProject)}
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                      Recreate with Same Ending
-                    </Button>
-                  )}
-                </div>
-              )}
-
-              {/* Create Improved Version CTA */}
-              {(directorAnalysisRef || directorAnalysisGen) && (
-                <Button
-                  className="w-full h-11 gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold rounded-xl shadow-lg"
-                  disabled={isCreatingImproved}
-                  onClick={() => createImprovedVersion(selectedProject)}
-                >
-                  {isCreatingImproved ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                  Regenerate Improved Version
-                </Button>
+                    {(directorAnalysisRef || directorAnalysisGen) && (
+                      <Button
+                        size="sm"
+                        className="w-full h-8 text-[11px] gap-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold"
+                        disabled={isCreatingImproved}
+                        onClick={() => createImprovedVersion(selectedProject)}
+                      >
+                        {isCreatingImproved ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+                        Regenerate Improved
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
               )}
             </div>
 
