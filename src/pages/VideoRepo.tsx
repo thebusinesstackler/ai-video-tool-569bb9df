@@ -2302,20 +2302,47 @@ HARD RULES:
                     </div>
 
                     <div className="px-3 py-3 space-y-3 bg-background/60">
-                      {/* Attached files */}
+                      {/* Attached files — thumbnails */}
                       {(referenceVideoUrl || productImageUrl) && (
                         <div className="flex gap-2 flex-wrap">
                           {productImageUrl && (
-                            <Badge variant="outline" className="text-xs gap-1 bg-background">
-                              <ImagePlus className="w-3 h-3" /> {productImageName || 'Product'}
-                              <button type="button" onClick={clearProductImage} className="ml-1 hover:text-destructive">×</button>
-                            </Badge>
+                            <div className="relative group">
+                              <img
+                                src={productImageUrl}
+                                alt={productImageName || 'Product'}
+                                className="w-16 h-16 rounded-lg object-cover border border-border bg-background"
+                              />
+                              <button
+                                type="button"
+                                onClick={clearProductImage}
+                                className="absolute -top-1.5 -right-1.5 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs shadow"
+                                title="Remove product image"
+                              >×</button>
+                              <p className="text-[9px] text-muted-foreground text-center mt-0.5 truncate max-w-[64px]">{productImageName || 'Product'}</p>
+                            </div>
                           )}
                           {referenceVideoUrl && (
-                            <Badge variant="outline" className="text-xs gap-1 bg-background">
-                              <Video className="w-3 h-3" /> {referenceVideoName || 'Reference'} {videoFrames.length > 0 ? `(${videoFrames.length} frames)` : ''}
-                              <button type="button" onClick={clearReferenceVideo} className="ml-1 hover:text-destructive">×</button>
-                            </Badge>
+                            <div className="relative group">
+                              <video
+                                src={referenceVideoUrl + (referenceVideoUrl.startsWith('blob:') ? '' : '#t=0.5')}
+                                muted
+                                playsInline
+                                preload="metadata"
+                                className="w-16 h-16 rounded-lg object-cover border border-border bg-black"
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <Video className="w-4 h-4 text-white drop-shadow" />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={clearReferenceVideo}
+                                className="absolute -top-1.5 -right-1.5 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs shadow"
+                                title="Remove reference video"
+                              >×</button>
+                              <p className="text-[9px] text-muted-foreground text-center mt-0.5 truncate max-w-[64px]">
+                                {videoFrames.length > 0 ? `${videoFrames.length} frames` : (referenceVideoName || 'Reference')}
+                              </p>
+                            </div>
                           )}
                         </div>
                       )}
