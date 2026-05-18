@@ -1767,9 +1767,9 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
       const productNote = selectedProductCtx?.productName
         ? `Product in scene: ${selectedProductCtx.productName}. The actor must NOT hold or touch the product — it sits as ambient set dressing only.`
         : 'No product attached — do not write any product holding/demonstration into the script.';
-      const brandNote = brandProfile?.company_name
-        ? `Brand context (only use if the user's idea is about THIS brand): ${brandProfile.company_name}${brandProfile.brand_url ? ` (${brandProfile.brand_url})` : ''}${brandProfile.brand_description ? ` — ${brandProfile.brand_description}` : ''}.`
-        : '';
+      // Brand bleed guard: NEVER inject the user's saved company profile into the script.
+      // The brand for each video must come ONLY from what the user wrote in this specific prompt.
+      const brandNote = '';
       const instruction =
         mode === 'rewrite'
           ? `Completely REWRITE this video idea from scratch with a fresh angle, new hook, and a different creative format. Keep the same product/brand intent but pick a new archetype (e.g. Founder POV, ASMR Ritual, PAS, Before/After, Mockumentary).`
