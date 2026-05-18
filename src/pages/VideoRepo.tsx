@@ -2683,7 +2683,7 @@ HARD RULES:
                           {lockProduct ? 'Product Locked' : 'Lock Product'}
                         </Button>
                         <Button
-                          className="flex-1 rounded-xl gap-1.5"
+                          className="flex-1 h-11 rounded-2xl gap-2 text-sm font-medium shadow-[0_4px_12px_-2px_hsl(var(--primary)/0.35)] hover:shadow-[0_6px_20px_-4px_hsl(var(--primary)/0.45)] transition-shadow"
                           onClick={useMyScript ? useMyPromptAsScript : analyzeAndGenerate}
                           disabled={isAnalyzing || isGenerating || isExtractingFrames || !hasComposerInput}
                           title={useMyScript ? 'Preview your prompt before sending to Sora' : 'Marco will write a Sora-ready script you can review'}
