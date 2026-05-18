@@ -2442,6 +2442,32 @@ HARD RULES:
                         </Select>
                       </div>
 
+                      {/* My-script toggle */}
+                      <div className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-muted/30 px-2.5 py-1.5">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Wand2 className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                          <div className="min-w-0">
+                            <div className="text-[11px] font-medium text-foreground leading-tight">Use my prompt as the script</div>
+                            <div className="text-[10px] text-muted-foreground leading-tight truncate">
+                              Skip AI rewriting — send your text to Sora verbatim (preview first).
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={useMyScript}
+                          onClick={() => setUseMyScript(v => !v)}
+                          className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors ${
+                            useMyScript ? 'bg-primary' : 'bg-muted-foreground/30'
+                          }`}
+                        >
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-background transition-transform ${
+                            useMyScript ? 'translate-x-4' : 'translate-x-0.5'
+                          }`} />
+                        </button>
+                      </div>
+
                       {/* Mode + Duration + Send */}
                       <div className="flex items-center gap-2 pt-1">
                         <Select value={mode} onValueChange={(v: 'guided' | 'freeform') => setMode(v)}>
@@ -2473,11 +2499,12 @@ HARD RULES:
                         </Button>
                         <Button
                           className="flex-1 rounded-xl gap-1.5"
-                          onClick={analyzeAndGenerate}
+                          onClick={useMyScript ? useMyPromptAsScript : analyzeAndGenerate}
                           disabled={isAnalyzing || isGenerating || isExtractingFrames || !hasComposerInput}
+                          title={useMyScript ? 'Preview your prompt before sending to Sora' : 'Marco will write a Sora-ready script you can review'}
                         >
                           {statusLabel ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4 h-4" />}
-                          {inputMode === 't2v' ? 'Generate from Text' : 'Generate'}
+                          {useMyScript ? 'Preview Script' : (inputMode === 't2v' ? 'Generate from Text' : 'Generate')}
                         </Button>
                       </div>
                     </div>
