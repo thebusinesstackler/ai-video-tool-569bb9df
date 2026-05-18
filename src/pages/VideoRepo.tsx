@@ -1185,12 +1185,8 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
     setAutoMotionStatus('Picking creative strategy...');
 
     try {
-      const brandNameForLine = brandProfile?.company_name?.trim();
-      const brandDescForLine = brandProfile?.brand_description?.trim();
-      const brandUrlForLine = brandProfile?.brand_url?.trim();
-      const brandLine = brandNameForLine || brandDescForLine
-        ? `Brand: ${brandNameForLine || 'Unnamed brand'}${brandUrlForLine ? ' (' + brandUrlForLine + ')' : ''}.${brandDescForLine ? ' ' + brandDescForLine : ''}`.trim()
-        : 'Brand: (no brand profile set — keep visuals product-focused and generic; do NOT invent a brand name, category, or product type. Use only what the reference image / product reference shows.)';
+      // Brand line comes ONLY from the current request / attached product — never the saved profile.
+      const brandLine = 'Brand: (derive ONLY from the user\'s request and the attached product reference image. Do NOT invent a brand name, URL, category, or product type. If the user did not name a brand, keep visuals product-focused and generic.)';
 
       const hasProductRef = Boolean(productImageUrl && !productImageUrl.startsWith('blob:'));
       const productName = selectedProductCtx?.productName || productImageName || null;
