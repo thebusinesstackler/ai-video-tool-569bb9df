@@ -2415,6 +2415,28 @@ HARD RULES:
                         className="min-h-[72px] rounded-xl border border-border bg-background px-3 py-2 text-sm shadow-sm focus-visible:ring-2 focus-visible:ring-ring"
                         rows={3}
                       />
+                      {(() => {
+                        const locked = extractUserProvidedScript(prompt);
+                        if (!locked) return null;
+                        const wc = locked.split(/\s+/).filter(Boolean).length;
+                        const estSecs = Math.round(wc / 2.5);
+                        const overBudget = estSecs > soraDuration + 2;
+                        return (
+                          <div className={`mt-2 flex items-start gap-2 rounded-lg border px-2.5 py-1.5 text-[11px] ${overBudget ? 'border-amber-500/40 bg-amber-500/10 text-amber-700' : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700'}`}>
+                            <Lock className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium leading-tight">
+                                📝 Script detected — actor will say these {wc} words verbatim
+                              </div>
+                              <div className="text-[10px] opacity-80 leading-tight mt-0.5">
+                                {overBudget
+                                  ? `~${estSecs}s of speech but clip is ${soraDuration}s. Consider trimming or bumping duration to ${estSecs <= 20 ? 20 : 30}s.`
+                                  : `~${estSecs}s of speech fits in your ${soraDuration}s clip. Marco will wrap it with visuals.`}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     <div className="px-3 py-3 space-y-3 bg-background/60">
