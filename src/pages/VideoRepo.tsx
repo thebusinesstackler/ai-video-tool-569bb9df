@@ -1864,7 +1864,7 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
 
 HARD RULES:
 - Stay FAITHFUL to the user's idea below. Do NOT invent a brand, company name, product, or website URL that the user did not mention. No "Adtomic", "atomic.app", "BrandX", "yoursite.com", or any made-up domain. If the user did not name a brand, stay generic ("this", "the product").
-- The spoken voiceover must fit in ~${wordsTarget} words so it finishes with ~1.5s of silence at the end of a ${seconds}s clip (~2.5 words/sec).
+- 🎯 TARGET DURATION ${seconds}s — the actor speaks CONTINUOUSLY from ~0.5s to ~${(seconds - 0.5).toFixed(1)}s. Target ~${wordsTarget} words at ~2.5 words/sec. Do NOT end early or leave dead air; if the message is too short, add a second supporting beat so they fill the clip.
 - NEVER write the actor holding, squeezing, pouring, or demonstrating any product. ${productNote}
 - NEVER include on-screen text, captions, subtitles, or kinetic typography — captions are added in post.
 - Spell brand domains phonetically in spoken lines: "busybee.guru" → "Busy Bee dot guru", "theranovex.com" → "Thera Novex dot com". Numbers with $ → "17 dollars".
