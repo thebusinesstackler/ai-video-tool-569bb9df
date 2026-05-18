@@ -743,120 +743,88 @@ Explicitly state "Follow the ACTION MANIFEST literally — counts are non-negoti
 
       const videoPrompt = extractVideoPrompt(analysisText);
       if (videoPrompt) {
-        setLastVideoPrompt(videoPrompt);
-        setLastPersistentImageUrl(persistentImageUrl);
-
-        // Update DB with video prompt
-        if (projectId) {
-          await supabase.from('video_repo_projects').update({ video_prompt: videoPrompt }).eq('id', projectId);
-        }
-
-        setIsGenerating(true);
-
-        const generatingMsg: ChatMessage = {
-          id: `assistant-gen-${Date.now()}`,
-          role: 'assistant',
-          content: '🎬 Generating your UGC ad video with Sora-2... This may take a few minutes.',
-        };
-        setMessages((prev) => [...prev, generatingMsg]);
-
         const isT2V = inputMode === 't2v' || !persistentImageUrl;
         const useProductLock = lockProduct && !!persistentImageUrl && !isT2V;
-        const generationModel = useProductLock ? 'wan-2.5-i2v' : 'sora-2';
-        if (useProductLock) {
-          setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `🔒 Locking product to attached reference image. 🎬 Generating with Wan 2.5 i2v (product-locked) for pixel-accurate product fidelity...` } : m));
-        } else if (isT2V) {
-          setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `📝 Text → Video: Generating with Sora 2...` } : m));
-        } else {
-          setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `🎬 Generating with Sora 2...` } : m));
-        }
-        console.log('[VideoRepo] Generation routing:', { generationModel, hasImage: !!persistentImageUrl, persistentImageUrl, useProductLock, isT2V });
-        // Build N variants. 3 base creative variations cycled across bulkCount.
-        const variantHints = [
-          '', // base
-          '\n\n[Variation B] Try a different opening hook angle and slightly faster pacing while keeping the same product, characters, setting, and overall message.',
-          '\n\n[Variation C] Use an alternate camera framing (e.g. tighter close-up or wider establishing shot) and a different lighting mood while keeping the same product, characters, setting, and overall message.',
-        ];
-        const totalVariants = Math.max(1, bulkCount);
-        const variantPrompts = Array.from({ length: totalVariants }, (_, i) => videoPrompt + variantHints[i % variantHints.length]);
+        const generationModel: 'sora-2' | 'wan-2.5-i2v' = useProductLock ? 'wan-2.5-i2v' : 'sora-2';
 
-        if (totalVariants > 1) {
-          setMessages((prev) => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `🎬 Bulk generating ${totalVariants} variants in parallel...` } : m));
-        }
-
-        const runOne = async (variantPrompt: string, idx: number) => {
-          try {
-            const taskId = await createWaveSpeedVideo({
-              prompt: variantPrompt,
-              model: generationModel,
-              aspectRatio: outputFormat,
-              duration: soraDuration,
-              userId: user?.id,
-              source: 'video-repo',
-              ...(persistentImageUrl ? { imageUrls: [persistentImageUrl] } : {}),
-            });
-            let attempts = 0;
-            const maxAttempts = 120;
-            while (attempts < maxAttempts) {
-              await new Promise((r) => setTimeout(r, 5000));
-              const job = await getWaveSpeedVideoJob(taskId);
-              if (job.status === 'completed' && job.videoUrl) {
-                if (user) {
-                  await supabase.from('generated_images').insert({
-                    user_id: user.id,
-                    image_url: job.videoUrl,
-                    prompt: variantPrompt,
-                    source: 'video-repo',
-                    reference_image_url: persistentImageUrl,
-                  });
-                }
-                const resultMsg: ChatMessage = {
-                  id: `result-${Date.now()}-${idx}`,
-                  role: 'assistant',
-                  content: totalVariants > 1 ? `✅ Variant ${idx + 1} of ${totalVariants} ready!` : '✅ Your UGC ad video is ready! You can download it or use it directly.',
-                  videoResult: { url: job.videoUrl, status: 'completed' },
-                };
-                setMessages((prev) => prev.concat(resultMsg));
-                return job.videoUrl;
-              }
-              if (job.status === 'failed') throw new Error(job.error || 'Video generation failed');
-              attempts++;
-            }
-            throw new Error('Video generation timed out.');
-          } catch (e: any) {
-            const errorMsg: ChatMessage = {
-              id: `error-${Date.now()}-${idx}`,
-              role: 'assistant',
-              content: `⚠️ Variant ${idx + 1} failed: ${e.message}`,
-            };
-            setMessages((prev) => prev.concat(errorMsg));
-            return null;
-          }
-        };
-
+        // === Self-critique pass: audit + auto-improve the script before showing user ===
+        let improvedPrompt = videoPrompt;
+        let critique = '';
         try {
-          const results = await Promise.all(variantPrompts.map((p, i) => runOne(p, i)));
-          const firstUrl = results.find((u) => !!u) || null;
-          if (projectId && firstUrl) {
-            await supabase.from('video_repo_projects').update({
-              generated_video_url: firstUrl,
-              status: 'completed',
-            }).eq('id', projectId);
+          const wordCap = Math.max(1, Math.floor((soraDuration - 6) * 1.7));
+          const criticSys = `You are a senior UGC ad script auditor. Review the video prompt below and aggressively fix any of these failures BEFORE the user sees it:
+
+1. SPOKEN SCRIPT WORD COUNT: voiceover (everything inside quoted dialogue in the AUDIO block) must be ≤ ${wordCap} words for a ${soraDuration}s clip. If over, CUT lines (do not rush delivery). The last word must finish with ≥1.5s of silence before the cut.
+2. ${persistentImageUrl ? 'PRODUCT FIDELITY: a product image was attached — the actor must NEVER hold/grip/squeeze/pour/demo it. The product sits in scene as ambient set dressing; camera may push in as INSERT only.' : 'NO-PRODUCT MODE: no product image was attached. REMOVE every mention of bottles, droppers, tinctures, packages, labels, brands, or any held object. No product inserts. The ad sells the felt benefit through scene + voiceover only.'}
+3. NO ON-SCREEN TEXT: strip every burned-in caption, subtitle, lower-third, kinetic typography, or "text reads" instruction. Papers/screens/signs must be blank or out-of-focus.
+4. BRAND SPELLING: if the user named a brand or URL, it must appear character-for-character in any written reference, AND in the spoken AUDIO line it must be SEPARATED with the dot spelled out (e.g. "busybee.guru" → spoken as "Busy Bee dot guru"). Never phonetic respell ("Buzzy Bee" is banned).
+5. OFFER CLARITY: the voiceover must clearly state WHAT the offer is and WHY the viewer should care within the first 3 seconds. If unclear, rewrite the hook.
+6. HOOK STRENGTH: first 1.5–3s must be scroll-stopping (pattern interrupt, bold claim, visual surprise) — not a generic opener.
+7. SHOT STRUCTURE preserved with CUT TO: between shots. Final HERO close-out shot intact.
+
+Return STRICT JSON only (no markdown fences, no commentary outside JSON):
+{
+  "critique": "3-6 short bullet points (one line each) of what you fixed or what was already good. Start each bullet with ✓ (good) or ✏️ (fixed). Mention: hook strength, offer clarity, word count actual/cap, product handling, on-screen text status, brand spelling.",
+  "improvedPrompt": "the full rewritten video prompt with all fixes applied — must keep the same overall format (SHOT structure, AUDIO block with quoted dialogue, ACTION MANIFEST, CLOSE-OUT)."
+}`;
+
+          const { data: critData } = await supabase.functions.invoke('ai', {
+            body: {
+              messages: [
+                { role: 'system', content: criticSys },
+                { role: 'user', content: `USER OFFER / REQUEST:\n"""${userMsg.content}"""\n\nTARGET DURATION: ${soraDuration}s\nPRODUCT ATTACHED: ${persistentImageUrl ? 'YES' : 'NO'}\n\nVIDEO PROMPT TO AUDIT:\n"""\n${videoPrompt}\n"""` },
+              ],
+            },
+          });
+          const critRaw = (critData?.response || '').trim();
+          if (critRaw) {
+            let jsonStr = critRaw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+            const firstBrace = jsonStr.indexOf('{');
+            const lastBrace = jsonStr.lastIndexOf('}');
+            if (firstBrace !== -1 && lastBrace > firstBrace) jsonStr = jsonStr.slice(firstBrace, lastBrace + 1);
+            try {
+              const parsed = JSON.parse(jsonStr);
+              if (parsed.improvedPrompt && typeof parsed.improvedPrompt === 'string' && parsed.improvedPrompt.length > 80) {
+                improvedPrompt = parsed.improvedPrompt.trim();
+              }
+              if (parsed.critique && typeof parsed.critique === 'string') {
+                critique = parsed.critique.trim();
+              }
+            } catch (e) {
+              console.warn('[VideoRepo] Critic JSON parse failed:', e);
+            }
           }
-          setMessages((prev) => prev.filter((m) => m.id !== generatingMsg.id));
-          fetchHistory();
-        } catch (genErr: any) {
-          if (projectId) {
-            await supabase.from('video_repo_projects').update({ status: 'failed' }).eq('id', projectId);
-          }
-          const errorMsg: ChatMessage = {
-            id: `error-${Date.now()}`,
-            role: 'assistant',
-            content: `⚠️ Video generation encountered an issue: ${genErr.message}. You can copy the video prompt above and try again.`,
-          };
-          setMessages((prev) => prev.filter((m) => m.id !== generatingMsg.id).concat(errorMsg));
+        } catch (e) {
+          console.warn('[VideoRepo] Critic pass failed (non-fatal):', e);
         }
-        setIsGenerating(false);
+
+        setLastVideoPrompt(improvedPrompt);
+        setLastPersistentImageUrl(persistentImageUrl);
+
+        if (projectId) {
+          await supabase.from('video_repo_projects').update({ video_prompt: improvedPrompt, status: 'analyzing' }).eq('id', projectId);
+        }
+
+        // Push the script preview CARD — no video is generated until user approves.
+        const previewMsg: ChatMessage = {
+          id: `script-preview-${Date.now()}`,
+          role: 'assistant',
+          content: `📝 **Script ready for review** — nothing has been generated yet. Read the script below, edit if needed, then click **Approve & Generate Video**.${critique ? `\n\n**Auto-audit:**\n${critique}` : ''}`,
+          scriptPreview: {
+            videoPrompt: improvedPrompt,
+            critique,
+            persistentImageUrl,
+            isT2V,
+            useProductLock,
+            generationModel,
+            soraDuration,
+            outputFormat,
+            bulkCount: Math.max(1, bulkCount),
+            projectId,
+            status: 'pending',
+          },
+        };
+        setMessages((prev) => [...prev, previewMsg]);
       } else {
         // No video prompt extracted - mark as completed (analysis only)
         if (projectId) {
