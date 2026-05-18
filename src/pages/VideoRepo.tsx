@@ -1846,7 +1846,7 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
     setIsEnhancingPrompt(mode);
     try {
       const seconds = soraDuration;
-      const wordsTarget = Math.max(1, Math.floor((seconds - 6) * 1.7));
+      const wordsTarget = Math.max(8, Math.round((seconds - 1) * 2.5));
       const productNote = selectedProductCtx?.productName
         ? `Product in scene: ${selectedProductCtx.productName}. The actor must NOT hold or touch the product — it sits as ambient set dressing only.`
         : 'No product attached — do not write any product holding/demonstration into the script.';
