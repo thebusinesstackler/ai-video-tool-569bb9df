@@ -25,6 +25,7 @@ import {
   Upload,
   Save,
   Sparkles,
+  Wand2,
   RefreshCw,
   ArrowRight,
   Package,
@@ -138,6 +139,7 @@ const VideoRepo = () => {
   const [isExtractingFrames, setIsExtractingFrames] = useState(false);
   const [urlInput, setUrlInput] = useState('');
   const [isDownloadingUrl, setIsDownloadingUrl] = useState(false);
+  const [isEnhancingPrompt, setIsEnhancingPrompt] = useState<null | 'rewrite' | 'enhance' | 'auto'>(null);
 
   // Iterative chat state
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
@@ -1621,7 +1623,8 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
   };
 
   const handleRemixProject = (project: VideoRepoProject) => {
-    // Pre-populate the Create tab with data from this project
+    // Pre-populate the Create tab with data from this project.
+    // Remix loads the IDEA only — script regeneration is fully open, nothing is locked.
     if (project.video_prompt || project.prompt) setPrompt(project.video_prompt || project.prompt || '');
     if (project.generated_video_url) {
       setReferenceVideoUrl(project.generated_video_url);
@@ -1632,9 +1635,68 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
       setProductImageName('Reference image');
       setProductImageFile(null);
     }
+    // Reset any state that could carry over old scripts/locks from the previous run
+    setLastVideoPrompt(null);
+    setLastPersistentImageUrl(null);
+    setMessages([]);
+    setCurrentProjectId(null);
+    setLockProduct(false);
     setSelectedProject(null);
     setMainTab('create');
-    toast({ title: 'Remix loaded', description: 'Prompt, reference video, and product image have been loaded. Choose a duration and generate.' });
+    toast({ title: 'Remix loaded', description: 'Idea loaded — tap Rewrite, Enhance, or Auto-Enhance to regenerate the script before you Generate.' });
+  };
+
+  const handleEnhancePrompt = async (mode: 'rewrite' | 'enhance' | 'auto') => {
+    const base = prompt.trim();
+    if (!base && mode !== 'auto') {
+      toast({ title: 'Write an idea first', description: 'Add a sentence or two about your ad concept, then tap enhance.', variant: 'destructive' });
+      return;
+    }
+    setIsEnhancingPrompt(mode);
+    try {
+      const seconds = soraDuration;
+      const wordsTarget = Math.max(1, Math.floor((seconds - 6) * 1.7));
+      const productNote = selectedProductCtx?.productName
+        ? `Product in scene: ${selectedProductCtx.productName}. The actor must NOT hold or touch the product — it sits as ambient set dressing only.`
+        : 'No product attached — do not write any product holding/demonstration into the script.';
+      const brandNote = brandProfile?.company_name
+        ? `Brand context (only use if the user's idea is about THIS brand): ${brandProfile.company_name}${brandProfile.brand_url ? ` (${brandProfile.brand_url})` : ''}${brandProfile.brand_description ? ` — ${brandProfile.brand_description}` : ''}.`
+        : '';
+      const instruction =
+        mode === 'rewrite'
+          ? `Completely REWRITE this video idea from scratch with a fresh angle, new hook, and a different creative format. Keep the same product/brand intent but pick a new archetype (e.g. Founder POV, ASMR Ritual, PAS, Before/After, Mockumentary).`
+          : mode === 'enhance'
+          ? `ENHANCE this idea — keep the user's core concept and angle, but sharpen the hook, tighten the language, add one vivid sensory detail, and make the CTA punchier. Do not change the premise.`
+          : `AUTO-ENHANCE: if the idea is empty or very thin, invent a strong UGC ad concept. Otherwise, intelligently sharpen the hook, voice, pacing and CTA. Always return a clean, ready-to-generate brief.`;
+
+      const system = `You are Marco, a UGC ad scriptwriter. Rewrite the user's video idea into a SHORT brief (3–6 sentences) the video generator can turn into a ${seconds}s Sora-2 ad.
+
+HARD RULES:
+- The spoken voiceover must fit in ~${wordsTarget} words so it finishes with ~1.5s of silence at the end of a ${seconds}s clip (~2.5 words/sec).
+- NEVER write the actor holding, squeezing, pouring, or demonstrating any product. ${productNote}
+- NEVER include on-screen text, captions, subtitles, or kinetic typography — captions are added in post.
+- Spell brand domains phonetically in spoken lines: "busybee.guru" → "Busy Bee dot guru", "theranovex.com" → "Thera Novex dot com". Numbers with $ → "17 dollars".
+- Output ONLY the rewritten brief — no preamble, no headings, no bullet lists. Plain prose.
+${brandNote}`;
+
+      const { data, error } = await supabase.functions.invoke('ai', {
+        body: {
+          messages: [
+            { role: 'system', content: system },
+            { role: 'user', content: `${instruction}\n\nUser idea:\n"""${base || '(empty — invent a strong concept)'}"""` },
+          ],
+        },
+      });
+      if (error) throw new Error(error.message || 'AI request failed');
+      const out = (data?.response || '').trim();
+      if (!out) throw new Error('No response from AI');
+      setPrompt(out);
+      toast({ title: mode === 'rewrite' ? 'Script rewritten' : mode === 'enhance' ? 'Script enhanced' : 'Auto-enhanced', description: 'Review the new brief, then tap Generate.' });
+    } catch (e: any) {
+      toast({ title: 'Enhance failed', description: e?.message || 'Try again in a moment.', variant: 'destructive' });
+    } finally {
+      setIsEnhancingPrompt(null);
+    }
   };
 
   const handleSendToChatcut = (project: VideoRepoProject) => {
@@ -2029,8 +2091,48 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
                           </div>
                         </TooltipProvider>
                       </div>
-                      <div className="mb-1.5 text-xs font-medium text-muted-foreground uppercase tracking-[0.18em]">
-                        {inputMode === 't2v' ? 'Describe your video' : 'Prompt'}
+                      <div className="mb-1.5 flex items-center justify-between gap-2">
+                        <div className="text-xs font-medium text-muted-foreground uppercase tracking-[0.18em]">
+                          {inputMode === 't2v' ? 'Describe your video' : 'Prompt'}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-[10px] gap-1 rounded-md"
+                            onClick={() => handleEnhancePrompt('rewrite')}
+                            disabled={isEnhancingPrompt !== null || isGenerating}
+                            title="Throw out the current script and write a fresh angle"
+                          >
+                            {isEnhancingPrompt === 'rewrite' ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                            Rewrite
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-[10px] gap-1 rounded-md"
+                            onClick={() => handleEnhancePrompt('enhance')}
+                            disabled={isEnhancingPrompt !== null || isGenerating}
+                            title="Keep the concept, sharpen hook + pacing"
+                          >
+                            {isEnhancingPrompt === 'enhance' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                            Enhance
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="default"
+                            size="sm"
+                            className="h-6 px-2 text-[10px] gap-1 rounded-md"
+                            onClick={() => handleEnhancePrompt('auto')}
+                            disabled={isEnhancingPrompt !== null || isGenerating}
+                            title="Auto-improve or invent from scratch"
+                          >
+                            {isEnhancingPrompt === 'auto' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                            Auto
+                          </Button>
+                        </div>
                       </div>
                       <Textarea
                         placeholder={inputMode === 't2v'
