@@ -147,6 +147,7 @@ const VideoRepo = () => {
   const navigate = useNavigate();
   const [mainTab, setMainTab] = useState<'create' | 'history' | 'import'>('create');
   const [activeTab, setActiveTab] = useState<'ad' | 'motion'>('ad');
+  const [workspaceTab, setWorkspaceTab] = useState<'compose' | 'review' | 'results'>('compose');
   const [mode, setMode] = useState<'guided' | 'freeform'>('guided');
   const [prompt, setPrompt] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
