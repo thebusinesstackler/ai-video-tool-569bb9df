@@ -573,12 +573,17 @@ const VideoRepo = () => {
 
       // Brand-aware context block — injects user's brand profile so Marco knows the brand without being told
       const brandBlock = brandProfile && (brandProfile.company_name || brandProfile.brand_url || brandProfile.brand_description)
-        ? `\n\n**🏷️ BRAND CONTEXT (you already represent this brand — never ask for it):**
-${brandProfile.company_name ? `- Brand: ${brandProfile.company_name}` : ''}
-${brandProfile.brand_url ? `- Website (use for any URL/CTA overlay or voiceover mention): ${brandProfile.brand_url.replace(/^https?:\/\//, '')}` : ''}
+        ? `\n\n**🏷️ BRAND CONTEXT (you already represent this brand — never ask for it, never invent another):**
+${brandProfile.company_name ? `- Brand name: ${brandProfile.company_name}` : ''}
+${brandProfile.brand_url ? `- Website (use VERBATIM for any URL/CTA overlay or voiceover mention): ${brandProfile.brand_url.replace(/^https?:\/\//, '')}` : ''}
 ${brandProfile.brand_description ? `- Brand voice & positioning: ${brandProfile.brand_description}` : ''}
-RULES: When a CTA or on-screen URL is needed, use "${brandProfile.brand_url ? brandProfile.brand_url.replace(/^https?:\/\//, '') : (brandProfile.company_name || 'the brand')}" — NEVER use placeholders like "YourWebsite.com", "yoursite.com", "[Your Brand]", or generic stand-ins. Speak as if you are this brand's in-house creative director.`
-        : '';
+🚫 ABSOLUTE RULES (violating these = broken output):
+- The ONLY brand name allowed in the script, voiceover, on-screen text, or video-prompt is "${brandProfile.company_name || brandProfile.brand_url?.replace(/^https?:\/\//, '') || 'the brand above'}". Do NOT invent, hallucinate, or substitute any other brand name (no "Adtomic", "Adtp,oc", "BrandX", random startup names, etc.).
+- The ONLY URL allowed is "${brandProfile.brand_url ? brandProfile.brand_url.replace(/^https?:\/\//, '') : (brandProfile.company_name || 'the brand')}". No placeholders like "YourWebsite.com", "yoursite.com", "[Your Brand]", ".app/.io" stand-ins.
+- If you don't know what to say, say the real brand name above. Never make one up.
+Speak as if you are this brand's in-house creative director.`
+        : `\n\n**🏷️ BRAND CONTEXT:** No brand profile is set for this user.
+🚫 ABSOLUTE RULE: Do NOT invent or hallucinate a brand name, product name, or website URL. Refer to the product generically ("this product", "the bottle", "the kit"). The CTA must be a felt benefit or specific number — NEVER a fake URL or made-up brand.`;
 
       // Recent-history awareness — gives Marco the last 8 successful concepts so it doesn't repeat itself
       const recentSuccesses = (historyProjects || [])
