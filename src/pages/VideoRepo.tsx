@@ -990,6 +990,8 @@ Return STRICT JSON only (no markdown fences, no commentary outside JSON):
             bulkCount: Math.max(1, bulkCount),
             projectId,
             status: 'pending',
+            originalUserBrief: userMsg.content,
+            hasProduct: !!persistentImageUrl,
           },
         };
         setMessages((prev) => [...prev, previewMsg]);
