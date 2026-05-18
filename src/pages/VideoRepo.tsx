@@ -928,7 +928,7 @@ Explicitly state "Follow the ACTION MANIFEST literally — counts are non-negoti
 4. BRAND SPELLING: if the user named a brand or URL, it must appear character-for-character in any written reference, AND in the spoken AUDIO line it must be SEPARATED with the dot spelled out (e.g. "busybee.guru" → spoken as "Busy Bee dot guru"). Never phonetic respell ("Buzzy Bee" is banned).
 5. OFFER CLARITY: the voiceover must clearly state WHAT the offer is and WHY the viewer should care within the first 3 seconds. If unclear, rewrite the hook.
 6. HOOK STRENGTH: first 1.5–3s must be scroll-stopping (pattern interrupt, bold claim, visual surprise) — not a generic opener.
-7. SHOT STRUCTURE preserved with CUT TO: between shots. Final HERO close-out shot intact.
+7. CUTS PRESERVED: at least 2 distinct moments with "CUT TO:" / "MATCH CUT TO:" / "SMASH CUT TO:" transitions so Sora actually cuts (not one locked-off take). Do NOT force rigid SHOT 1/SHOT 2 labels if the writer used looser creative direction — preserve their cutting style. Final HERO close-out beat intact.
 
 Return STRICT JSON only (no markdown fences, no commentary outside JSON):
 {
