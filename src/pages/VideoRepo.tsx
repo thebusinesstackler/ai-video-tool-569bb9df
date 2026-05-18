@@ -779,11 +779,28 @@ ${recentSuccesses.map((p, i) => {
 RULES: Do NOT reuse the same hook, opening line, setting, or shot composition from the videos above. Vary the archetype, beverage choice (water/coffee/tea/smoothie/juice), location, time-of-day, and emotional arc. If the user keeps making the same product, your job is to find a NEW angle each time.`
         : '';
 
+      // 🔒 Locked spoken script — if the user pasted explicit dialogue, force Marco to use it verbatim
+      const lockedSpokenScript = extractUserProvidedScript(userMsg.content);
+      const lockedScriptBlock = lockedSpokenScript
+        ? `\n\n**🔒 LOCKED SPOKEN SCRIPT — USE VERBATIM (HIGHEST PRIORITY):**
+The user has provided the EXACT words the actor must say. You MUST copy these words character-for-character into the AUDIO: block, inside quotes. Do NOT rewrite, paraphrase, shorten, expand, reorder, or substitute synonyms. Do NOT apply the "spoken brand pronunciation" rule to these locked words — keep the user's exact spelling. Your job is ONLY to wrap these words with visual direction (camera, lighting, wardrobe, action, sound design).
+
+If the locked script is longer than fits in ${soraDuration}s at ~2.5 words/sec, still include every word — pace tighter rather than trimming.
+
+SCRIPT (verbatim, do not change a single word):
+"""
+${lockedSpokenScript}
+"""
+
+The AUDIO: block's quoted dialogue MUST be this exact text. Other sections (visuals, action manifest, camera) can be fully creative.`
+        : '';
+
       const systemPrompt = (inputMode === 't2v'
         ? `You are a UGC ad video strategist and creative director specializing in pure text-to-video generation (no product image required). Your job is to translate the user's idea into a cinematic, scroll-stopping ad concept built from scratch. Focus on scene/concept storytelling: vivid setting, character casting, action choreography, lighting mood, camera movement, sound design. Enforce: a dynamic hook in the first 1.5s, a spoken voice script paced at ~2.5 words/second, studio-clean broadcast audio, and a varied creative style — never default to the same format twice (rotate Founder POV, ASMR Ritual, PAS, Mockumentary, Before/After, Kinetic Typography, Day-in-the-Life, etc.).`
         : `You are a UGC ad video strategist and visual analyst. When given reference video frames, study them carefully: identify the hook technique (first 3 seconds), pacing rhythm, camera movements, talent actions, lighting style, text overlays, and transition patterns. Use these insights to craft a new video that captures the same energy and conversion potential.`)
         + brandBlock
-        + historyBlock;
+        + historyBlock
+        + lockedScriptBlock;
 
       const productContextBlock = selectedProductCtx
         ? `\n\n**FEATURED PRODUCT (must appear naturally in the ad):**
