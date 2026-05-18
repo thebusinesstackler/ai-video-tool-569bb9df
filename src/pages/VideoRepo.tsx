@@ -1079,16 +1079,53 @@ Return STRICT JSON only (no markdown fences, no commentary outside JSON):
     };
     setMessages(prev => [...prev, generatingMsg]);
 
-    const variantHints = [
-      '',
-      '\n\n[Variation B] Try a different opening hook angle and slightly faster pacing while keeping the same characters, setting, and overall message.',
-      '\n\n[Variation C] Use an alternate camera framing and a different lighting mood while keeping the same characters, setting, and overall message.',
-    ];
     const totalVariants = Math.max(1, card.bulkCount);
-    const variantPrompts = Array.from({ length: totalVariants }, (_, i) => card.videoPrompt + variantHints[i % variantHints.length]);
+    let variantPrompts: string[] = [card.videoPrompt];
 
     if (totalVariants > 1) {
-      setMessages(prev => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `🎬 Bulk generating ${totalVariants} variants in parallel...` } : m));
+      setMessages(prev => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `✍️ Marco is writing ${totalVariants - 1} alternate distinct scripts...` } : m));
+      try {
+        const altSys = `You are a senior UGC ad script writer. The user already has one approved video prompt. Your job is to write ${totalVariants - 1} ADDITIONAL, COMPLETELY DISTINCT video prompts for the SAME offer — each with a different hook, different opening line, different setting/location, different actor archetype, different shot structure, and different CTA delivery. Do NOT recycle the first script's hook, dialogue, or framing.
+
+HARD RULES (every alternate prompt must obey):
+- TARGET DURATION: exactly ${card.soraDuration} seconds. Voiceover MUST be ${Math.round(Math.max(8, (card.soraDuration - 1) * 2.5) * 0.85)}–${Math.round(Math.max(8, (card.soraDuration - 1) * 2.5) * 1.15)} words (~2.5 words/sec) so the actor speaks continuously.
+- ${card.hasProduct ? 'PRODUCT FIDELITY: the product is in-scene as ambient set dressing — actor NEVER holds it.' : '🚫 NO-PRODUCT MODE: NO bottle, dropper, package, label, branded object, or held product anywhere. Actor hands stay empty. No product insert shots.'}
+- NO on-screen text/captions/subtitles/lower-thirds.
+- Same SHOT STRUCTURE format (CUT TO: between shots), ACTION MANIFEST, AUDIO block with quoted dialogue, HERO close-out.
+- For each, write the SAME voice gender/age as the first one is fine OR vary it — but be deliberate.
+
+Return STRICT JSON only:
+{
+  "alternates": [
+    "FULL video prompt #2 (entire prompt body, ready to send to Sora)",
+    "FULL video prompt #3"${totalVariants > 3 ? ',\n    "FULL video prompt #4"' : ''}${totalVariants > 4 ? ',\n    "FULL video prompt #5"' : ''}
+  ]
+}`;
+        const altUser = `USER OFFER / REQUEST:\n"""${card.originalUserBrief || ''}"""\n\nTARGET DURATION: ${card.soraDuration}s\nPRODUCT ATTACHED: ${card.hasProduct ? 'YES' : 'NO'}\nFORMAT: ${card.outputFormat}\nNUMBER OF ALTERNATES NEEDED: ${totalVariants - 1}\n\nFIRST APPROVED PROMPT (do NOT copy it — write ${totalVariants - 1} different ones):\n"""\n${card.videoPrompt}\n"""`;
+        const { data: altData } = await supabase.functions.invoke('ai', {
+          body: { messages: [{ role: 'system', content: altSys }, { role: 'user', content: altUser }] },
+        });
+        const raw = (altData?.response || '').trim();
+        let jsonStr = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+        const fb = jsonStr.indexOf('{'); const lb = jsonStr.lastIndexOf('}');
+        if (fb !== -1 && lb > fb) jsonStr = jsonStr.slice(fb, lb + 1);
+        const parsed = JSON.parse(jsonStr);
+        if (Array.isArray(parsed.alternates) && parsed.alternates.length > 0) {
+          const cleanAlts = parsed.alternates
+            .map((s: any) => (typeof s === 'string' ? s.trim() : ''))
+            .filter((s: string) => s.length > 80);
+          variantPrompts = [card.videoPrompt, ...cleanAlts].slice(0, totalVariants);
+        }
+      } catch (e) {
+        console.warn('[VideoRepo] Variant regen failed, falling back to hint-based variants:', e);
+        const variantHints = [
+          '',
+          '\n\n[Variation B] Try a different opening hook angle and slightly faster pacing while keeping the same characters, setting, and overall message.',
+          '\n\n[Variation C] Use an alternate camera framing and a different lighting mood while keeping the same characters, setting, and overall message.',
+        ];
+        variantPrompts = Array.from({ length: totalVariants }, (_, i) => card.videoPrompt + variantHints[i % variantHints.length]);
+      }
+      setMessages(prev => prev.map(m => m.id === generatingMsg.id ? { ...m, content: `🎬 Bulk generating ${variantPrompts.length} distinct variants in parallel...` } : m));
     }
 
     const runOne = async (variantPrompt: string, idx: number) => {
