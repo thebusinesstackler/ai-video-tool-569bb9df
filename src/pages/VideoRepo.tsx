@@ -141,6 +141,31 @@ const extractVideoPrompt = (text: string): string | null => {
   return null;
 };
 
+// Pull every quoted line out of the AUDIO: block (or the whole prompt as a fallback)
+const extractSpokenLines = (prompt: string): string => {
+  if (!prompt) return '';
+  const audioIdx = prompt.search(/\bAUDIO\s*:/i);
+  const scope = audioIdx >= 0 ? prompt.slice(audioIdx) : prompt;
+  const quotes = Array.from(scope.matchAll(/[""]([^""]{4,})[""]|"([^"]{4,})"/g))
+    .map(m => (m[1] || m[2] || '').trim())
+    .filter(Boolean);
+  return quotes.join(' ');
+};
+
+const countSpokenWords = (prompt: string): number => {
+  const spoken = extractSpokenLines(prompt);
+  if (!spoken) return 0;
+  return spoken.split(/\s+/).filter(Boolean).length;
+};
+
+// Heuristic: a finished Sora prompt should contain an AUDIO block and end on punctuation, not mid-sentence
+const looksTruncated = (prompt: string): boolean => {
+  if (!prompt || prompt.length < 200) return true;
+  if (!/\bAUDIO\s*:/i.test(prompt)) return true;
+  const tail = prompt.trim().slice(-2);
+  return !/[.!?"'`)\]]$/.test(tail[0] || '') && !/[.!?"'`)\]]$/.test(tail);
+};
+
 const VideoRepo = () => {
   const { user } = useAuth();
   const { toast } = useToast();
