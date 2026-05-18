@@ -2002,22 +2002,30 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
       // Brand bleed guard: NEVER inject the user's saved company profile into the script.
       // The brand for each video must come ONLY from what the user wrote in this specific prompt.
       const brandNote = '';
+      const wordMin = Math.max(8, Math.round(wordsTarget * 0.9));
+      const wordMax = Math.round(wordsTarget * 1.1);
       const instruction =
         mode === 'rewrite'
-          ? `Completely REWRITE this video idea from scratch with a fresh angle, new hook, and a different creative format. Keep the same product/brand intent but pick a new archetype (e.g. Founder POV, ASMR Ritual, PAS, Before/After, Mockumentary).`
+          ? `Completely REWRITE the spoken script from scratch with a brand-new angle and hook. Pick a different archetype (Founder POV, ASMR Ritual, PAS, Before/After, Mockumentary, Direct Address, Storytime) — but stay faithful to the user's product/brand intent. Output ONLY the new spoken words.`
           : mode === 'enhance'
-          ? `ENHANCE this idea — keep the user's core concept and angle, but sharpen the hook, tighten the language, add one vivid sensory detail, and make the CTA punchier. Do not change the premise.`
-          : `AUTO-ENHANCE: if the idea is empty or very thin, invent a strong UGC ad concept. Otherwise, intelligently sharpen the hook, voice, pacing and CTA. Always return a clean, ready-to-generate brief.`;
+          ? `ENHANCE the spoken script — keep the same angle and message, but sharpen the hook, tighten the words, add one vivid sensory detail, and make the CTA punchier. Same length. Output ONLY the spoken words.`
+          : `AUTO-ENHANCE: if the idea is empty or thin, invent a strong UGC concept and write the spoken script. Otherwise sharpen the hook, voice, pacing and CTA. Output ONLY the spoken words.`;
 
-      const system = `You are Marco, a UGC ad scriptwriter. Rewrite the user's video idea into a SHORT brief (3–6 sentences) the video generator can turn into a ${seconds}s Sora-2 ad.
+      const system = `You are Marco, a UGC ad scriptwriter. Your ONLY job is to write the EXACT WORDS the on-camera person will say for a ${seconds}-second video.
+
+OUTPUT FORMAT — CRITICAL:
+- Return ONLY the spoken script — the literal words the actor says, in plain prose with normal punctuation.
+- NO headings, NO labels ("Script:", "VO:", "Hook:"), NO bullet points, NO numbered shots.
+- NO stage directions, NO camera moves, NO gestures ("*pointing*", "[smiles]", "(holds up bottle)", "leans in", "looks at camera"). NONE.
+- NO scene descriptions ("She's in a kitchen…"), NO on-screen text or captions.
+- Just the words. As if writing what an actor reads off a teleprompter.
 
 HARD RULES:
-- Stay FAITHFUL to the user's idea below. Do NOT invent a brand, company name, product, or website URL that the user did not mention. No "Adtomic", "atomic.app", "BrandX", "yoursite.com", or any made-up domain. If the user did not name a brand, stay generic ("this", "the product").
-- 🎯 TARGET DURATION ${seconds}s — the actor speaks CONTINUOUSLY from ~0.5s to ~${(seconds - 0.5).toFixed(1)}s. Target ~${wordsTarget} words at ~2.5 words/sec. Do NOT end early or leave dead air; if the message is too short, add a second supporting beat so they fill the clip.
-- NEVER write the actor holding, squeezing, pouring, or demonstrating any product. ${productNote}
-- NEVER include on-screen text, captions, subtitles, or kinetic typography — captions are added in post.
-- Spell brand domains phonetically in spoken lines: "busybee.guru" → "Busy Bee dot guru", "theranovex.com" → "Thera Novex dot com". Numbers with $ → "17 dollars".
-- Output ONLY the rewritten brief — no preamble, no headings, no bullet lists. Plain prose.`;
+- 🎯 LENGTH: ${wordMin}–${wordMax} words (target ${wordsTarget}). The actor speaks continuously for ${seconds}s at ~2.5 words/sec. Count your words before sending. If short, add another beat; if long, trim.
+- STAY FAITHFUL to the user's idea. Do NOT invent brand names, companies, products, or URLs the user didn't mention. If no brand is given, stay generic ("this", "the service", "us").
+- ${productNote}
+- Spell brand domains phonetically in the spoken line: "busybee.guru" → "Busy Bee dot guru", "theranovex.com" → "Thera Novex dot com". Prices: "$17" → "seventeen dollars".
+- Write like a real person talking — contractions, energy, natural rhythm. NOT marketing copy.`;
 
       const { data, error } = await supabase.functions.invoke('ai', {
         body: {
@@ -2028,10 +2036,20 @@ HARD RULES:
         },
       });
       if (error) throw new Error(error.message || 'AI request failed');
-      const out = (data?.response || '').trim();
+      let out = (data?.response || '').trim();
       if (!out) throw new Error('No response from AI');
+      // Strip any stray stage directions / labels the model might leak in
+      out = out
+        .replace(/^\s*(script|voice\s*over|voiceover|vo|hook|dialogue)\s*:\s*/gim, '')
+        .replace(/\*[^*\n]{1,80}\*/g, '')        // *pointing*, *smiling*
+        .replace(/\[[^\]\n]{1,80}\]/g, '')        // [smiles], [B-roll]
+        .replace(/\([^)\n]{0,80}(point|smil|hold|gestur|lean|look|wink|nod|shrug|wave)[^)\n]*\)/gi, '')
+        .replace(/^\s*["“”'']+|["“”'']+\s*$/g, '') // wrapping quotes
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
       setPrompt(out);
-      toast({ title: mode === 'rewrite' ? 'Script rewritten' : mode === 'enhance' ? 'Script enhanced' : 'Auto-enhanced', description: 'Review the new brief, then tap Generate.' });
+      const wc = out.split(/\s+/).filter(Boolean).length;
+      toast({ title: mode === 'rewrite' ? 'Script rewritten' : mode === 'enhance' ? 'Script enhanced' : 'Auto-enhanced', description: `${wc} words • ~${(wc / 2.5).toFixed(1)}s spoken. Review, then tap Generate.` });
     } catch (e: any) {
       toast({ title: 'Enhance failed', description: e?.message || 'Try again in a moment.', variant: 'destructive' });
     } finally {
