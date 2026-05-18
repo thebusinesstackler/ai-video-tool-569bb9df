@@ -105,6 +105,27 @@ const statusColors: Record<string, string> = {
   failed: 'bg-red-500/15 text-red-600 border-red-500/30',
 };
 
+const extractVideoPrompt = (text: string): string | null => {
+  const explicitBlock = text.match(/```\s*(?:video[-_\s]?prompt|videoprompt)\s*[\r\n]+([\s\S]*?)```/i);
+  if (explicitBlock?.[1]?.trim()) return explicitBlock[1].trim();
+
+  const fencedBlocks = Array.from(text.matchAll(/```(?:[\w-]+)?\s*[\r\n]+([\s\S]*?)```/g));
+  const promptLikeBlock = fencedBlocks
+    .map((match) => match[1].trim())
+    .reverse()
+    .find((block) => /\b(AUDIO:|SHOT\s*\d|ACTION MANIFEST|Follow the ACTION MANIFEST|camera cuts?)\b/i.test(block));
+  if (promptLikeBlock) return promptLikeBlock;
+
+  const labeledPrompt = text.match(/(?:FINAL\s+)?VIDEO PROMPT\s*:?\s*([\s\S]+)$/i);
+  if (labeledPrompt?.[1]?.trim()) return labeledPrompt[1].trim();
+
+  if (/\b(AUDIO:|SHOT\s*\d|ACTION MANIFEST|spoken voiceover|camera cuts?)\b/i.test(text) && text.trim().length > 120) {
+    return text.trim();
+  }
+
+  return null;
+};
+
 const VideoRepo = () => {
   const { user } = useAuth();
   const { toast } = useToast();
