@@ -571,19 +571,18 @@ const VideoRepo = () => {
         contentParts.push({ type: 'image_url', image_url: { url: productImageUrl } });
       }
 
-      // Brand-aware context block — injects user's brand profile so Marco knows the brand without being told
-      const brandBlock = brandProfile && (brandProfile.company_name || brandProfile.brand_url || brandProfile.brand_description)
-        ? `\n\n**🏷️ BRAND CONTEXT (you already represent this brand — never ask for it, never invent another):**
-${brandProfile.company_name ? `- Brand name: ${brandProfile.company_name}` : ''}
-${brandProfile.brand_url ? `- Website (use VERBATIM for any URL/CTA overlay or voiceover mention): ${brandProfile.brand_url.replace(/^https?:\/\//, '')}` : ''}
-${brandProfile.brand_description ? `- Brand voice & positioning: ${brandProfile.brand_description}` : ''}
+      // Brand block — derive the brand ONLY from what the user's idea/request says.
+      // Do NOT pull from the saved profile; each video can be for a different brand.
+      const brandBlock = `\n\n**🏷️ BRAND SOURCING RULE (read carefully):**
+The brand for THIS video comes ONLY from the user's request below (and the attached product image, if any). It is NOT stored anywhere else — there is no global "house brand".
+
 🚫 ABSOLUTE RULES (violating these = broken output):
-- The ONLY brand name allowed in the script, voiceover, on-screen text, or video-prompt is "${brandProfile.company_name || brandProfile.brand_url?.replace(/^https?:\/\//, '') || 'the brand above'}". Do NOT invent, hallucinate, or substitute any other brand name (no "Adtomic", "Adtp,oc", "BrandX", random startup names, etc.).
-- The ONLY URL allowed is "${brandProfile.brand_url ? brandProfile.brand_url.replace(/^https?:\/\//, '') : (brandProfile.company_name || 'the brand')}". No placeholders like "YourWebsite.com", "yoursite.com", "[Your Brand]", ".app/.io" stand-ins.
-- If you don't know what to say, say the real brand name above. Never make one up.
-Speak as if you are this brand's in-house creative director.`
-        : `\n\n**🏷️ BRAND CONTEXT:** No brand profile is set for this user.
-🚫 ABSOLUTE RULE: Do NOT invent or hallucinate a brand name, product name, or website URL. Refer to the product generically ("this product", "the bottle", "the kit"). The CTA must be a felt benefit or specific number — NEVER a fake URL or made-up brand.`;
+- Do NOT invent, hallucinate, or substitute a brand name. No "Adtomic", "Adtp,oc", "BrandX", or any random startup name.
+- Do NOT invent a website URL. No "yoursite.com", "brand.app", "YourWebsite.com", or any made-up domain.
+- If the user explicitly names a brand or URL in their request (e.g. "make an ad for busybee.guru"), use that EXACT name and that EXACT URL verbatim in the script, voiceover, and on-screen CTA.
+- If the user does NOT name a brand, stay completely generic — refer to "this product", "the bottle", "the kit". The CTA must be a felt benefit ("Clear by 3pm.") or specific number ("11 days. No fog.") — NEVER a fake URL or made-up brand name.
+- The product on screen must match the attached reference image (if provided). Do NOT redesign labels or invent product names that aren't visible on the reference.`;
+
 
       // Recent-history awareness — gives Marco the last 8 successful concepts so it doesn't repeat itself
       const recentSuccesses = (historyProjects || [])
@@ -647,7 +646,7 @@ ACTION MANIFEST (execute exactly):
 \`\`\`
 ${disableHookBank ? '6' : '7'}. **CONTINUITY ANCHOR** (only if 2 segments): list things that MUST match across clips — same shirt, same hand position, same product placement, same lighting angle.
 ${disableHookBank ? '7' : '8'}. **Product Integration**: How and when the product appears, per the archetype's product-integration rule (must match reference image exactly if attached).
-${disableCTA ? '' : `${disableHookBank ? '8' : '9'}. **CTA / Closing**: Final 2-3 seconds payoff line + on-screen text. BANNED overlays: "Revitalize Your Day", "Try It Today", "Transform Your Life", "YourWebsite.com", any placeholder URL. Use ONE of: a specific number ("11 days. No fog."), a direct test ("Try it for a week."), a name-drop ("${selectedProductCtx?.productName || brandProfile?.company_name || 'Brand name'}"), the real brand URL ("${brandProfile?.brand_url ? brandProfile.brand_url.replace(/^https?:\/\//, '') : 'brand.com'}"), or a felt benefit ("Clear by 3pm.").`}
+${disableCTA ? '' : `${disableHookBank ? '8' : '9'}. **CTA / Closing**: Final 2-3 seconds payoff line + on-screen text. BANNED: "Revitalize Your Day", "Try It Today", "Transform Your Life", "YourWebsite.com", any placeholder URL, any invented brand name. Use ONE of: a specific number ("11 days. No fog."), a direct test ("Try it for a week."), a felt benefit ("Clear by 3pm."), OR — only if the user's request explicitly names a brand or URL — the EXACT name/URL the user wrote (verbatim, no edits). Never invent a brand or domain.`}
 
 Then provide a final **VIDEO PROMPT** block:
 
@@ -1186,12 +1185,8 @@ Based on the user's feedback, revise the script and provide an updated **VIDEO P
     setAutoMotionStatus('Picking creative strategy...');
 
     try {
-      const brandNameForLine = brandProfile?.company_name?.trim();
-      const brandDescForLine = brandProfile?.brand_description?.trim();
-      const brandUrlForLine = brandProfile?.brand_url?.trim();
-      const brandLine = brandNameForLine || brandDescForLine
-        ? `Brand: ${brandNameForLine || 'Unnamed brand'}${brandUrlForLine ? ' (' + brandUrlForLine + ')' : ''}.${brandDescForLine ? ' ' + brandDescForLine : ''}`.trim()
-        : 'Brand: (no brand profile set — keep visuals product-focused and generic; do NOT invent a brand name, category, or product type. Use only what the reference image / product reference shows.)';
+      // Brand line comes ONLY from the current request / attached product — never the saved profile.
+      const brandLine = 'Brand: (derive ONLY from the user\'s request and the attached product reference image. Do NOT invent a brand name, URL, category, or product type. If the user did not name a brand, keep visuals product-focused and generic.)';
 
       const hasProductRef = Boolean(productImageUrl && !productImageUrl.startsWith('blob:'));
       const productName = selectedProductCtx?.productName || productImageName || null;
