@@ -2090,8 +2090,48 @@ ${brandNote}`;
                           </div>
                         </TooltipProvider>
                       </div>
-                      <div className="mb-1.5 text-xs font-medium text-muted-foreground uppercase tracking-[0.18em]">
-                        {inputMode === 't2v' ? 'Describe your video' : 'Prompt'}
+                      <div className="mb-1.5 flex items-center justify-between gap-2">
+                        <div className="text-xs font-medium text-muted-foreground uppercase tracking-[0.18em]">
+                          {inputMode === 't2v' ? 'Describe your video' : 'Prompt'}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-[10px] gap-1 rounded-md"
+                            onClick={() => handleEnhancePrompt('rewrite')}
+                            disabled={isEnhancingPrompt !== null || isGenerating}
+                            title="Throw out the current script and write a fresh angle"
+                          >
+                            {isEnhancingPrompt === 'rewrite' ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                            Rewrite
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-[10px] gap-1 rounded-md"
+                            onClick={() => handleEnhancePrompt('enhance')}
+                            disabled={isEnhancingPrompt !== null || isGenerating}
+                            title="Keep the concept, sharpen hook + pacing"
+                          >
+                            {isEnhancingPrompt === 'enhance' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                            Enhance
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="default"
+                            size="sm"
+                            className="h-6 px-2 text-[10px] gap-1 rounded-md"
+                            onClick={() => handleEnhancePrompt('auto')}
+                            disabled={isEnhancingPrompt !== null || isGenerating}
+                            title="Auto-improve or invent from scratch"
+                          >
+                            {isEnhancingPrompt === 'auto' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                            Auto
+                          </Button>
+                        </div>
                       </div>
                       <Textarea
                         placeholder={inputMode === 't2v'
