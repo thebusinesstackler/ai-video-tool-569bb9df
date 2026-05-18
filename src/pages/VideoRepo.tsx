@@ -141,12 +141,38 @@ const extractVideoPrompt = (text: string): string | null => {
   return null;
 };
 
+// Pull every quoted line out of the AUDIO: block (or the whole prompt as a fallback)
+const extractSpokenLines = (prompt: string): string => {
+  if (!prompt) return '';
+  const audioIdx = prompt.search(/\bAUDIO\s*:/i);
+  const scope = audioIdx >= 0 ? prompt.slice(audioIdx) : prompt;
+  const quotes = Array.from(scope.matchAll(/[""]([^""]{4,})[""]|"([^"]{4,})"/g))
+    .map(m => (m[1] || m[2] || '').trim())
+    .filter(Boolean);
+  return quotes.join(' ');
+};
+
+const countSpokenWords = (prompt: string): number => {
+  const spoken = extractSpokenLines(prompt);
+  if (!spoken) return 0;
+  return spoken.split(/\s+/).filter(Boolean).length;
+};
+
+// Heuristic: a finished Sora prompt should contain an AUDIO block and end on punctuation, not mid-sentence
+const looksTruncated = (prompt: string): boolean => {
+  if (!prompt || prompt.length < 200) return true;
+  if (!/\bAUDIO\s*:/i.test(prompt)) return true;
+  const tail = prompt.trim().slice(-2);
+  return !/[.!?"'`)\]]$/.test(tail[0] || '') && !/[.!?"'`)\]]$/.test(tail);
+};
+
 const VideoRepo = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [mainTab, setMainTab] = useState<'create' | 'history' | 'import'>('create');
   const [activeTab, setActiveTab] = useState<'ad' | 'motion'>('ad');
+  const [workspaceTab, setWorkspaceTab] = useState<'compose' | 'review' | 'results'>('compose');
   const [mode, setMode] = useState<'guided' | 'freeform'>('guided');
   const [prompt, setPrompt] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -252,6 +278,17 @@ const VideoRepo = () => {
     if (!showConversation) return;
     scrollToBottom(messages.length > 0 ? 'smooth' : 'auto');
   }, [messages, showConversation, isAnalyzing, isGenerating, isExtractingFrames]);
+
+  // Auto-switch workspace tab: when a script preview appears → Review; when a video result lands → Results
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    if (!last) return;
+    if (last.scriptPreview && last.scriptPreview.status === 'pending') {
+      setWorkspaceTab('review');
+    } else if (last.videoResult) {
+      setWorkspaceTab('results');
+    }
+  }, [messages]);
 
   // Fetch history
   const fetchHistory = useCallback(async () => {
@@ -748,14 +785,14 @@ The attached image is the EXACT hero product. The video model MUST keep label te
 ${videoFrames.length > 0 ? `Reference video: "${referenceVideoName}" — I've provided ${videoFrames.length} key frames above. Study them carefully.` : ''}
 ${productImageUrl ? 'Product image provided above — incorporate this product naturally.' : ''}${productContextBlock}${productFidelityBlock}${archetypeBlock}
 
-Target duration: ${soraDuration} seconds. The script and action MUST fully fill this duration with a complete arc that respects the ARCHETYPE LOCK above — no fade-outs before the end, no dead air.
+🎯 **TARGET DURATION: ${soraDuration} SECONDS — HARD LOCK.** Every timed beat, the ACTION MANIFEST, and the SHOT STRUCTURE below MUST sum to EXACTLY ${soraDuration}s. Do NOT write a script that finishes early. Do NOT pad with dead air. The actor speaks CONTINUOUSLY from ~0.5s through ~${(soraDuration - 0.5).toFixed(1)}s — no 3-second silence buffers, no "wait for the cut" pauses.
 
 Provide:
 1. **Reference Analysis**: ${contentStyle === 'auto' ? 'Begin with "ARCHETYPE: [chosen archetype name]" and a 1-line reason. Then describe' : `Confirm "ARCHETYPE: ${archetype.label}" then describe`} what you observed in the reference frames (if any) — hook type, pacing, camera style, talent energy.
 ${disableHookBank ? '' : '2. **Hook Strategy**: How the first 1.5–3 seconds will stop the scroll, written to the archetype\'s opening rule (NOT a generic "I used to feel…" opener).'}
 ${noDialogue
   ? `${disableHookBank ? '2' : '3'}. **SOUND DESIGN MANIFEST**: Timed beats (0-3s, 3-8s, etc.) summing to exactly ${soraDuration}s. List every sound + texture (NO spoken words). Example: "0–2s: glass placed on counter (clink), 2–4s: dropper squeeze (3 distinct squeezes), 4–6s: drops hitting liquid (plip, plip, plip)."`
-  : `${disableHookBank ? '2' : '3'}. **Scene-by-Scene Script**: Timed beats (0-3s, 3-8s, etc.) summing to exactly ${soraDuration}s. Voiceover paced at a NATURAL conversational ~1.7 words/second (HARD CAP: ${Math.max(1, Math.floor((soraDuration - 6) * 1.7))} words total for the ENTIRE spoken script — count every word, do NOT exceed). Leave ~3s of silent breathing room at the START and ~3s at the END so the actor finishes comfortably BEFORE the clip cuts (the last word must land with at least 1.5s of silence remaining).${soraDuration <= 10 ? ` ⚠️ This is a SHORT ${soraDuration}s clip — the spoken line must be ONE tight sentence (or fragment) that finishes well before the cut. NO multi-sentence scripts.` : ''} Write spoken lines in the archetype's voice — NOT polished ad copy. Use contractions, real diction, allowed filler.\n\n  💬 **SPOKEN FORM RULE (CRITICAL):** Write every number, symbol, currency, and abbreviation the way it is SPOKEN, not written. Examples: "$17" → "17 dollars", "$2.50" → "two dollars fifty", "50%" → "50 percent", "24/7" → "twenty-four seven", "Dr." → "doctor", "&" → "and", "#1" → "number one", "100ml" → "100 mils". Sora's TTS reads literally — "$17" becomes "dollar sign one seven". ALWAYS spell currency, symbols, and units in word form.\n\n  🚫 **NO ON-SCREEN TEXT / CAPTIONS / SUBTITLES:** Do NOT instruct Sora to render any burned-in text, captions, subtitles, lower-thirds, kinetic typography, or words on signs/papers/screens unless the user explicitly asked for it. Sora hallucinates garbled text. The actor's brand/papers must be blank or out-of-focus. Captions are added later in post.\n\n  If the script would exceed the word cap, CUT lines — never compress delivery or rush the pace.`}
+  : `${disableHookBank ? '2' : '3'}. **Scene-by-Scene Script**: Timed beats covering the FULL ${soraDuration}s with NO gaps. Voiceover paced at a natural conversational ~2.5 words/second. TARGET WORD COUNT: ${Math.max(8, Math.round((soraDuration - 1) * 2.5))} words (±15%) so the actor speaks across the entire clip with only ~0.5s of silence at the very start and ~0.5s at the very end. The actor must DELIVER THE MESSAGE the whole time — break the script into 2–3 short sentences that flow continuously, NOT one tight line. Write spoken lines in the archetype's voice — contractions, real diction, allowed filler.\n\n  💬 **SPOKEN FORM RULE (CRITICAL):** Write every number, symbol, currency, and abbreviation the way it is SPOKEN, not written. Examples: "$17" → "17 dollars", "$2.50" → "two dollars fifty", "50%" → "50 percent", "24/7" → "twenty-four seven", "Dr." → "doctor", "&" → "and", "#1" → "number one", "100ml" → "100 mils". Sora's TTS reads literally — "$17" becomes "dollar sign one seven". ALWAYS spell currency, symbols, and units in word form.\n\n  🚫 **NO ON-SCREEN TEXT / CAPTIONS / SUBTITLES:** Do NOT instruct Sora to render any burned-in text, captions, subtitles, lower-thirds, kinetic typography, or words on signs/papers/screens unless the user explicitly asked for it. Sora hallucinates garbled text. The actor's brand/papers must be blank or out-of-focus. Captions are added later in post.\n\n  If you would underfill the duration, ADD a second beat to the message — never leave the actor silent.`}
 ${disableHookBank ? '3' : '4'}. **PERFORMANCE DIRECTION** — required labeled lines for the actor (skip if archetype is ASMR with no actor face): BREATH:, EYES:, HANDS:, POSTURE:, MICRO-EXPRESSION:, PACING:, EMOTIONAL ARC:. Match the archetype's acting rules above.
 ${disableHookBank ? '4' : '5'}. **CAMERA INTELLIGENCE** — labeled lines: LENS FEEL:, ENERGY: (handheld/locked/slider/etc), CUT PACING:, PUSH-IN:, FOCUS:. Match the archetype's camera direction above.
 ${disableHookBank ? '5' : '6'}. **ACTION MANIFEST** — a literal bullet list of countable physical actions the video model MUST execute exactly. Be specific with COUNTS and TARGETS. ${persistentImageUrl ? `🚫 The actor must NEVER hold, lift, grip, squeeze, pour, demo, or present the product in their hands. The product sits in the scene (on a counter, table, shelf, nightstand, desk) as ambient set dressing only. Camera may push in on the product as an INSERT shot, but no hand ever touches it. Actions for the actor must be lifestyle/scene only (gestures, expressions, sipping from a plain glass, environment interactions).` : `🚫 NO PRODUCT was attached for this video. Do NOT invent a product, bottle, dropper, tincture, package, or any held object. Do NOT have the actor hold, squeeze, pour, or demo anything. Actions must be lifestyle/scene only (gestures, expressions, environment interactions).`} Other examples: "hand brushes hair behind ear once," "sips from plain water glass twice," "leans forward to camera." Format:
@@ -832,10 +869,12 @@ Explicitly state "Follow the ACTION MANIFEST literally — counts are non-negoti
         let improvedPrompt = videoPrompt;
         let critique = '';
         try {
-          const wordCap = Math.max(1, Math.floor((soraDuration - 6) * 1.7));
+          const wordTarget = Math.max(8, Math.round((soraDuration - 1) * 2.5));
+          const wordMin = Math.max(6, Math.round(wordTarget * 0.85));
+          const wordMax = Math.round(wordTarget * 1.15);
           const criticSys = `You are a senior UGC ad script auditor. Review the video prompt below and aggressively fix any of these failures BEFORE the user sees it:
 
-1. SPOKEN SCRIPT WORD COUNT: voiceover (everything inside quoted dialogue in the AUDIO block) must be ≤ ${wordCap} words for a ${soraDuration}s clip. If over, CUT lines (do not rush delivery). The last word must finish with ≥1.5s of silence before the cut.
+1. CONTINUOUS SPEAKING / DURATION: this is a ${soraDuration}-second clip. The actor must speak from ~0.5s to ~${(soraDuration - 0.5).toFixed(1)}s — NO 3s silent buffers. Spoken voiceover (everything inside quoted dialogue in the AUDIO block) must be ${wordMin}–${wordMax} words (target ${wordTarget}, ~2.5 words/sec). If UNDER ${wordMin} words, ADD a second sentence that extends the message (more benefit, a follow-up beat, a punch CTA) so the actor speaks the whole time. If OVER ${wordMax}, trim — never rush delivery.
 2. ${persistentImageUrl ? 'PRODUCT FIDELITY: a product image was attached — the actor must NEVER hold/grip/squeeze/pour/demo it. The product sits in scene as ambient set dressing; camera may push in as INSERT only.' : 'NO-PRODUCT MODE: no product image was attached. REMOVE every mention of bottles, droppers, tinctures, packages, labels, brands, or any held object. No product inserts. The ad sells the felt benefit through scene + voiceover only.'}
 3. NO ON-SCREEN TEXT: strip every burned-in caption, subtitle, lower-third, kinetic typography, or "text reads" instruction. Papers/screens/signs must be blank or out-of-focus.
 4. BRAND SPELLING: if the user named a brand or URL, it must appear character-for-character in any written reference, AND in the spoken AUDIO line it must be SEPARATED with the dot spelled out (e.g. "busybee.guru" → spoken as "Busy Bee dot guru"). Never phonetic respell ("Buzzy Bee" is banned).
@@ -1844,7 +1883,7 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
     setIsEnhancingPrompt(mode);
     try {
       const seconds = soraDuration;
-      const wordsTarget = Math.max(1, Math.floor((seconds - 6) * 1.7));
+      const wordsTarget = Math.max(8, Math.round((seconds - 1) * 2.5));
       const productNote = selectedProductCtx?.productName
         ? `Product in scene: ${selectedProductCtx.productName}. The actor must NOT hold or touch the product — it sits as ambient set dressing only.`
         : 'No product attached — do not write any product holding/demonstration into the script.';
@@ -1862,7 +1901,7 @@ Return STRICT JSON ONLY (no prose, no markdown, no code fences) matching exactly
 
 HARD RULES:
 - Stay FAITHFUL to the user's idea below. Do NOT invent a brand, company name, product, or website URL that the user did not mention. No "Adtomic", "atomic.app", "BrandX", "yoursite.com", or any made-up domain. If the user did not name a brand, stay generic ("this", "the product").
-- The spoken voiceover must fit in ~${wordsTarget} words so it finishes with ~1.5s of silence at the end of a ${seconds}s clip (~2.5 words/sec).
+- 🎯 TARGET DURATION ${seconds}s — the actor speaks CONTINUOUSLY from ~0.5s to ~${(seconds - 0.5).toFixed(1)}s. Target ~${wordsTarget} words at ~2.5 words/sec. Do NOT end early or leave dead air; if the message is too short, add a second supporting beat so they fill the clip.
 - NEVER write the actor holding, squeezing, pouring, or demonstrating any product. ${productNote}
 - NEVER include on-screen text, captions, subtitles, or kinetic typography — captions are added in post.
 - Spell brand domains phonetically in spoken lines: "busybee.guru" → "Busy Bee dot guru", "theranovex.com" → "Thera Novex dot com". Numbers with $ → "17 dollars".
@@ -2071,9 +2110,44 @@ HARD RULES:
             </TabsList>
           </div>
 
-          <TabsContent value="create" className="flex-1 flex flex-col lg:flex-row gap-4 px-4 min-h-0 overflow-hidden mt-0">
-            {/* Left: Composer Panel */}
-            <div className="w-full lg:w-[420px] lg:min-w-[380px] flex-shrink-0 overflow-y-auto">
+          <TabsContent value="create" className="flex-1 flex flex-col gap-3 px-4 min-h-0 overflow-hidden mt-0">
+            {/* Workspace sub-tabs (Ad only) — Compose / Review / Results */}
+            {activeTab === 'ad' && (
+              <div className="flex items-center justify-center gap-1 flex-shrink-0">
+                <div className="inline-flex items-center gap-1 p-1 rounded-full bg-muted/60 border border-border/60">
+                  {([
+                    { id: 'compose' as const, label: 'Compose', icon: Wand2, count: 0 },
+                    { id: 'review' as const, label: 'Review Script', icon: Sparkles, count: messages.filter(m => m.scriptPreview && m.scriptPreview.status === 'pending').length },
+                    { id: 'results' as const, label: 'Results', icon: Play, count: messages.filter(m => m.videoResult).length },
+                  ]).map(t => {
+                    const Icon = t.icon;
+                    const active = workspaceTab === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setWorkspaceTab(t.id)}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                          active ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        <Icon className="w-3.5 h-3.5" />
+                        {t.label}
+                        {t.count > 0 && (
+                          <span className={`ml-0.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] rounded-full ${active ? 'bg-primary text-primary-foreground' : 'bg-primary/15 text-primary'}`}>
+                            {t.count}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="flex-1 flex flex-col gap-4 min-h-0 overflow-hidden">
+            {/* Composer Panel — visible on Compose tab or in Motion mode */}
+            <div className={`${activeTab === 'motion' || workspaceTab === 'compose' ? 'w-full max-w-3xl mx-auto' : 'hidden'} flex-shrink-0 overflow-y-auto`}>
               <Card className="bg-card/95 border border-border shadow-sm rounded-2xl overflow-hidden">
                 {/* Sub-tabs: Ad / Motion */}
                 <div className="flex items-center gap-1 px-3 pt-2.5 pb-2 border-b border-border/60 bg-muted/30">
@@ -2513,8 +2587,8 @@ HARD RULES:
               </Card>
             </div>
 
-            {/* Right: Conversation area */}
-            <div className="flex-1 flex flex-col min-h-0 min-w-0">
+            {/* Conversation area — visible on Review or Results tab (Ad mode only) */}
+            <div className={`${activeTab === 'ad' && workspaceTab !== 'compose' ? 'flex-1 flex flex-col min-h-0 min-w-0' : 'hidden'}`}>
               {showConversation ? (
                 <>
                   <ScrollArea className="flex-1 rounded-2xl border border-border/60 bg-muted/10 px-4">
@@ -2691,31 +2765,64 @@ HARD RULES:
                                         : 'Pending approval'}
                                   </Badge>
                                 </div>
-                                <div className="flex flex-wrap gap-2 text-[10px]">
-                                  <Badge variant="outline">{msg.scriptPreview.soraDuration}s</Badge>
-                                  <Badge variant="outline">{msg.scriptPreview.outputFormat}</Badge>
-                                  <Badge variant="outline">{msg.scriptPreview.generationModel}</Badge>
-                                  {msg.scriptPreview.persistentImageUrl ? (
-                                    <Badge variant="outline" className="bg-emerald-500/10 border-emerald-500/30">Product attached</Badge>
-                                  ) : (
-                                    <Badge variant="outline" className="bg-amber-500/10 border-amber-500/30">No product</Badge>
-                                  )}
-                                  {msg.scriptPreview.bulkCount > 1 && (
-                                    <Badge variant="outline">{msg.scriptPreview.bulkCount} variants</Badge>
-                                  )}
-                                </div>
-                                <div className="rounded-lg bg-muted/40 p-2">
-                                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-between">
-                                    <span>Video prompt (editable)</span>
-                                    <span className="text-muted-foreground/70">{msg.scriptPreview.videoPrompt.split(/\s+/).length} words</span>
-                                  </div>
-                                  <Textarea
-                                    value={msg.scriptPreview.videoPrompt}
-                                    onChange={(e) => updateScriptPreviewPrompt(msg.id, e.target.value)}
-                                    disabled={msg.scriptPreview.status !== 'pending'}
-                                    className="min-h-[220px] text-xs font-mono leading-relaxed bg-background"
-                                  />
-                                </div>
+                                {(() => {
+                                  const sp = msg.scriptPreview!;
+                                  const spoken = extractSpokenLines(sp.videoPrompt);
+                                  const spokenWords = spoken ? spoken.split(/\s+/).filter(Boolean).length : 0;
+                                  const target = Math.max(8, Math.round((sp.soraDuration - 1) * 2.5));
+                                  const wordMin = Math.max(6, Math.round(target * 0.85));
+                                  const wordMax = Math.round(target * 1.15);
+                                  const inRange = spokenWords >= wordMin && spokenWords <= wordMax;
+                                  const speakSecs = (spokenWords / 2.5).toFixed(1);
+                                  const truncated = looksTruncated(sp.videoPrompt);
+                                  const pillColor = inRange ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/40' : spokenWords === 0 ? 'bg-amber-500/15 text-amber-700 border-amber-500/40' : 'bg-amber-500/15 text-amber-700 border-amber-500/40';
+                                  return (
+                                    <>
+                                      <div className="flex flex-wrap gap-2 text-[10px]">
+                                        <Badge variant="outline">{sp.soraDuration}s clip</Badge>
+                                        <Badge variant="outline">{sp.outputFormat}</Badge>
+                                        <Badge variant="outline">{sp.generationModel}</Badge>
+                                        <Badge variant="outline" className={pillColor}>
+                                          {spokenWords} / {target} spoken words • {speakSecs}s talking
+                                        </Badge>
+                                        {sp.persistentImageUrl ? (
+                                          <Badge variant="outline" className="bg-emerald-500/10 border-emerald-500/30">Product attached</Badge>
+                                        ) : (
+                                          <Badge variant="outline" className="bg-amber-500/10 border-amber-500/30">No product</Badge>
+                                        )}
+                                        {sp.bulkCount > 1 && (
+                                          <Badge variant="outline">{sp.bulkCount} variants</Badge>
+                                        )}
+                                        {truncated && (
+                                          <Badge variant="outline" className="bg-destructive/10 border-destructive/40 text-destructive">⚠ May be truncated — Rewrite</Badge>
+                                        )}
+                                      </div>
+                                      {spoken && (
+                                        <div className="rounded-lg bg-primary/5 border border-primary/20 p-3">
+                                          <div className="text-[10px] uppercase tracking-wider text-primary/80 mb-1.5 font-semibold">🎤 What the actor will say</div>
+                                          <p className="text-sm leading-relaxed italic text-foreground">
+                                            "{spoken}"
+                                          </p>
+                                        </div>
+                                      )}
+                                      <details className="rounded-lg bg-muted/40 p-2 group" open={!spoken}>
+                                        <summary className="text-[10px] uppercase tracking-wider text-muted-foreground cursor-pointer flex items-center justify-between list-none">
+                                          <span className="flex items-center gap-1">
+                                            <span className="group-open:rotate-90 transition-transform inline-block">▶</span>
+                                            🎬 Full Sora prompt (editable)
+                                          </span>
+                                          <span className="text-muted-foreground/70 normal-case">{sp.videoPrompt.split(/\s+/).length} words total</span>
+                                        </summary>
+                                        <Textarea
+                                          value={sp.videoPrompt}
+                                          onChange={(e) => updateScriptPreviewPrompt(msg.id, e.target.value)}
+                                          disabled={sp.status !== 'pending'}
+                                          className="mt-2 min-h-[360px] text-xs font-mono leading-relaxed bg-background resize-y"
+                                        />
+                                      </details>
+                                    </>
+                                  );
+                                })()}
                                 {msg.scriptPreview.status === 'pending' && (
                                   <div className="flex flex-wrap gap-2">
                                     <Button
@@ -2831,6 +2938,7 @@ HARD RULES:
                   </div>
                 </div>
               )}
+            </div>
             </div>
           </TabsContent>
 
