@@ -75,10 +75,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, fullBleed = false }) =
         </div>
       )}
       <Navigation />
-      <main className={`${isMobile ? "pt-16 px-3 pb-24" : `${isCollapsed ? 'ml-16' : 'ml-64'} p-6 pb-24`} ${authServiceDown ? 'pt-20' : ''} ${hasMounted ? 'transition-[margin] duration-300' : ''}`}>
-        <div className="max-w-7xl mx-auto">
-          {children}
-        </div>
+      <main className={`${isMobile ? (fullBleed ? "pt-16" : "pt-16 px-3 pb-24") : `${isCollapsed ? 'ml-16' : 'ml-64'} ${fullBleed ? '' : 'p-6 pb-24'}`} ${authServiceDown ? 'pt-20' : ''} ${hasMounted ? 'transition-[margin] duration-300' : ''}`}>
+        {fullBleed ? children : <div className="max-w-7xl mx-auto">{children}</div>}
       </main>
     </div>
   );
