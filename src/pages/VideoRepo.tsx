@@ -646,7 +646,7 @@ ACTION MANIFEST (execute exactly):
 \`\`\`
 ${disableHookBank ? '6' : '7'}. **CONTINUITY ANCHOR** (only if 2 segments): list things that MUST match across clips — same shirt, same hand position, same product placement, same lighting angle.
 ${disableHookBank ? '7' : '8'}. **Product Integration**: How and when the product appears, per the archetype's product-integration rule (must match reference image exactly if attached).
-${disableCTA ? '' : `${disableHookBank ? '8' : '9'}. **CTA / Closing**: Final 2-3 seconds payoff line + on-screen text. BANNED overlays: "Revitalize Your Day", "Try It Today", "Transform Your Life", "YourWebsite.com", any placeholder URL. Use ONE of: a specific number ("11 days. No fog."), a direct test ("Try it for a week."), a name-drop ("${selectedProductCtx?.productName || brandProfile?.company_name || 'Brand name'}"), the real brand URL ("${brandProfile?.brand_url ? brandProfile.brand_url.replace(/^https?:\/\//, '') : 'brand.com'}"), or a felt benefit ("Clear by 3pm.").`}
+${disableCTA ? '' : `${disableHookBank ? '8' : '9'}. **CTA / Closing**: Final 2-3 seconds payoff line + on-screen text. BANNED: "Revitalize Your Day", "Try It Today", "Transform Your Life", "YourWebsite.com", any placeholder URL, any invented brand name. Use ONE of: a specific number ("11 days. No fog."), a direct test ("Try it for a week."), a felt benefit ("Clear by 3pm."), OR — only if the user's request explicitly names a brand or URL — the EXACT name/URL the user wrote (verbatim, no edits). Never invent a brand or domain.`}
 
 Then provide a final **VIDEO PROMPT** block:
 
