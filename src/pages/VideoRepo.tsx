@@ -2818,9 +2818,11 @@ HARD RULES:
                                           onChange={(e) => updateScriptPreviewPrompt(msg.id, e.target.value)}
                                           disabled={sp.status !== 'pending'}
                                           className="mt-2 min-h-[360px] text-xs font-mono leading-relaxed bg-background resize-y"
-
-                                  />
-                                </div>
+                                        />
+                                      </details>
+                                    </>
+                                  );
+                                })()}
                                 {msg.scriptPreview.status === 'pending' && (
                                   <div className="flex flex-wrap gap-2">
                                     <Button
