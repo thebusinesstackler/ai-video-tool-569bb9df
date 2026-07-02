@@ -43,6 +43,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { CreditMeter } from '@/components/CreditMeter';
 
 interface NavItem {
   name: string;
@@ -255,6 +256,9 @@ export const Navigation = () => {
           {standaloneBottom.map(item => renderNavLink(item, collapsed))}
         </TooltipProvider>
       </div>
+
+      {/* Credits & plan */}
+      <CreditMeter collapsed={collapsed} />
 
       {/* Sign Out */}
       <div className="mt-3">

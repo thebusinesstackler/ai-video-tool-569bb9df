@@ -97,7 +97,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.generate-content-strategy]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-video-hooks]
 
@@ -120,4 +120,15 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.wavespeed-webhook]
+verify_jwt = false
+
+[functions.create-checkout]
+verify_jwt = true
+
+[functions.customer-portal]
+verify_jwt = true
+
+# Stripe webhooks cannot carry a user JWT — the Stripe signature IS the auth.
+# Signature is verified inside the function with STRIPE_WEBHOOK_SECRET.
+[functions.stripe-webhook]
 verify_jwt = false
