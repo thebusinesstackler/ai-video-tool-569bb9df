@@ -1,4 +1,5 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { requireCredits, type CreditGuard } from '../_shared/credits.ts';
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -72,6 +73,8 @@ serve(async (req) => {
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const dbClient = createClient(supabaseUrl, supabaseServiceKey);
 
+  let creditGuard: CreditGuard | null = null;
+
   try {
     const waveSpeedApiKey = Deno.env.get('WAVESPEED_API_KEY');
     
@@ -89,6 +92,13 @@ serve(async (req) => {
     // Parse request body to get action and parameters
     const body = await req.json();
     const action = body.action || 'create';
+
+    // CREDIT GUARD: video creation costs credits (status polling is free).
+    // Reserve up front; settle on successful submission; refund on any failure.
+    if (action === 'create') {
+      creditGuard = await requireCredits(req, 'scene_video');
+      if (!creditGuard.ok) return creditGuard.response;
+    }
 
     if (action === 'create') {
       const params: WaveSpeedVideoParams = body;
@@ -597,10 +607,11 @@ serve(async (req) => {
         const isProductNotFound = errorText.includes('product not found') || errorText.includes('model not found');
         
         if (isCreditsError) {
-          // Return 200 with error so client can read the message
+          // Vendor-side capacity issue. NEVER expose the vendor to users.
+          await creditGuard?.refund('provider capacity');
           return new Response(
             JSON.stringify({ 
-              error: 'Insufficient WaveSpeed credits. Please top up your account at wavespeed.ai.',
+              error: 'Video generation is temporarily at capacity. Your credits were not charged - please try again in a few minutes.',
               creditError: true 
             }), 
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -608,8 +619,9 @@ serve(async (req) => {
         }
         
         if (response.status === 401) {
+          await creditGuard?.refund('provider auth error');
           return new Response(
-            JSON.stringify({ error: 'Invalid WaveSpeed AI API key' }), 
+            JSON.stringify({ error: 'Video generation is temporarily unavailable. Your credits were not charged.' }), 
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
@@ -644,7 +656,7 @@ serve(async (req) => {
               if (klingData.code === 200 && klingData.data) {
                 console.log('Kling fallback successful');
                 return new Response(
-                  JSON.stringify({ taskId: klingData.data.id }), 
+                  (await creditGuard?.settle(), JSON.stringify({ taskId: klingData.data.id })), 
                   { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
                 );
               }
@@ -685,7 +697,7 @@ serve(async (req) => {
             if (fallbackData.code === 200 && fallbackData.data) {
               console.log('wan-2.2 fallback successful');
               return new Response(
-                JSON.stringify({ taskId: fallbackData.data.id }), 
+                (await creditGuard?.settle(), JSON.stringify({ taskId: fallbackData.data.id })), 
                 { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
               );
             }
@@ -741,7 +753,7 @@ serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({ taskId }),
+        (await creditGuard?.settle(), JSON.stringify({ taskId })),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
@@ -886,8 +898,13 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in wavespeed-video function:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
+    await creditGuard?.refund('generation error');
+    let message = error instanceof Error ? error.message : 'Unknown error';
     const isCreditError = message.includes('Insufficient credits');
+    // Never leak vendor names to end users
+    if (/wavespeed|kling|creatomate/i.test(message)) {
+      message = 'Video generation failed. Your credits were not charged - please try again.';
+    }
     // Return 200 so client can always read the error message
     return new Response(
       JSON.stringify({ error: message, ...(isCreditError ? { creditError: true } : {}) }), 
